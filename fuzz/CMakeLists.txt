@@ -5,6 +5,9 @@
 # A fuzz target `name` of `source`, over the library's objects.
 function(trl_add_fuzzer name source)
   add_executable(${name} ${source} $<TARGET_OBJECTS:turborel_objects>)
+  if(TRL_HAVE_ZLIB)
+    target_link_libraries(${name} PRIVATE ZLIB::ZLIB)
+  endif()
   target_include_directories(${name} PRIVATE "${PROJECT_SOURCE_DIR}/src" "${PROJECT_SOURCE_DIR}/include")
   target_compile_definitions(${name} PRIVATE TRL_STATIC)
   trl_c_target(${name})

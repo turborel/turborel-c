@@ -47,6 +47,7 @@ add_library(
   src/decimal.c
   src/codec/arena.c
   src/codec/buffer.c
+  src/codec/compress.c
   src/codec/decfloat.c
   src/codec/error.c
   src/codec/fields.c
@@ -79,7 +80,16 @@ else()
   target_compile_definitions(turborel_objects PUBLIC TRL_STATIC)
 endif()
 
+# zlib for compressed frames, where it was found (RULES.md D12).
+if(TRL_HAVE_ZLIB)
+  target_compile_definitions(turborel_objects PRIVATE TRL_HAVE_ZLIB)
+  target_link_libraries(turborel_objects PUBLIC ZLIB::ZLIB)
+endif()
+
 add_library(turborel $<TARGET_OBJECTS:turborel_objects>)
+if(TRL_HAVE_ZLIB)
+  target_link_libraries(turborel PRIVATE ZLIB::ZLIB)
+endif()
 add_library(turborel::turborel ALIAS turborel)
 target_include_directories(turborel PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
                                            "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>")

@@ -23,6 +23,17 @@ install(
   FILE turborelTargets.cmake
   DESTINATION "${TRL_CMAKE_DIR}")
 
+# What the static library needs its users to link, which a shared one
+# carries itself.
+set(TRL_CONFIG_DEPENDENCIES "")
+set(TRL_PC_REQUIRES "")
+if(NOT BUILD_SHARED_LIBS AND TRL_HAVE_ZLIB)
+  set(TRL_CONFIG_DEPENDENCIES "find_dependency(ZLIB)")
+endif()
+if(TRL_HAVE_ZLIB)
+  set(TRL_PC_REQUIRES "Requires.private: zlib")
+endif()
+
 configure_package_config_file(cmake/turborelConfig.cmake.in "${PROJECT_BINARY_DIR}/turborelConfig.cmake"
                               INSTALL_DESTINATION "${TRL_CMAKE_DIR}")
 # A release's driver goes with that release's server alone (RULES.md D5),
