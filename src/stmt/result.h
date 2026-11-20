@@ -52,6 +52,8 @@ struct trl_result {
     bool failed;
     /** @brief The failure. */
     trl_failure failure;
+    /** @brief Each value's text, row by row, made as trl_result_text() is first asked for it; null until then. */
+    char **texts;
 };
 
 /** @brief A new, empty result; null if memory cannot be had. */

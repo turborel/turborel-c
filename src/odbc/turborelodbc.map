@@ -1,0 +1,8 @@
+/* The entry points of libturborelodbc a driver manager finds by name
+   (RULES.md D2): ODBC's functions alone, the C API's within kept local. */
+{
+  global:
+    SQL*;
+  local:
+    *;
+};

@@ -18,6 +18,14 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # The ODBC driver (D2) is built where ODBC's headers are found:
+      # unixODBC's on Linux and macOS, the Windows SDK's on Windows.
+      - name: unixODBC, for the ODBC driver
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y unixodbc-dev
+      - name: unixODBC, for the ODBC driver
+        if: runner.os == 'macOS'
+        run: brew install unixodbc
       - name: Build and test, the installed package too
         run: cmake --workflow --preset release
       - name: Install into the archive's directory

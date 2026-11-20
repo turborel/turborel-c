@@ -39,6 +39,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(TrlWarnings)
 include(TrlChecks)
 include(TrlDependencies)
+include(TrlOdbc)
 
 # One set of objects makes the library and is linked into the tests, which
 # reach the internal codec the library hides (RULES.md D13, D14).
@@ -109,6 +110,7 @@ add_library(
   src/stmt/prepared.c
   src/stmt/query.c
   src/stmt/result.c
+  src/stmt/simple.c
   ${trl_platform_sources}
   src/codec/arena.c
   src/codec/buffer.c
@@ -139,6 +141,10 @@ target_include_directories(
   PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
 trl_c_target(turborel_objects)
 set_target_properties(turborel_objects PROPERTIES POSITION_INDEPENDENT_CODE ${BUILD_SHARED_LIBS})
+# The ODBC driver, a module, links the objects in, which it must relocate.
+if(TRL_HAVE_ODBC)
+  set_target_properties(turborel_objects PROPERTIES POSITION_INDEPENDENT_CODE ON)
+endif()
 if(BUILD_SHARED_LIBS)
   target_compile_definitions(turborel_objects PRIVATE TRL_BUILDING)
 else()
@@ -199,6 +205,10 @@ set_target_properties(
              C_VISIBILITY_PRESET hidden)
 
 include(TrlInstall)
+
+if(TRL_HAVE_ODBC)
+  trl_odbc_targets()
+endif()
 
 if(TRL_BUILD_TESTS)
   enable_testing()

@@ -33,6 +33,10 @@ Checks: >
 WarningsAsErrors: '*'
 HeaderFilterRegex: '.*/(include|src|test|fuzz)/.*'
 CheckOptions:
+  # ODBC's headers are each platform's own, whose symbols the include
+  # checker cannot map to one header (D2, R-LINT-3).
+  - key: misc-include-cleaner.IgnoreHeaders
+    value: 'sql\.h;sqlext\.h;sqltypes\.h;sqlucode\.h;odbcinst\.h;odbcinstext\.h;iodbcext\.h;unixodbc\.h;windows\.h'
   # R-SIZE-1, R-SIZE-3: 50 lines, 5 parameters.
   - key: readability-function-size.LineThreshold
     value: 50
@@ -51,6 +55,9 @@ CheckOptions:
   # R-STYLE-2: names.
   - key: readability-identifier-naming.FunctionCase
     value: lower_case
+  # ODBC's entry points, which a driver manager finds by ODBC's names (D2).
+  - key: readability-identifier-naming.FunctionIgnoredRegexp
+    value: '^SQL[A-Z][A-Za-z]*$'
   - key: readability-identifier-naming.VariableCase
     value: lower_case
   - key: readability-identifier-naming.ParameterCase

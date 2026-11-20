@@ -25,12 +25,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: The pinned clang-format and clang-tidy (D4), and Doxygen
+      - name: The pinned clang-format and clang-tidy (D4), Doxygen, and unixODBC for the ODBC driver (D2)
         run: |
           python3 -m venv "$RUNNER_TEMP/lint"
           "$RUNNER_TEMP/lint/bin/pip" install -r .github/lint-requirements.txt
           echo "$RUNNER_TEMP/lint/bin" >> "$GITHUB_PATH"
-          sudo apt-get update && sudo apt-get install -y doxygen
+          sudo apt-get update && sudo apt-get install -y doxygen unixodbc-dev
       - name: clang-tidy, formatting, the source rules, every test
         run: cmake "-DCOMMAND=cmake;--workflow;--preset;verify" -P cmake/ci-run.cmake
       - name: The API reference, every warning an error (R-DOC-1)
@@ -50,6 +50,15 @@ jobs:
       CC: ${{ matrix.cc }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # The ODBC driver (D2) is built where ODBC's headers are found:
+      # unixODBC's on Linux and macOS, its driver manager tested through
+      # too; the Windows SDK's on Windows.
+      - name: unixODBC, for the ODBC driver
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y unixodbc-dev
+      - name: unixODBC, for the ODBC driver
+        if: runner.os == 'macOS'
+        run: brew install unixodbc
       # The live tests run against the nightly server's image (R-TEST-8),
       # its turboreld started by the tests themselves, on the host's
       # network, as the runner's user, the workspace its files' directory.
@@ -77,6 +86,15 @@ jobs:
       CC: clang
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # The ODBC driver (D2) is built where ODBC's headers are found:
+      # unixODBC's on Linux and macOS, its driver manager tested through
+      # too; the Windows SDK's on Windows.
+      - name: unixODBC, for the ODBC driver
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y unixodbc-dev
+      - name: unixODBC, for the ODBC driver
+        if: runner.os == 'macOS'
+        run: brew install unixodbc
       # The live tests run against the nightly server's image (R-TEST-8),
       # its turboreld started by the tests themselves, on the host's
       # network, as the runner's user, the workspace its files' directory.
@@ -95,6 +113,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # The ODBC driver (D2) is built where ODBC's headers are found:
+      # unixODBC's on Linux and macOS, its driver manager tested through
+      # too; the Windows SDK's on Windows.
+      - name: unixODBC, for the ODBC driver
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y unixodbc-dev
+      - name: unixODBC, for the ODBC driver
+        if: runner.os == 'macOS'
+        run: brew install unixodbc
       # The live tests run against the nightly server's image (R-TEST-8),
       # its turboreld started by the tests themselves, on the host's
       # network, as the runner's user, the workspace its files' directory.

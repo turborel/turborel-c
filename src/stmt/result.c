@@ -224,6 +224,7 @@ void trl_result_free(trl_result *result) {
     }
     trl_arena_free(&result->arena);
     trl_failure_clear(&result->failure);
+    free((void *)result->texts);
     free(result->rows);
     free(result);
 }

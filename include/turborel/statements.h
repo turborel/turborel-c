@@ -49,6 +49,24 @@ typedef struct trl_result trl_result;
 TRL_API trl_status trl_query(trl_conn *conn, const char *sql, trl_result **out);
 
 /**
+ * @brief Runs one statement with its `?` parameters given as text, as
+ * libpq's PQexecParams does: prepared, executed with each value as a
+ * character string, which the server assigns to the parameter's type,
+ * then destroyed; with no parameter, by Query, as trl_query().
+ *
+ * @param conn The connection.
+ * @param sql The statement, UTF-8.
+ * @param count How many parameters.
+ * @param values Each one's text, UTF-8, null-ended; a null pointer for
+ * the null value. May be null if `count` is 0.
+ * @param out Where the result goes, the caller's to free; null unless
+ * TRL_OK.
+ * @return As trl_query() returns; TRL_NO_MEMORY.
+ */
+TRL_API trl_status trl_query_params(trl_conn *conn, const char *sql, size_t count, const char *const *values,
+                                    trl_result **out);
+
+/**
  * @brief Given each batch of a query's rows as it comes: a result of the
  * query's columns and that batch's rows, borrowed for the call alone.
  */
@@ -178,6 +196,19 @@ TRL_API const char *trl_result_sqlstate(const trl_result *result);
  * @param result The result; null does nothing.
  */
 TRL_API void trl_result_free(trl_result *result);
+
+/**
+ * @brief A value's text, as libpq's PQgetvalue gives it: as
+ * trl_value_to_text() writes it, made once and kept by the result.
+ *
+ * @param result The result.
+ * @param row The row, from 0.
+ * @param column The column, from 0.
+ * @return The text, null-ended, valid until the result is freed; null of
+ * the null value, of a row or column past the last, or if memory cannot
+ * be had.
+ */
+TRL_API const char *trl_result_text(trl_result *result, size_t row, size_t column);
 
 /** @brief A prepared statement: its number, its parameters and its columns. */
 typedef struct trl_statement trl_statement;

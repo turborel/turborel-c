@@ -364,6 +364,19 @@ TRL_API trl_key_cache *trl_settings_key_cache(const trl_settings *settings);
 TRL_API trl_status trl_settings_connect(const trl_settings *settings, trl_conn **out);
 
 /**
+ * @brief Connects as a `turborel://` URI says, the standard API's way to
+ * a connection, as libpq's PQconnectdb: the URI laid with the rest of
+ * the settings, as trl_settings_from_uri() lays it, then connected by
+ * trl_settings_connect().
+ *
+ * @param uri The URI.
+ * @param out Where the connection goes, the caller's to free; made on
+ * TRL_FAILED too, holding why, a URI that cannot be read as well.
+ * @return As trl_settings_connect() returns.
+ */
+TRL_API trl_status trl_connect_uri(const char *uri, trl_conn **out);
+
+/**
  * @brief Frees settings, and their hold of their key cache.
  *
  * @param settings They; null does nothing.
