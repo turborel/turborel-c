@@ -1,7 +1,8 @@
 # Every check a change must pass (RULES.md R-PROC-1), on each platform and
 # compiler the driver claims (D3, R-PLAT-1), with the sanitizers, coverage
 # and fuzzing (D10). Each job runs a workflow of CMakePresets.json, as a
-# contributor does.
+# contributor does, through cmake/ci-run.cmake, which reports a failure's
+# output as an annotation too.
 name: verify
 
 # A pull request is checked once, through pull_request, and main again once
@@ -31,9 +32,9 @@ jobs:
           echo "$RUNNER_TEMP/lint/bin" >> "$GITHUB_PATH"
           sudo apt-get update && sudo apt-get install -y doxygen
       - name: clang-tidy, formatting, the source rules, every test
-        run: cmake --workflow --preset verify
+        run: cmake "-DCOMMAND=cmake;--workflow;--preset;verify" -P cmake/ci-run.cmake
       - name: The API reference, every warning an error (R-DOC-1)
-        run: doxygen Doxyfile
+        run: cmake "-DCOMMAND=doxygen;Doxyfile" -P cmake/ci-run.cmake
 
   test:
     strategy:
@@ -51,10 +52,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Debug, warnings as errors
         timeout-minutes: 30
-        run: cmake --workflow --preset debug
+        run: cmake "-DCOMMAND=cmake;--workflow;--preset;debug" -P cmake/ci-run.cmake
       - name: Release, and the installed package
         timeout-minutes: 30
-        run: cmake --workflow --preset release
+        run: cmake "-DCOMMAND=cmake;--workflow;--preset;release" -P cmake/ci-run.cmake
 
   sanitizers:
     strategy:
@@ -68,23 +69,23 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: The tests under AddressSanitizer and UndefinedBehaviorSanitizer
         timeout-minutes: 30
-        run: cmake --workflow --preset asan-ubsan
+        run: cmake "-DCOMMAND=cmake;--workflow;--preset;asan-ubsan" -P cmake/ci-run.cmake
 
   coverage:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Coverage of src/, held to its floors (R-COV-2)
-        run: cmake --workflow --preset coverage
+        run: cmake "-DCOMMAND=cmake;--workflow;--preset;coverage" -P cmake/ci-run.cmake
 
   fuzz:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Build the fuzz targets
-        run: cmake --workflow --preset fuzz
+        run: cmake "-DCOMMAND=cmake;--workflow;--preset;fuzz" -P cmake/ci-run.cmake
       # A fixed seed and count of runs, so a run is the same each time
       # (R-TEST-4).
       - name: Fuzz the frame header
         timeout-minutes: 15
-        run: build/fuzz/fuzz/fuzz.frame -seed=1 -runs=1000000
+        run: cmake "-DCOMMAND=build/fuzz/fuzz/fuzz.frame;-seed=1;-runs=1000000" -P cmake/ci-run.cmake

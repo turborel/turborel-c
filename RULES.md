@@ -302,6 +302,7 @@ cmake/                  CMake modules and the check scripts (D13)
   check-format.cmake    formatting, as the test rules.format
   coverage-report.cmake the coverage report and its floors
   test-package.cmake    the installed package, as a program uses it
+  ci-run.cmake          a CI step, its failure's output an annotation
 .clang-format           formatting (R-STYLE-1)
 .clang-tidy             lints (R-LINT-2)
 Doxyfile                the API reference, built in CI (R-DOC-1)
