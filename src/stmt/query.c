@@ -4,7 +4,6 @@
  * [CLIENT Running statements]: one, its rows all at once or a batch at a time, or several
  * as one request [CLIENT Controlling the session].
  */
-#include "codec/arena.h"
 #include "codec/error.h"
 #include "codec/kinds.h"
 #include "codec/replies.h"
