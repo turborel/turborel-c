@@ -1,0 +1,6 @@
+# The CMake package of libturborel: find_package(turborel) gives the
+# target turborel::turborel.
+@PACKAGE_INIT@
+
+include("${CMAKE_CURRENT_LIST_DIR}/turborelTargets.cmake")
+check_required_components(turborel)

@@ -1,0 +1,61 @@
+# clang-tidy, run as each file compiles under TRL_LINT (RULES.md D10,
+# R-LINT-2). Every check below is an error. A check left out is left out
+# here, with its reason, never silenced in the code without one (R-LINT-3).
+---
+Checks: >
+  -*,
+  bugprone-*,
+  cert-*,
+  clang-analyzer-*,
+  concurrency-*,
+  misc-*,
+  performance-*,
+  portability-*,
+  readability-*,
+  -bugprone-easily-swappable-parameters,
+  -readability-identifier-length,
+  -clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling
+# Left out:
+#   bugprone-easily-swappable-parameters: a codec's (bytes, count, bound)
+#     are all sizes by nature; the types and names say which is which.
+#   readability-identifier-length: `i` over a loop and `at` of a position
+#     read better than longer names.
+#   clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling:
+#     it asks for C11 Annex K's `_s` functions, which only MSVC's C library
+#     has (D3); R-MEM-1 bans the unbounded calls instead.
+WarningsAsErrors: '*'
+HeaderFilterRegex: '.*/(include|src|test|fuzz)/.*'
+CheckOptions:
+  # R-SIZE-1, R-SIZE-3: 50 lines, 5 parameters.
+  - key: readability-function-size.LineThreshold
+    value: 50
+  - key: readability-function-size.ParameterThreshold
+    value: 5
+  # R-CF-2: cognitive complexity at most 15, nesting at most 5.
+  - key: readability-function-cognitive-complexity.Threshold
+    value: 15
+  - key: readability-function-size.NestingThreshold
+    value: 5
+  # R-CONST-1: no number but 0 and 1 unnamed.
+  - key: readability-magic-numbers.IgnoredIntegerValues
+    value: '1'
+  - key: readability-magic-numbers.IgnorePowersOf2IntegerValues
+    value: false
+  # R-STYLE-3: names.
+  - key: readability-identifier-naming.FunctionCase
+    value: lower_case
+  - key: readability-identifier-naming.VariableCase
+    value: lower_case
+  - key: readability-identifier-naming.ParameterCase
+    value: lower_case
+  - key: readability-identifier-naming.TypedefCase
+    value: lower_case
+  - key: readability-identifier-naming.StructCase
+    value: lower_case
+  - key: readability-identifier-naming.EnumCase
+    value: lower_case
+  - key: readability-identifier-naming.EnumConstantCase
+    value: UPPER_CASE
+  - key: readability-identifier-naming.MacroDefinitionCase
+    value: UPPER_CASE
+...

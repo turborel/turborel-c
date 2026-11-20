@@ -1,0 +1,10 @@
+# CMake's build trees, one per preset (CMakePresets.json).
+/build/
+/out/
+CMakeUserPresets.json
+# Editors and the platform.
+.idea/
+.vscode/
+.DS_Store
+# Coding agents' local state.
+.claude/

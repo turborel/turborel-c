@@ -1,0 +1,40 @@
+name: Feature
+description: Something turborel-c should do that it does not.
+labels: ["feature"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Check TODO.md and CONFORMANCE.md first: it may be planned already.
+        turborel-c matches turborel-client; a feature beyond it starts in turborel's own repository.
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What you need to do, and why turborel-c cannot do it today, or not well.
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind
+      options:
+        - The C API
+        - The ODBC driver
+        - Connecting, TLS or authentication
+        - Building, packaging or platforms
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you propose
+      description: How it would work, and the functions or settings it would add.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives
+      description: What else would solve the problem, and why this is better.

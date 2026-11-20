@@ -1,0 +1,127 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": { "major": 3, "minor": 25, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": { "CMAKE_EXPORT_COMPILE_COMMANDS": "ON" }
+    },
+    {
+      "name": "debug",
+      "displayName": "Debug, with the tests",
+      "inherits": "base",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
+    },
+    {
+      "name": "release",
+      "displayName": "Release, with the tests and the installed package's test",
+      "inherits": "base",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "TRL_TEST_PACKAGE": "ON" }
+    },
+    {
+      "name": "asan-ubsan",
+      "displayName": "Debug under AddressSanitizer and UndefinedBehaviorSanitizer",
+      "inherits": "base",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug", "TRL_SANITIZE": "ON" }
+    },
+    {
+      "name": "coverage",
+      "displayName": "Clang's source-based coverage, held to its floors",
+      "inherits": "base",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug", "CMAKE_C_COMPILER": "clang", "TRL_COVERAGE": "ON" }
+    },
+    {
+      "name": "lint",
+      "displayName": "Debug, with clang-tidy on each file and clang-format checked",
+      "inherits": "base",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug", "TRL_LINT": "ON" }
+    },
+    {
+      "name": "fuzz",
+      "displayName": "libFuzzer targets of the codec (LLVM's Clang)",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_COMPILER": "clang",
+        "BUILD_SHARED_LIBS": "OFF",
+        "TRL_FUZZ": "ON",
+        "TRL_BUILD_TESTS": "OFF"
+      }
+    }
+  ],
+  "buildPresets": [
+    { "name": "debug", "configurePreset": "debug", "configuration": "Debug" },
+    { "name": "release", "configurePreset": "release", "configuration": "Release" },
+    { "name": "asan-ubsan", "configurePreset": "asan-ubsan", "configuration": "Debug" },
+    { "name": "coverage", "configurePreset": "coverage", "configuration": "Debug" },
+    { "name": "coverage-report", "configurePreset": "coverage", "configuration": "Debug", "targets": ["coverage"] },
+    { "name": "lint", "configurePreset": "lint", "configuration": "Debug" },
+    { "name": "fuzz", "configurePreset": "fuzz", "configuration": "Debug" }
+  ],
+  "testPresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error", "stopOnFailure": false }
+    },
+    { "name": "debug", "inherits": "base", "configurePreset": "debug", "configuration": "Debug" },
+    { "name": "release", "inherits": "base", "configurePreset": "release", "configuration": "Release" },
+    { "name": "asan-ubsan", "inherits": "base", "configurePreset": "asan-ubsan", "configuration": "Debug" },
+    { "name": "coverage", "inherits": "base", "configurePreset": "coverage", "configuration": "Debug" },
+    { "name": "lint", "inherits": "base", "configurePreset": "lint", "configuration": "Debug" }
+  ],
+  "workflowPresets": [
+    {
+      "name": "verify",
+      "displayName": "Every check a change must pass on one machine: clang-tidy, clang-format, the rules, the tests",
+      "steps": [
+        { "type": "configure", "name": "lint" },
+        { "type": "build", "name": "lint" },
+        { "type": "test", "name": "lint" }
+      ]
+    },
+    {
+      "name": "debug",
+      "steps": [
+        { "type": "configure", "name": "debug" },
+        { "type": "build", "name": "debug" },
+        { "type": "test", "name": "debug" }
+      ]
+    },
+    {
+      "name": "release",
+      "steps": [
+        { "type": "configure", "name": "release" },
+        { "type": "build", "name": "release" },
+        { "type": "test", "name": "release" }
+      ]
+    },
+    {
+      "name": "asan-ubsan",
+      "steps": [
+        { "type": "configure", "name": "asan-ubsan" },
+        { "type": "build", "name": "asan-ubsan" },
+        { "type": "test", "name": "asan-ubsan" }
+      ]
+    },
+    {
+      "name": "coverage",
+      "steps": [
+        { "type": "configure", "name": "coverage" },
+        { "type": "build", "name": "coverage" },
+        { "type": "test", "name": "coverage" },
+        { "type": "build", "name": "coverage-report" }
+      ]
+    },
+    {
+      "name": "fuzz",
+      "steps": [
+        { "type": "configure", "name": "fuzz" },
+        { "type": "build", "name": "fuzz" }
+      ]
+    }
+  ]
+}

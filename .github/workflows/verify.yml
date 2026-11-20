@@ -1,0 +1,90 @@
+# Every check a change must pass (RULES.md R-PROC-1), on each platform and
+# compiler the driver claims (D3, R-PLAT-1), with the sanitizers, coverage
+# and fuzzing (D10). Each job runs a workflow of CMakePresets.json, as a
+# contributor does.
+name: verify
+
+# A pull request is checked once, through pull_request, and main again once
+# it is merged.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A newer push to a pull request replaces its checks still running.
+concurrency:
+  group: verify-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: The pinned clang-format and clang-tidy (D12), and Doxygen
+        run: |
+          python3 -m venv "$RUNNER_TEMP/lint"
+          "$RUNNER_TEMP/lint/bin/pip" install -r .github/lint-requirements.txt
+          echo "$RUNNER_TEMP/lint/bin" >> "$GITHUB_PATH"
+          sudo apt-get update && sudo apt-get install -y doxygen
+      - name: clang-tidy, formatting, the source rules, every test
+        run: cmake --workflow --preset verify
+      - name: The API reference, every warning an error (R-DOC-1)
+        run: doxygen Doxyfile
+
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, cc: gcc }
+          - { os: ubuntu-latest, cc: clang }
+          - { os: macos-latest, cc: clang }
+          - { os: windows-latest, cc: cl }
+    runs-on: ${{ matrix.os }}
+    env:
+      CC: ${{ matrix.cc }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Debug, warnings as errors
+        timeout-minutes: 30
+        run: cmake --workflow --preset debug
+      - name: Release, and the installed package
+        timeout-minutes: 30
+        run: cmake --workflow --preset release
+
+  sanitizers:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      CC: clang
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: The tests under AddressSanitizer and UndefinedBehaviorSanitizer
+        timeout-minutes: 30
+        run: cmake --workflow --preset asan-ubsan
+
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Coverage of src/, held to its floors (R-COV-2)
+        run: cmake --workflow --preset coverage
+
+  fuzz:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build the fuzz targets
+        run: cmake --workflow --preset fuzz
+      # A fixed seed and count of runs, so a run is the same each time
+      # (R-TEST-4).
+      - name: Fuzz the frame header
+        timeout-minutes: 15
+        run: build/fuzz/fuzz/fuzz.frame -seed=1 -runs=1000000

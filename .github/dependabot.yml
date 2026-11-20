@@ -1,0 +1,16 @@
+# Each new version of an action CI runs, and of the pinned clang-format
+# and clang-tidy (RULES.md D12), proposed as a pull request of its own
+# (R-CM-1). C has no package manager here: OpenSSL, AWS-LC and zlib are
+# the platform's or the builder's (D7).
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    labels: ["dependencies", "area/ci"]
+  - package-ecosystem: pip
+    directory: /.github
+    schedule:
+      interval: weekly
+    labels: ["dependencies", "area/build"]
