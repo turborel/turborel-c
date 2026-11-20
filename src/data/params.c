@@ -13,6 +13,7 @@
 #include "codec/tags.h"
 #include "codec/utf8.h"
 #include "codec/values.h"
+#include "failure.h"
 #include "memory.h"
 #include "turborel/turborel.h"
 
@@ -32,6 +33,8 @@ struct trl_params {
     trl_value *values;
     size_t count;
     size_t capacity;
+    /* Why the last value refused was refused. */
+    trl_failure failure;
 };
 
 trl_status trl_params_new(trl_params **out) {
@@ -43,6 +46,7 @@ trl_status trl_params_new(trl_params **out) {
         return TRL_NO_MEMORY;
     }
     trl_arena_init(&(*out)->arena);
+    trl_failure_init(&(*out)->failure);
     return TRL_OK;
 }
 
@@ -136,8 +140,15 @@ trl_status trl_params_add_json(trl_params *params, const char *text, size_t leng
     trl_arena scratch;
     trl_arena_init(&scratch);
     trl_codec_error error = {0, "", ""};
+    trl_failure_clear(&params->failure);
     bool made = trl_json_from_text(&stored, (const uint8_t *)text, length, &scratch, &error);
-    trl_status refused = error.sqlcode == TRL_SQLCODE_RESOURCES ? TRL_NO_MEMORY : TRL_INVALID_TEXT;
+    /* A text that is not JSON (22032), a number no type holds (22003),
+       or a value nested past 128 or stored past 256 MiB (-900, 0A000),
+       kept as the codec tells it. */
+    trl_status refused = error.sqlcode == TRL_SQLCODE_RESOURCES ? TRL_NO_MEMORY : TRL_FAILED;
+    if (!made && refused == TRL_FAILED) {
+        trl_failure_from_codec(&params->failure, &error);
+    }
     trl_status added = made ? add_bytes(params, TRL_TAG_JSON, stored.data, stored.length) : refused;
     trl_arena_free(&scratch);
     trl_buffer_free(&stored);
@@ -257,8 +268,13 @@ void trl_params_clear(trl_params *params) {
     }
 }
 
+const trl_failure *trl_params_failure(const trl_params *params) {
+    return params == NULL ? NULL : &params->failure;
+}
+
 void trl_params_free(trl_params *params) {
     if (params != NULL) {
+        trl_failure_clear(&params->failure);
         trl_arena_free(&params->arena);
         free(params->values);
         free(params);

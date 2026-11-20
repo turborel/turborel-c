@@ -31,6 +31,9 @@ typedef enum making {
     MAKING_REFUSED,
     MAKING_NO_MEMORY,
     MAKING_NOTHING,
+    MAKING_TOLD_LOST,
+    MAKING_TOLD_REFUSED,
+    MAKING_TOLD_BADLY,
 } making;
 
 /* A connector of scripted connections, and what it was asked. */
@@ -55,8 +58,33 @@ static trl_conn *failed_of(const char *sqlstate) {
     return conn;
 }
 
-static trl_status make(void *context, const char *server, const char *user, trl_conn **out) {
+/* A connector's own failure told, none made; TRL_FAILED. */
+static trl_status told(trl_failure *why, int32_t sqlcode, const char *sqlstate, const char *message, trl_conn **out) {
+    *out = NULL;
+    (void)trl_failure_tell(why, sqlcode, sqlstate, message);
+    return TRL_FAILED;
+}
+
+/* What `m->how` says a connector that makes no connection does; whether it is one. */
+static bool made_none(const maker *m, trl_conn **out, trl_failure *why, trl_status *made) {
+    if (m->how == MAKING_TOLD_LOST) {
+        *made = told(why, -919, "08006", "the wrapper's socket closed", out);
+    } else if (m->how == MAKING_TOLD_REFUSED) {
+        *made = told(why, -30082, "28000", "the wrapper's password was refused", out);
+    } else if (m->how == MAKING_TOLD_BADLY) {
+        *made = told(why, -919, "8006", "no SQLSTATE", out);
+    } else {
+        return false;
+    }
+    return true;
+}
+
+static trl_status make(void *context, const char *server, const char *user, trl_conn **out, trl_failure *why) {
     maker *m = context;
+    trl_status none = TRL_OK;
+    if (made_none(m, out, why, &none)) {
+        return none;
+    }
     m->had_server = server != NULL;
     m->had_user = user != NULL;
     trl_format(m->server, sizeof m->server, "%s", server != NULL ? server : "");
@@ -77,6 +105,9 @@ static trl_status make(void *context, const char *server, const char *user, trl_
     case MAKING_NOTHING:
         *out = NULL;
         return TRL_OK;
+    case MAKING_TOLD_LOST:
+    case MAKING_TOLD_REFUSED:
+    case MAKING_TOLD_BADLY:
     case MAKING_SCRIPTED:
     default:
         break;
@@ -395,7 +426,9 @@ static void connections_are_ended(trl_test *test) {
 /**
  * Verifies: [CLIENT The SQL-agent] a connector that cannot reach the
  * server, or loses it, fails CONNECT with SQLSTATE 08001; one the server
- * refuses with 08004, its message kept; one without memory with it; and
+ * refuses with 08004, its message kept; one without memory with it; a
+ * connector's own failure, told with no connection, as a connection's,
+ * one told malformed as none; and
  * an agent made connected holds its connection as the default one,
  * current.
  */
@@ -417,14 +450,25 @@ static void connector_failures_are_told(trl_test *test) {
     m.how = MAKING_NOTHING;
     TRL_CHECK(test, trl_agent_query(agent, "CONNECT TO DEFAULT", &result) == TRL_NO_MEMORY);
     TRL_CHECK(test, trl_agent_count(agent) == 0U);
+    m.how = MAKING_TOLD_LOST;
+    TRL_CHECK(test, strcmp(state_of(agent, "CONNECT TO 'srv'"), "08001") == 0);
+    TRL_CHECK(test, failed_saying(agent, -919, "the wrapper's socket closed"));
+    TRL_CHECK(test, strcmp(trl_failure_rule(trl_agent_failure(agent)), "ISO/IEC 9075:1992 §15.1 GR10, GR11") == 0);
+    m.how = MAKING_TOLD_REFUSED;
+    TRL_CHECK(test, strcmp(state_of(agent, "CONNECT TO 'srv'"), "08004") == 0);
+    TRL_CHECK(test,
+              strstr(trl_failure_message(trl_agent_failure(agent)), "the wrapper's password was refused") != NULL);
+    m.how = MAKING_TOLD_BADLY;
+    TRL_CHECK(test, trl_agent_query(agent, "CONNECT TO 'srv'", &result) == TRL_NO_MEMORY);
+    TRL_CHECK(test, trl_agent_count(agent) == 0U);
     trl_agent_free(agent);
     m.how = MAKING_SCRIPTED;
     trl_conn *first = NULL;
-    (void)make(&m, NULL, NULL, &first);
+    (void)make(&m, NULL, NULL, &first, NULL);
     TRL_CHECK(test, trl_agent_connected(make, &m, first, &agent) == TRL_OK && trl_agent_count(agent) == 1U);
     TRL_CHECK(test, trl_agent_current(agent) == first && trl_agent_current_name(agent) == NULL);
     trl_agent_free(agent);
-    (void)make(&m, NULL, NULL, &first);
+    (void)make(&m, NULL, NULL, &first, NULL);
     TRL_CHECK(test, trl_agent_connected(NULL, &m, first, &agent) == TRL_INVALID_ARGUMENT && agent == NULL);
     TRL_CHECK(test, trl_agent_connected(make, &m, NULL, &agent) == TRL_INVALID_ARGUMENT);
     TRL_CHECK(test, trl_agent_connected(make, &m, NULL, NULL) == TRL_INVALID_ARGUMENT);

@@ -14,6 +14,7 @@
 #include "odbc/odbc.h"
 #include "odbc/params.h"
 #include "odbc/types.h"
+#include "stmt/stmt.h"
 #include "turborel/turborel.h"
 
 #include <ctype.h>
@@ -152,9 +153,7 @@ SQLRETURN trl_odbc_exec_direct(trl_odbc_stmt *stmt, const char *sql) {
         trl_statement *statement = NULL;
         trl_status prepared = trl_prepare(conn, text, &statement);
         returned = prepared == TRL_OK ? executed(stmt, statement, text) : finished(stmt, prepared, NULL, text);
-        if (statement != NULL && !trl_conn_is_lost(conn)) {
-            (void)trl_deallocate(conn, statement);
-        }
+        trl_deallocate_after_run(conn, statement);
         trl_statement_free(statement);
     }
     free(text);

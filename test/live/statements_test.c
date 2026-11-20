@@ -419,6 +419,25 @@ static void declared_types_are_told(trl_test *test) {
     trl_conn_options_free(options);
 }
 
+/**
+ * Verifies: [PROTOCOL Composite fields] a prepared statement's columns
+ * told NOT NULL as Prepared describes them, as a result's are: a key's
+ * column and one declared NOT NULL, not a column that takes the null
+ * value; none past the last [PROTOCOL Prepared 'P'].
+ */
+static void a_prepared_statement_tells_not_null(trl_test *test) {
+    trl_conn *conn = live_trusted(NULL);
+    TRL_CHECK(test, run(conn, "CREATE TABLE NN (K INTEGER PRIMARY KEY, M VARCHAR(5) NOT NULL, N VARCHAR(5))"));
+    trl_statement *statement = NULL;
+    TRL_CHECK(test, trl_prepare(conn, "SELECT K, M, N FROM NN WHERE K = ?", &statement) == TRL_OK);
+    TRL_CHECK(test, trl_statement_column_not_null(statement, 0U) && trl_statement_column_not_null(statement, 1U));
+    TRL_CHECK(test, !trl_statement_column_not_null(statement, 2U) && !trl_statement_column_not_null(statement, 3U));
+    TRL_CHECK(test, !trl_statement_column_not_null(NULL, 0U));
+    TRL_CHECK(test, trl_deallocate(conn, statement) == TRL_OK && run(conn, "ROLLBACK"));
+    trl_statement_free(statement);
+    trl_conn_free(conn);
+}
+
 int main(int argc, char **argv) {
     char cwd[PATH_BYTES];
     char dir[PATH_BYTES + sizeof "/live-statements"];
@@ -440,7 +459,7 @@ int main(int argc, char **argv) {
         TRL_TEST_CASE(a_prepared_statement_runs_again),   TRL_TEST_CASE(a_cursor_is_read_in_parts),
         TRL_TEST_CASE(numbered_cursors_and_descriptions), TRL_TEST_CASE(a_call_gives_its_output_parameters),
         TRL_TEST_CASE(an_open_cursors_statement_stays),   TRL_TEST_CASE(a_cut_parameter_warns),
-        TRL_TEST_CASE(declared_types_are_told),
+        TRL_TEST_CASE(declared_types_are_told),           TRL_TEST_CASE(a_prepared_statement_tells_not_null),
     };
     int result = ready ? trl_test_main(argc, argv, cases, TRL_TEST_COUNT(cases)) : EXIT_FAILURE;
     server_stop(&live_server);

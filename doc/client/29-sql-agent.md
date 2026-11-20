@@ -6,7 +6,7 @@
 
 ### NAME
 
-`trl_agent`, `trl_agent_connector`, `trl_agent_new`,
+`trl_agent`, `trl_agent_connector`, `trl_failure_tell`, `trl_agent_new`,
 `trl_agent_connected`, `trl_agent_query`, `trl_agent_query_batches`,
 `trl_agent_current`, `trl_agent_current_name`, `trl_agent_count`,
 `trl_agent_failure`, `trl_agent_terminate`, `trl_agent_free`: a
@@ -17,8 +17,10 @@ program's connections, each named, one current.
 ```c
 #include <turborel/turborel.h>
 
-typedef trl_status (*trl_agent_connector)(void *context, const char *server, const char *user, trl_conn **out);
+typedef trl_status (*trl_agent_connector)(void *context, const char *server, const char *user, trl_conn **out,
+                                          trl_failure *why);
 
+trl_status trl_failure_tell(trl_failure *failure, int32_t sqlcode, const char *sqlstate, const char *message);
 trl_status trl_agent_new(trl_agent_connector connect, void *context, trl_agent **out);
 trl_status trl_agent_connected(trl_agent_connector connect, void *context, trl_conn *conn, trl_agent **out);
 trl_status trl_agent_query(trl_agent *agent, const char *sql, trl_result **out);
@@ -46,7 +48,11 @@ agent is one thread's at a time, as a connection is.
 server CONNECT TO names, its spaces trimmed, or null for CONNECT TO
 DEFAULT; and the user USER names, trimmed, or null for none. What a
 server's name means, an address or a service, is the program's to say.
-The connection it makes, even one holding a failure, is the agent's.
+The connection it makes, even one holding a failure, is the agent's. A
+connector that fails with no connection to give, as one of a wrapper's,
+leaves `*out` null and says why in `why`, a failure the agent lends it,
+by `trl_failure_tell`; the agent tells it as a connection's failure:
+of SQLSTATE 08006 as 08001, of any other as 08004, its message kept.
 
 `trl_agent_query` runs one statement. A statement that begins CONNECT,
 DISCONNECT or SET CONNECTION is read as Turborel reads it, a semicolon

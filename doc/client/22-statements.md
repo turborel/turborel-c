@@ -68,7 +68,10 @@ text: each value a null-ended UTF-8
 string, or a null pointer for the null value. The statement is
 prepared, executed with each value as a character string, which the
 server assigns to the parameter's type, and destroyed; its result is as
-`trl_query`'s. With no parameter it is `trl_query`.
+`trl_query`'s, and what the connection tells of the last completion,
+the rows it changed, the identity values it generated, its warning and
+its conditions, is the statement's own, not its destruction's. With no
+parameter it is `trl_query`.
 
 `trl_query_batches` gives each Rows reply to `handler` as it comes, a
 batch whose rows and values last only until the handler returns, the
@@ -116,7 +119,7 @@ sent no result", "the server broke off its rows") or a malformed one.
 `trl_statement_parameter_type`, `trl_statement_column_count`,
 `trl_statement_column_name`, `trl_statement_column_type`,
 `trl_statement_column_type_name`, `trl_statement_column_type_written`,
-`trl_execute`, `trl_describe`, `trl_deallocate`, `trl_statement_free`:
+`trl_statement_column_not_null`, `trl_execute`, `trl_describe`, `trl_deallocate`, `trl_statement_free`:
 a statement prepared once and run many times.
 
 ### SYNOPSIS
@@ -130,6 +133,7 @@ const char *trl_statement_column_name(const trl_statement *statement, size_t col
 const trl_data_type *trl_statement_column_type(const trl_statement *statement, size_t column);
 const char *trl_statement_column_type_name(const trl_statement *statement, size_t column);
 const char *trl_statement_column_type_written(const trl_statement *statement, size_t column);
+bool trl_statement_column_not_null(const trl_statement *statement, size_t column);
 trl_status trl_execute(trl_conn *conn, const trl_statement *statement, const trl_params *params,
                        trl_result **out);
 trl_status trl_describe(trl_conn *conn, const trl_statement *statement, trl_statement **out);
@@ -147,8 +151,9 @@ a statement's inputs alone, and its columns
 for each `?` of an OUT or INOUT parameter, in the procedure's parameter
 order, named and typed as each; an INOUT `?` is both a parameter and a
 column. `trl_statement_column_type_name` and
-`trl_statement_column_type_written` give a column's declared type as
-their `trl_result_` likes do.
+`trl_statement_column_type_written` give a column's declared type, and
+`trl_statement_column_not_null` whether it is NOT NULL, as their
+`trl_result_` likes do.
 
 `trl_execute` sends Execute, cursor 0, with `params`, null for none, its
 `ends` set under autocommit, and reads its replies as `trl_query` does,

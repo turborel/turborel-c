@@ -82,8 +82,10 @@ kind of value has its function:
 
 The server casts each value to the type its parameter takes, as SQL's
 assignment does, and fails the execution if it cannot. Text that is not
-UTF-8, or JSON text that is not JSON, is refused as it is added, with
-`TRL_INVALID_ARGUMENT` or `TRL_INVALID_TEXT`, before anything is sent.
+UTF-8 is refused as it is added, with `TRL_INVALID_ARGUMENT`, before
+anything is sent; JSON text that is not JSON, or nested too deep, with
+`TRL_FAILED`, the list keeping the failure, read by
+`trl_params_failure`.
 
 ## A statement's parameters and columns
 

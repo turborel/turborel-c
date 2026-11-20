@@ -134,6 +134,22 @@ TRL_API bool trl_failure_ends_connection(const trl_failure *failure);
  */
 TRL_API size_t trl_failure_text(const trl_failure *failure, char *out, size_t capacity);
 
+/**
+ * @brief Says why a call of the program's own failed, into a failure the
+ * driver lends it, as an SQL-agent's connector is lent one
+ * (trl_agent_connector): its SQLCODE, SQLSTATE and message, citing no
+ * rule, as the server's failures are kept.
+ *
+ * @param failure The failure lent.
+ * @param sqlcode Its SQLCODE, below 0.
+ * @param sqlstate Its SQLSTATE, five digits or capital letters.
+ * @param message Its message, UTF-8.
+ * @return TRL_OK; TRL_INVALID_ARGUMENT of a null pointer, an SQLCODE not
+ * below 0, an SQLSTATE of another form, or a message not UTF-8, nothing
+ * changed; TRL_NO_MEMORY, the failure then one of memory not had.
+ */
+TRL_API trl_status trl_failure_tell(trl_failure *failure, int32_t sqlcode, const char *sqlstate, const char *message);
+
 #ifdef __cplusplus
 }
 #endif

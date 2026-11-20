@@ -351,8 +351,9 @@ used that MSVC lacks: no variable-length arrays, no `_Atomic` and no
 `<threads.h>`. MSVC has no 128-bit integer, so the protocol's `i128` is
 two 64-bit halves (D2). CMake 3.25 is the first with workflow presets,
 which run each check from one command (D4). The compilers supported are
-those CI runs: GCC and Clang on Linux, Apple's Clang on macOS, and MSVC
-on Windows.
+those CI runs: GCC 13 and 14 and Clang on Linux, each GCC's Release
+build at -O3 as well as its Debug build, Apple's Clang on macOS, and
+MSVC on Windows.
 
 #### D4. One command runs every check, before each commit and in CI on three platforms
 

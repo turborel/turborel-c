@@ -122,6 +122,10 @@ static void a_pool_has_its_defaults_and_refusals(trl_test *test) {
     TRL_CHECK(test, strcmp(text, "1.5s") == 0);
     trl_format_duration(text, sizeof text, 2005U);
     TRL_CHECK(test, strcmp(text, "2.005s") == 0);
+    trl_format_duration(text, sizeof text, 1050U);
+    TRL_CHECK(test, strcmp(text, "1.05s") == 0);
+    trl_format_duration(text, sizeof text, UINT32_MAX);
+    TRL_CHECK(test, strcmp(text, "4294967.295s") == 0);
 }
 
 /**

@@ -268,8 +268,10 @@ program's for the connection, giving it the server and the user the
 statement names; here the server is a host and a port:
 
 ```c
-static trl_status dial(void *context, const char *server, const char *user, trl_conn **out) {
+static trl_status dial(void *context, const char *server, const char *user, trl_conn **out,
+                       trl_failure *why) {
     (void)context;
+    (void)why;
     char host[64] = "127.0.0.1";
     unsigned port = 17438;
     if (server != NULL) {

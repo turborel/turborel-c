@@ -19,7 +19,7 @@ Every call that can fail returns a `trl_status`:
 | `TRL_OK` | it did what it was asked |
 | `TRL_FAILED` | the server, or the connection, failed it: the handle keeps the failure |
 | `TRL_INVALID_ARGUMENT` | an argument was null, or of another kind; nothing was done |
-| `TRL_INVALID_TEXT` | text given was not of the form asked, as JSON text that is not JSON |
+| `TRL_INVALID_TEXT` | text given was not of the form asked, as a UUID's text that is none |
 | `TRL_OUT_OF_RANGE` | a number given is past what it may be |
 | `TRL_NO_MEMORY` | memory could not be had for the handle itself, which is not made |
 

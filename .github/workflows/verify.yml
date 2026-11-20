@@ -41,7 +41,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { os: ubuntu-latest, cc: gcc }
+          # GCC 13 and 14, each built at -O3 by its Release workflow, every
+          # warning an error, as at -O0 by its Debug one.
+          - { os: ubuntu-24.04, cc: gcc-13 }
+          - { os: ubuntu-24.04, cc: gcc-14 }
           - { os: ubuntu-latest, cc: clang }
           - { os: macos-latest, cc: clang }
           - { os: windows-latest, cc: cl }

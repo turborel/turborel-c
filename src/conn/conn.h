@@ -211,6 +211,20 @@ void trl_conn_notice(trl_conn *conn, const trl_reply *notice);
 /** @brief Keeps what a completion told. */
 void trl_conn_completed(trl_conn *conn, const trl_completed *completed);
 
+/** @brief A statement's completion set aside while another runs, and its warning. */
+typedef struct trl_completion_aside {
+    /** @brief What it told. */
+    trl_told told;
+    /** @brief Its SQLSTATE if a warning, else empty. */
+    char warning[TRL_SQLSTATE_BYTES];
+} trl_completion_aside;
+
+/** @brief Sets the last completion aside in `aside`, the connection then holding none. */
+void trl_conn_completion_set_aside(trl_conn *conn, trl_completion_aside *aside);
+
+/** @brief Puts a completion set aside back as the last, what was told since let go of. */
+void trl_conn_completion_put_back(trl_conn *conn, trl_completion_aside *aside);
+
 /** @brief Frees what the connection keeps of completions, notices and attributes. */
 void trl_conn_free_told(trl_conn *conn);
 

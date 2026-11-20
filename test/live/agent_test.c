@@ -36,8 +36,9 @@ static bool run(trl_conn *conn, const char *sql) {
 
 /* Connects to the server `named`, a host and a port, or for none the
    test's server, as `user`, or ann, by trust. */
-static trl_status dial(void *context, const char *named, const char *user, trl_conn **out) {
+static trl_status dial(void *context, const char *named, const char *user, trl_conn **out, trl_failure *why) {
     (void)context;
+    (void)why;
     char host[HOST_BYTES] = "127.0.0.1";
     unsigned long port = SERVER_PORT;
     const char *colon = named != NULL ? strrchr(named, ':') : NULL;

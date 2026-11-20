@@ -12,6 +12,7 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -86,6 +87,48 @@ static void parameters_go_as_text_and_values_come_as_text(trl_test *test) {
     trl_conn_free(conn);
 }
 
+/* Runs `sql` once with the one parameter `value`, its result let go; whether it ran. */
+static bool ran_with(trl_conn *conn, const char *sql, const char *value) {
+    const char *const values[] = {value};
+    trl_result *result = NULL;
+    bool ran = trl_query_params(conn, sql, 1U, values, &result) == TRL_OK;
+    trl_result_free(result);
+    return ran;
+}
+
+/**
+ * Verifies: [CLIENT What the server tells] a statement run once with its
+ * parameters as text tells its own completion, not its Deallocate's: the
+ * rows it changed, the identity values it generated, its warning and its
+ * conditions [PROTOCOL Complete 'K'].
+ */
+static void a_statement_run_once_tells_its_completion(trl_test *test) {
+    trl_conn *conn = NULL;
+    (void)trl_connect_uri(uri, &conn);
+    trl_result *result = NULL;
+    TRL_CHECK(test, trl_query(conn,
+                              "CREATE TABLE GQ (ID INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY, "
+                              "N VARCHAR(5), X INTEGER)",
+                              &result) == TRL_OK);
+    trl_result_free(result);
+    TRL_CHECK(test, ran_with(conn, "INSERT INTO GQ (N) VALUES (?), ('b')", "a"));
+    uint64_t rows = 0U;
+    TRL_CHECK(test, trl_conn_rows_affected(conn, &rows) && rows == 2U);
+    TRL_CHECK(test, trl_conn_generated_count(conn) == 2U && strcmp(trl_conn_generated_at(conn, 1U), "2") == 0);
+    TRL_CHECK(test, ran_with(conn, "UPDATE GQ SET N = ? WHERE ID > 0", "c"));
+    TRL_CHECK(test, trl_conn_rows_affected(conn, &rows) && rows == 2U && trl_conn_generated_count(conn) == 0U);
+    TRL_CHECK(test, ran_with(conn, "SELECT SUM(X) FROM GQ WHERE N = ?", "c"));
+    const char *warning = trl_conn_warning(conn);
+    TRL_CHECK(test, warning != NULL && strcmp(warning, "01003") == 0);
+    TRL_CHECK(test,
+              trl_query(conn, "CREATE PROCEDURE WARNS_ONCE (IN K INTEGER) MODIFIES SQL DATA SIGNAL SQLSTATE '01ABC'",
+                        &result) == TRL_OK);
+    trl_result_free(result);
+    TRL_CHECK(test, ran_with(conn, "CALL WARNS_ONCE(?)", "1") && trl_conn_condition_count(conn) == 1U);
+    TRL_CHECK(test, strcmp(trl_failure_sqlstate(trl_conn_condition_at(conn, 0U)), "01ABC") == 0);
+    trl_conn_free(conn);
+}
+
 int main(int argc, char **argv) {
     char cwd[PATH_BYTES];
     char dir[PATH_BYTES + sizeof "/live-standard"];
@@ -109,6 +152,7 @@ int main(int argc, char **argv) {
     static const trl_test_case cases[] = {
         TRL_TEST_CASE(a_connection_is_made_of_a_uri),
         TRL_TEST_CASE(parameters_go_as_text_and_values_come_as_text),
+        TRL_TEST_CASE(a_statement_run_once_tells_its_completion),
     };
     int run_result = ready ? trl_test_main(argc, argv, cases, TRL_TEST_COUNT(cases)) : EXIT_FAILURE;
     server_stop(&live_server);

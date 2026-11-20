@@ -15,6 +15,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 
 #define UUID_TEXT "919108f7-52d1-4320-9bac-f847db4148a8"
@@ -185,7 +186,7 @@ static void parameters_of_each_kind(trl_test *test) {
               trl_params_add_interval(params, interval) == TRL_OK && trl_params_add_decfloat(params, ten) == TRL_OK);
     TRL_CHECK(test, trl_params_add_uuid(params, octets) == TRL_OK);
     TRL_CHECK(test, trl_params_add_json(params, "{\"a\":[1,\"x\"]}", 13U) == TRL_OK);
-    TRL_CHECK(test, trl_params_add_json(params, "{", 1U) == TRL_INVALID_TEXT);
+    TRL_CHECK(test, trl_params_add_json(params, "{", 1U) == TRL_FAILED);
     TRL_CHECK(test, trl_params_add_xml(params, "<a/>", 4U) == TRL_OK);
     TRL_CHECK(test, trl_params_add_text(params, "\xff", 1U) == TRL_INVALID_ARGUMENT);
     TRL_CHECK(test, trl_params_count(params) == 12U);
@@ -213,6 +214,44 @@ static void parameters_of_each_kind(trl_test *test) {
     trl_params_free(params);
     trl_params_free(NULL);
     trl_params_clear(NULL);
+}
+
+/* Whether `text` is refused as a JSON parameter, its failure of `sqlcode` and `sqlstate`. */
+static bool json_refused(trl_params *params, const char *text, size_t length, int32_t sqlcode, const char *sqlstate) {
+    const trl_failure *failure = trl_params_failure(params);
+    return trl_params_add_json(params, text, length) == TRL_FAILED && trl_failure_sqlcode(failure) == sqlcode &&
+           strcmp(trl_failure_sqlstate(failure), sqlstate) == 0 && trl_failure_message(failure)[0] != '\0';
+}
+
+/**
+ * Verifies: [PROTOCOL JSON values] a JSON parameter refused as turborel
+ * refuses it, the list keeping why: text that is no JSON SQLCODE -301,
+ * SQLSTATE 22032; a number no type holds 22003; arrays nested past 128,
+ * and a value stored in more than 256 MiB, SQLCODE -900, SQLSTATE 0A000;
+ * a value then taken clearing the failure.
+ */
+static void json_is_refused_as_turborel_refuses_it(trl_test *test) {
+    trl_params *params = NULL;
+    TRL_CHECK(test, trl_params_new(&params) == TRL_OK && trl_failure_sqlcode(trl_params_failure(params)) == 0);
+    TRL_CHECK(test, json_refused(params, "{", 1U, -301, "22032") && json_refused(params, "tru", 3U, -301, "22032"));
+    TRL_CHECK(test, json_refused(params, "1e400", 5U, -301, "22003"));
+    char deep[130];
+    memset(deep, '[', sizeof deep);
+    TRL_CHECK(test, json_refused(params, deep, sizeof deep, -900, "0A000"));
+    size_t length = (size_t)268435456U + 2U;
+    char *large = malloc(length);
+    TRL_CHECK(test, large != NULL);
+    if (large != NULL) {
+        memset(large, 'a', length);
+        large[0] = '"';
+        large[length - 1U] = '"';
+        TRL_CHECK(test, json_refused(params, large, length, -900, "0A000"));
+        free(large);
+    }
+    TRL_CHECK(test, trl_params_add_json(params, "[1]", 3U) == TRL_OK &&
+                        trl_failure_sqlcode(trl_params_failure(params)) == 0 && trl_params_count(params) == 1U);
+    TRL_CHECK(test, trl_params_failure(NULL) == NULL);
+    trl_params_free(params);
 }
 
 /**
@@ -339,6 +378,7 @@ int main(int argc, char **argv) {
         TRL_TEST_CASE(values_of_values),
         TRL_TEST_CASE(a_uuid_is_octets_and_text),
         TRL_TEST_CASE(parameters_of_each_kind),
+        TRL_TEST_CASE(json_is_refused_as_turborel_refuses_it),
         TRL_TEST_CASE(a_types_sizes),
         TRL_TEST_CASE(null_arguments_are_refused),
         TRL_TEST_CASE(large_objects_and_types),

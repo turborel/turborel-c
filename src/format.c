@@ -8,7 +8,6 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <string.h>
 
 void trl_format(char *out, size_t capacity, const char *format, ...) {
     if (out == NULL || capacity == 0U) {
@@ -21,9 +20,10 @@ void trl_format(char *out, size_t capacity, const char *format, ...) {
     va_end(arguments);
 }
 
-/* A second's milliseconds, and room for a fraction of one. */
+/* A second's milliseconds, the digits of a fraction of one, and ten. */
 #define TRL_MS_SECOND 1000U
-#define TRL_FRACTION_BYTES 8U
+#define TRL_MS_DIGITS 3
+#define TRL_TEN 10U
 
 void trl_format_duration(char *out, size_t capacity, uint32_t ms) {
     if (ms == 0U) {
@@ -33,12 +33,14 @@ void trl_format_duration(char *out, size_t capacity, uint32_t ms) {
     } else if (ms % TRL_MS_SECOND == 0U) {
         trl_format(out, capacity, "%lus", (unsigned long)(ms / TRL_MS_SECOND));
     } else {
-        char fraction[TRL_FRACTION_BYTES];
-        trl_format(fraction, sizeof fraction, "%03lu", (unsigned long)(ms % TRL_MS_SECOND));
-        size_t length = strlen(fraction);
-        while (fraction[length - 1U] == '0') {
-            fraction[--length] = '\0';
+        /* The fraction's digits, its trailing zeros dropped, counted
+           rather than cut from its text, so no index is left to prove. */
+        uint32_t fraction = ms % TRL_MS_SECOND;
+        int digits = TRL_MS_DIGITS;
+        while (fraction % TRL_TEN == 0U) {
+            fraction /= TRL_TEN;
+            --digits;
         }
-        trl_format(out, capacity, "%lu.%ss", (unsigned long)(ms / TRL_MS_SECOND), fraction);
+        trl_format(out, capacity, "%lu.%0*lus", (unsigned long)(ms / TRL_MS_SECOND), digits, (unsigned long)fraction);
     }
 }

@@ -117,9 +117,10 @@ static bool pool_session(void) {
     return fine;
 }
 
-static trl_status dialed(void *context, const char *server, const char *user, trl_conn **out) {
+static trl_status dialed(void *context, const char *server, const char *user, trl_conn **out, trl_failure *why) {
     (void)server;
     (void)user;
+    (void)why;
     return make(context, out);
 }
 

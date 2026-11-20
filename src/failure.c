@@ -9,6 +9,7 @@
 #include "codec/buffer.h"
 #include "codec/error.h"
 #include "codec/fields.h"
+#include "codec/utf8.h"
 #include "format.h"
 #include "memory.h"
 #include "turborel/turborel.h"
@@ -138,6 +139,22 @@ void trl_failure_cite(trl_failure *failure, int32_t sqlcode, const char *sqlstat
     from.of[TRL_STRING_DIAGNOSTICS] =
         text(trl_failure_ends_connection(&probe) ? TRL_SEVERITY_FATAL : TRL_SEVERITY_ERROR);
     set_all(failure, sqlcode, text(sqlstate), &from);
+}
+
+/* Whether `sqlstate` is five digits or capital letters. */
+static bool sqlstate_formed(const char *sqlstate) {
+    size_t length = strlen(sqlstate);
+    return length == TRL_SQLSTATE_BYTES - 1U && strspn(sqlstate, "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ") == length;
+}
+
+trl_status trl_failure_tell(trl_failure *failure, int32_t sqlcode, const char *sqlstate, const char *message) {
+    if (failure == NULL || sqlstate == NULL || message == NULL || sqlcode >= 0 || !sqlstate_formed(sqlstate) ||
+        !trl_utf8_valid((const uint8_t *)message, strlen(message))) {
+        return TRL_INVALID_ARGUMENT;
+    }
+    trl_failure_cite(failure, sqlcode, sqlstate, message, NULL);
+    return trl_failure_sqlcode(failure) == TRL_SQLCODE_RESOURCES && sqlcode != TRL_SQLCODE_RESOURCES ? TRL_NO_MEMORY
+                                                                                                     : TRL_OK;
 }
 
 void trl_failure_broken(trl_failure *failure, const char *message) {

@@ -10,6 +10,7 @@
 #include "failure.h"
 #include "memory.h"
 #include "stmt/result.h" // NOLINT(misc-include-cleaner): the result's fields, which the checker does not count
+#include "stmt/stmt.h"
 #include "turborel/turborel.h"
 
 #include <stdbool.h>
@@ -62,16 +63,7 @@ trl_status trl_query_params(trl_conn *conn, const char *sql, size_t count, const
     trl_statement *statement = NULL;
     trl_status ran = made == TRL_OK ? trl_prepare(conn, sql, &statement) : made;
     ran = ran == TRL_OK ? trl_execute(conn, statement, params, out) : ran;
-    if (statement != NULL && !trl_conn_is_lost(conn)) {
-        /* A statement already run keeps its result though it cannot be
-           destroyed: the server destroys it with the session. */
-        trl_failure kept;
-        trl_failure_init(&kept);
-        trl_failure_copy(&kept, trl_conn_failure(conn));
-        (void)trl_deallocate(conn, statement);
-        trl_failure_copy(&conn->failure, &kept);
-        trl_failure_clear(&kept);
-    }
+    trl_deallocate_after_run(conn, statement);
     trl_statement_free(statement);
     trl_params_free(params);
     if (made == TRL_NO_MEMORY) {

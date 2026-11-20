@@ -321,6 +321,23 @@ trl_status trl_deallocate(trl_conn *conn, const trl_statement *statement) {
     return trl_conn_send(conn) && trl_conn_completion(conn) ? TRL_OK : TRL_FAILED;
 }
 
+void trl_deallocate_after_run(trl_conn *conn, const trl_statement *statement) {
+    if (conn == NULL || statement == NULL || trl_conn_is_lost(conn)) {
+        return;
+    }
+    /* A statement already run keeps its result though it cannot be
+       destroyed: the server destroys it with the session. */
+    trl_failure kept;
+    trl_failure_init(&kept);
+    trl_failure_copy(&kept, trl_conn_failure(conn));
+    trl_completion_aside aside;
+    trl_conn_completion_set_aside(conn, &aside);
+    (void)trl_deallocate(conn, statement);
+    trl_conn_completion_put_back(conn, &aside);
+    trl_failure_copy(&conn->failure, &kept);
+    trl_failure_clear(&kept);
+}
+
 size_t trl_statement_parameter_count(const trl_statement *statement) {
     return statement == NULL ? 0U : statement->parameter_count;
 }
@@ -350,6 +367,10 @@ const char *trl_statement_column_type_name(const trl_statement *statement, size_
 
 const char *trl_statement_column_type_written(const trl_statement *statement, size_t column) {
     return statement == NULL ? NULL : trl_result_column_type_written(statement->columns, column);
+}
+
+bool trl_statement_column_not_null(const trl_statement *statement, size_t column) {
+    return statement != NULL && trl_result_column_not_null(statement->columns, column);
 }
 
 void trl_statement_free(trl_statement *statement) {

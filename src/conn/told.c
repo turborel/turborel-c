@@ -104,6 +104,19 @@ void trl_conn_completed(trl_conn *conn, const trl_completed *completed) {
     keep_conditions(told, completed);
 }
 
+void trl_conn_completion_set_aside(trl_conn *conn, trl_completion_aside *aside) {
+    aside->told = conn->last;
+    memset(&conn->last, 0, sizeof conn->last);
+    trl_format(aside->warning, sizeof aside->warning, "%s", conn->warning);
+}
+
+void trl_conn_completion_put_back(trl_conn *conn, trl_completion_aside *aside) {
+    forget_told(&conn->last);
+    conn->last = aside->told;
+    memset(&aside->told, 0, sizeof aside->told);
+    trl_format(conn->warning, sizeof conn->warning, "%s", aside->warning);
+}
+
 void trl_conn_notice(trl_conn *conn, const trl_reply *notice) {
     trl_wire_failure wire;
     memset(&wire, 0, sizeof wire);

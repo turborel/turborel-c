@@ -103,8 +103,11 @@ static char *copied(const char *text) {
    name `identified`; the agent's and current after [§15.1 GR8-GR11]. */
 static trl_status connected_as(trl_agent *agent, const char *server, const char *user, char *identified) {
     trl_conn *conn = NULL;
-    trl_status made = agent->connect(agent->context, server, user, &conn);
+    trl_failure lent;
+    trl_failure_init(&lent);
+    trl_status made = agent->connect(agent->context, server, user, &conn, &lent);
     if (made == TRL_OK && conn != NULL) {
+        trl_failure_clear(&lent);
         if (!trl_agent_hold(agent, identified, conn)) {
             trl_conn_free(conn);
             free(identified);
@@ -113,8 +116,11 @@ static trl_status connected_as(trl_agent *agent, const char *server, const char 
         return TRL_OK;
     }
     free(identified);
+    /* The connection's failure, else the one the connector told. */
     const trl_failure *why = conn != NULL ? trl_conn_failure(conn) : NULL;
+    why = why == NULL && trl_failure_sqlcode(&lent) != 0 ? &lent : why;
     if (why == NULL || made == TRL_NO_MEMORY) {
+        trl_failure_clear(&lent);
         trl_conn_free(conn);
         return trl_agent_no_memory(agent);
     }
@@ -124,6 +130,7 @@ static trl_status connected_as(trl_agent *agent, const char *server, const char 
     bool unreached = strcmp(told, TRL_SQLSTATE_FAILURE) == 0 || strcmp(told, TRL_SQLSTATE_UNABLE) == 0;
     const char *state = unreached ? TRL_SQLSTATE_UNABLE : TRL_SQLSTATE_REJECTED;
     (void)trl_agent_exception(agent, state, TRL_RULE_CONNECT "10, GR11", trl_failure_message(why));
+    trl_failure_clear(&lent);
     trl_conn_free(conn);
     return TRL_FAILED;
 }

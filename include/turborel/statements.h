@@ -52,7 +52,9 @@ TRL_API trl_status trl_query(trl_conn *conn, const char *sql, trl_result **out);
  * @brief Runs one statement with its `?` parameters given as text:
  * prepared, executed with each value as a character string, which the
  * server assigns to the parameter's type, then destroyed; with no
- * parameter, by Query, as trl_query().
+ * parameter, by Query, as trl_query(). What the connection then tells
+ * of the last completion, its rows, identity values, warning and
+ * conditions, is the statement's own, not its destruction's.
  *
  * @param conn The connection.
  * @param sql The statement, UTF-8.
@@ -299,6 +301,16 @@ TRL_API const char *trl_statement_column_type_name(const trl_statement *statemen
  * @return The type, borrowed; null past the last column.
  */
 TRL_API const char *trl_statement_column_type_written(const trl_statement *statement, size_t column);
+
+/**
+ * @brief Whether a column is NOT NULL, as Prepared described it, as
+ * trl_result_column_not_null() tells a result's [PROTOCOL Composite fields].
+ *
+ * @param statement The statement.
+ * @param column Which, from 0.
+ * @return Whether it is; false past the last column, or of a null statement.
+ */
+TRL_API bool trl_statement_column_not_null(const trl_statement *statement, size_t column);
 
 /**
  * @brief Executes a prepared statement with values, as many times as wanted

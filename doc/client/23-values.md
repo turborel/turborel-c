@@ -282,7 +282,7 @@ gives `TRL_INVALID_ARGUMENT` of a null type, or of a null `out` with
 `trl_params_add_datetime`, `trl_params_add_interval`,
 `trl_params_add_decfloat`, `trl_params_add_uuid`, `trl_params_add_json`,
 `trl_params_add_xml`, `trl_params_add_value`, `trl_params_count`,
-`trl_params_clear`, `trl_params_free`: the values a statement is
+`trl_params_failure`, `trl_params_clear`, `trl_params_free`: the values a statement is
 executed with.
 
 ### SYNOPSIS
@@ -303,6 +303,7 @@ trl_status trl_params_add_json(trl_params *params, const char *text, size_t leng
 trl_status trl_params_add_xml(trl_params *params, const char *text, size_t length);
 trl_status trl_params_add_value(trl_params *params, const trl_value *value);
 size_t trl_params_count(const trl_params *params);
+const trl_failure *trl_params_failure(const trl_params *params);
 void trl_params_clear(trl_params *params);
 void trl_params_free(trl_params *params);
 ```
@@ -323,8 +324,13 @@ the list for the next execution.
 ### ERRORS
 
 `TRL_INVALID_ARGUMENT` of a null pointer, of text that is not UTF-8, or
-of a datetime of another kind; `TRL_INVALID_TEXT` of JSON text that is
-not JSON; `TRL_NO_MEMORY`, the list as it was.
+of a datetime of another kind; `TRL_NO_MEMORY`, the list as it was.
+`trl_params_add_json` refuses a value as turborel does, with
+`TRL_FAILED`, the list as it was and keeping the failure, which
+`trl_params_failure` reads until the next such call: text that is not
+JSON, SQLCODE -301 and SQLSTATE 22032; a number no type of turborel's
+holds exactly, 22003; arrays and objects nested past 128, or a value
+whose stored form passes 256 MiB, SQLCODE -900 and SQLSTATE 0A000.
 
 ### EXAMPLES
 

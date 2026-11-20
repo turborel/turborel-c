@@ -33,10 +33,15 @@ extern "C" {
  * @param user The user USER names, trimmed; null for none, the user the
  * connector takes.
  * @param out Where the connection goes, made on TRL_FAILED too, holding
- * why.
+ * why; or left null on TRL_FAILED, `why` then saying why.
+ * @param why A failure the agent lends, empty, which a connector that
+ * makes no connection fills by trl_failure_tell(), so its own failure,
+ * as a wrapper's, is told as a connection's is: of SQLSTATE 08006
+ * SQLSTATE 08001, of any other 08004, its message kept.
  * @return TRL_OK, or why none was made.
  */
-typedef trl_status (*trl_agent_connector)(void *context, const char *server, const char *user, trl_conn **out);
+typedef trl_status (*trl_agent_connector)(void *context, const char *server, const char *user, trl_conn **out,
+                                          trl_failure *why);
 
 /** @brief An SQL-agent. */
 typedef struct trl_agent trl_agent;

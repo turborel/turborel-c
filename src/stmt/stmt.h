@@ -40,6 +40,14 @@ bool trl_execute_encode(const trl_conn *conn, const trl_statement *statement, co
 /** @brief Reads an Execute's replies into a new result, as trl_execute() reads them once it has sent its request. */
 trl_status trl_execute_read(trl_conn *conn, const trl_statement *statement, trl_result **out);
 
+/**
+ * @brief Destroys a statement run once, unless the connection is lost,
+ * the connection's failure and last completion left as its run told
+ * them, so the run's rows, identity values, warning and conditions are
+ * what the connection gives, not the Deallocate's.
+ */
+void trl_deallocate_after_run(trl_conn *conn, const trl_statement *statement);
+
 /** @brief The number a statement is prepared under. */
 uint32_t trl_statement_number(const trl_statement *statement);
 

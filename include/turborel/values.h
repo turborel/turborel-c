@@ -477,10 +477,24 @@ TRL_API trl_status trl_params_add_uuid(trl_params *params, const uint8_t octets[
  * @param params The list.
  * @param text The text, UTF-8.
  * @param length Its bytes.
- * @return TRL_OK; TRL_INVALID_ARGUMENT of a null pointer;
- * TRL_INVALID_TEXT of text no JSON value is; TRL_NO_MEMORY.
+ * @return TRL_OK; TRL_INVALID_ARGUMENT of a null pointer; TRL_FAILED,
+ * the list keeping the failure, read by trl_params_failure(), of text
+ * no JSON value is (SQLCODE -301, SQLSTATE 22032), of a number no type
+ * of turborel's holds exactly (22003), or of arrays and objects nested
+ * past 128 or a value stored in more than 256 MiB (SQLCODE -900,
+ * SQLSTATE 0A000); TRL_NO_MEMORY.
  */
 TRL_API trl_status trl_params_add_json(trl_params *params, const char *text, size_t length);
+
+/**
+ * @brief Why the last value the list refused was refused, as
+ * trl_params_add_json() refuses one.
+ *
+ * @param params The list.
+ * @return Its failure, borrowed, of SQLCODE 0 if the last such call
+ * succeeded; null of a null list.
+ */
+TRL_API const trl_failure *trl_params_failure(const trl_params *params);
 
 /**
  * @brief Adds an XML value of its serialization, UTF-8.

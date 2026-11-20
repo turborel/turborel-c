@@ -153,11 +153,39 @@ static void empty_and_null_failures(trl_test *test) {
     TRL_CHECK(test, trl_failure_text(&failure, NULL, sizeof line) == 0U);
 }
 
+/**
+ * Verifies: [DESIGN] D9 a program's own failure told into one lent it:
+ * its SQLCODE, SQLSTATE and message kept, citing no rule; a null
+ * pointer, an SQLCODE not below 0, an SQLSTATE of another form or a
+ * message not UTF-8 refused, the failure as it was.
+ */
+static void a_programs_failure_is_told(trl_test *test) {
+    trl_failure lent;
+    trl_failure_init(&lent);
+    TRL_CHECK(test, trl_failure_tell(&lent, -919, "08006", "closed") == TRL_OK);
+    TRL_CHECK(test, trl_failure_sqlcode(&lent) == -919 && strcmp(trl_failure_sqlstate(&lent), "08006") == 0);
+    TRL_CHECK(test, strcmp(trl_failure_message(&lent), "closed") == 0 && trl_failure_rule(&lent) == NULL);
+    TRL_CHECK(test, trl_failure_tell(&lent, -30082, "28000", "refused") == TRL_OK &&
+                        strcmp(trl_failure_message(&lent), "refused") == 0);
+    static const char *const states[] = {"0800", "080066", "08o06", NULL};
+    bool every = true;
+    for (size_t i = 0U; i < sizeof states / sizeof states[0]; ++i) {
+        every = every && trl_failure_tell(&lent, -1, states[i], "x") == TRL_INVALID_ARGUMENT;
+    }
+    TRL_CHECK(test, every && trl_failure_tell(&lent, 0, "08006", "x") == TRL_INVALID_ARGUMENT);
+    TRL_CHECK(test, trl_failure_tell(&lent, -1, "08006", "\xff") == TRL_INVALID_ARGUMENT &&
+                        trl_failure_tell(&lent, -1, "08006", NULL) == TRL_INVALID_ARGUMENT &&
+                        trl_failure_tell(NULL, -1, "08006", "x") == TRL_INVALID_ARGUMENT);
+    TRL_CHECK(test, trl_failure_sqlcode(&lent) == -30082);
+    trl_failure_clear(&lent);
+}
+
 int main(int argc, char **argv) {
     static const trl_test_case cases[] = {
         TRL_TEST_CASE(a_servers_failure_is_kept_whole),
         TRL_TEST_CASE(the_drivers_failures_cite_design),
         TRL_TEST_CASE(empty_and_null_failures),
+        TRL_TEST_CASE(a_programs_failure_is_told),
     };
     return trl_test_main(argc, argv, cases, TRL_TEST_COUNT(cases));
 }
