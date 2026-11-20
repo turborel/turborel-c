@@ -19,6 +19,10 @@
 #
 # Takes: SOURCE_DIR.
 
+# A script run by -P sets no policies of its own: these are 3.25's, the
+# least CMake the driver takes, so each CMake reads it alike.
+cmake_minimum_required(VERSION 3.25)
+
 set(TRL_MAX_FILE_LINES 600)
 
 # The lines of `path` as a list, each with \ ; [ ] spelled <b> <s> <l> <r>,

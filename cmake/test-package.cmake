@@ -7,6 +7,10 @@
 #
 # Takes: BUILD_DIR, SOURCE_DIR, CONFIG, C_COMPILER, GENERATOR, SHARED.
 
+# A script run by -P sets no policies of its own: these are 3.25's, the
+# least CMake the driver takes, so each CMake reads it alike.
+cmake_minimum_required(VERSION 3.25)
+
 set(trl_stage "${BUILD_DIR}/package-test/stage")
 set(trl_consumer "${BUILD_DIR}/package-test/consumer")
 file(REMOVE_RECURSE "${BUILD_DIR}/package-test")

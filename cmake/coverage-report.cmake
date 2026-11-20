@@ -5,6 +5,10 @@
 # Takes: LLVM_COV, LLVM_PROFDATA, PROFILE_DIR, OBJECTS (the test
 # executables, separated by |), SOURCE_DIR, REPORT_DIR.
 
+# A script run by -P sets no policies of its own: these are 3.25's, the
+# least CMake the driver takes, so each CMake reads it alike.
+cmake_minimum_required(VERSION 3.25)
+
 include("${CMAKE_CURRENT_LIST_DIR}/CoverageFloors.cmake")
 
 file(GLOB trl_raw "${PROFILE_DIR}/*.profraw")

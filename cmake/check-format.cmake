@@ -4,6 +4,10 @@
 #
 # Takes: SOURCE_DIR, CLANG_FORMAT.
 
+# A script run by -P sets no policies of its own: these are 3.25's, the
+# least CMake the driver takes, so each CMake reads it alike.
+cmake_minimum_required(VERSION 3.25)
+
 file(GLOB_RECURSE trl_files "${SOURCE_DIR}/include/*.h" "${SOURCE_DIR}/src/*.[ch]" "${SOURCE_DIR}/test/*.[ch]"
      "${SOURCE_DIR}/fuzz/*.[ch]")
 list(SORT trl_files)

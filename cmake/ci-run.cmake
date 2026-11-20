@@ -4,6 +4,10 @@
 #
 # Takes: COMMAND, the command as a CMake list ("cmake;--workflow;...").
 
+# A script run by -P sets no policies of its own: these are 3.25's, the
+# least CMake the driver takes, so each CMake reads it alike.
+cmake_minimum_required(VERSION 3.25)
+
 # The lines of output an annotation keeps: enough for a compiler's
 # error and its context.
 set(TRL_ANNOTATED_LINES 60)
