@@ -283,6 +283,9 @@ static void attributes_and_several_statements(trl_test *test) {
     TRL_CHECK(test, trl_query_many(conn, "VALUES (1); VALUES (2)", &ran) == TRL_OK && trl_ran_count(ran) == 2U);
     TRL_CHECK(test, trl_ran_failure(ran) == NULL);
     trl_ran_free(ran);
+    TRL_CHECK(test, trl_query_many(conn, "", &ran) == TRL_OK && trl_ran_count(ran) == 1U);
+    TRL_CHECK(test, !trl_result_has_rows(trl_ran_result(ran, 0U)) && trl_ran_failure(ran) == NULL);
+    trl_ran_free(ran);
     trl_conn_free(conn);
 }
 

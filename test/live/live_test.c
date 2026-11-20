@@ -212,7 +212,8 @@ static size_t frames_of(const trl_buffer *heard, size_t from, uint8_t kind) {
 /**
  * Verifies: [PROTOCOL Status 'T'] after a statement, a Status only of what
  * it changed, none of the first statement after login that changed
- * nothing, and one of a setting a statement changed.
+ * nothing, and one of a setting a statement changed; after Reset, one of
+ * each setting again [PROTOCOL Reset 'W'].
  */
 static void a_statement_tells_only_its_changes(trl_test *test) {
     recorder r;
@@ -225,7 +226,8 @@ static void a_statement_tells_only_its_changes(trl_test *test) {
     trl_conn *conn = NULL;
     TRL_CHECK(test, trl_connect_stream(&stream, "ann", trust, NULL, &conn) == TRL_OK);
     size_t logged_in = r.heard.length;
-    TRL_CHECK(test, frames_of(&r.heard, 0U, TRL_KIND_STATUS) > 7U);
+    size_t told_at_login = frames_of(&r.heard, 0U, TRL_KIND_STATUS);
+    TRL_CHECK(test, told_at_login > 7U);
     trl_result *result = NULL;
     TRL_CHECK(test, trl_query(conn, "VALUES (1)", &result) == TRL_OK);
     trl_result_free(result);
@@ -234,6 +236,9 @@ static void a_statement_tells_only_its_changes(trl_test *test) {
     TRL_CHECK(test, trl_query(conn, "SET TIME ZONE INTERVAL '+03:00' HOUR TO MINUTE", &result) == TRL_OK);
     trl_result_free(result);
     TRL_CHECK(test, frames_of(&r.heard, first, TRL_KIND_STATUS) == 1U);
+    size_t reset = r.heard.length;
+    TRL_CHECK(test, trl_conn_reset(conn) == TRL_OK);
+    TRL_CHECK(test, frames_of(&r.heard, reset, TRL_KIND_STATUS) == told_at_login);
     trl_conn_free(conn);
     trl_mechanism_free(trust);
     trl_buffer_free(&r.heard);
