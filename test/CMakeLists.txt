@@ -39,6 +39,15 @@ trl_add_test(codec.replies codec/replies_test.c codec/fixture.c)
 trl_add_test(codec.compress codec/compress_test.c codec/fixture.c)
 trl_add_test(codec.sweep codec/sweep_test.c codec/fixture.c codec/corpus.c)
 trl_add_test(codec.limits codec/limits_test.c codec/fixture.c codec/corpus.c)
+# The sample frames, Turborel's doc/client/05-protocol-frames.tsv at the
+# commit CONFORMANCE.md names.
+trl_add_test(codec.samples_decoded codec/samples_decoded_test.c codec/samples.c codec/samples_expected.c
+             codec/render.c codec/fixture.c)
+trl_add_test(codec.samples codec/samples_test.c codec/samples.c codec/samples_encoded.c codec/fixture.c)
+foreach(trl_samples IN ITEMS codec.samples codec.samples_decoded)
+  target_compile_definitions(${trl_samples}
+                             PRIVATE "TRL_SAMPLES_FILE=\"${CMAKE_CURRENT_SOURCE_DIR}/codec/05-protocol-frames.tsv\"")
+endforeach()
 trl_add_test(auth.base64 auth/base64_test.c)
 trl_add_test(auth.binding auth/binding_test.c)
 trl_add_test(auth.key_cache auth/key_cache_test.c)

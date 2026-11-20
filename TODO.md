@@ -17,6 +17,3 @@ Code never cites this file (R-DOC-5).
 
 - Every row of CONFORMANCE.md checked against turborel-client and the
   spec, the coverage floor held (RULES.md D7), and this file empty.
-- The sample frames: P-FRAMES-1 to P-FRAMES-4, every frame of
-  `doc/client/05-protocol-frames.tsv` decoded or encoded as it says, at a
-  pinned commit of Turborel.

@@ -44,15 +44,53 @@ int trl_test_main(int argc, char **argv, const trl_test_case *cases, size_t coun
     return failures == 0U ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
-bool trl_test_write_file(const char *path, const char *text) {
+/* Opens the file at `path` as `mode` asks; null if it cannot be. */
+static FILE *opened(const char *path, const char *mode) {
 #ifdef _WIN32
     FILE *file = NULL;
-    if (fopen_s(&file, path, "wb") != 0) {
+    if (fopen_s(&file, path, mode) != 0) {
         file = NULL;
     }
+    return file;
 #else
-    FILE *file = fopen(path, "wb");
+    return fopen(path, mode);
 #endif
+}
+
+bool trl_test_read_file(const char *path, char **text) {
+    *text = NULL;
+    FILE *file = opened(path, "rb");
+    if (file == NULL) {
+        return false;
+    }
+    size_t capacity = BUFSIZ;
+    size_t length = 0U;
+    char *data = malloc(capacity + 1U);
+    while (data != NULL) {
+        length += fread(data + length, 1U, capacity - length, file);
+        if (length < capacity) {
+            break;
+        }
+        capacity *= 2U;
+        char *grown = realloc(data, capacity + 1U);
+        if (grown == NULL) {
+            free(data);
+        }
+        data = grown;
+    }
+    bool read = data != NULL && ferror(file) == 0;
+    (void)fclose(file);
+    if (!read) {
+        free(data);
+        return false;
+    }
+    data[length] = '\0';
+    *text = data;
+    return true;
+}
+
+bool trl_test_write_file(const char *path, const char *text) {
+    FILE *file = opened(path, "wb");
     if (file == NULL) {
         return false;
     }

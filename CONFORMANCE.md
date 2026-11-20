@@ -11,8 +11,10 @@ protocol, `doc/client/05-protocol.md`; the client library,
 `doc/client/02-library.md`; and its settings, pipelines and pools,
 `doc/client/02-library-connections.md`. Each section here is one of
 theirs, and each row cites its heading as the tests cite it (RULES.md
-D6). The headings are those of Turborel's main at 045e42a9. Last come
-the rows of this driver's standard API (RULES.md D2).
+D6). The headings are those of Turborel's main at 045e42a9, and the
+sample frames the tests read, `test/codec/05-protocol-frames.tsv`, are
+its `doc/client/05-protocol-frames.tsv` there. Last come the rows of
+this driver's standard API (RULES.md D2).
 
 **Done** means the driver's code for the row exists and is tested by
 tests that cite the row's section (RULES.md R-TRACE-4). **Not yet**
@@ -553,10 +555,10 @@ they follow Turborel's RULES.md D89 and `src/json/binary.rs`.
 
 | ID | Row | Citation | Status |
 |---|---|---|---|
-| P-FRAMES-1 | Every line of `05-protocol-frames.tsv`, at a pinned commit, read as the page lays it out: direction, name, needs, hex, means | `[PROTOCOL Sample frames]` | not yet |
-| P-FRAMES-2 | Every server frame decoded to what its meaning says, with the capabilities it needs granted | `[PROTOCOL Sample frames]` | not yet |
-| P-FRAMES-3 | Every client frame the driver can send encoded byte for byte as the file holds it | `[PROTOCOL Sample frames]` | not yet |
-| P-FRAMES-4 | A compressed frame's sample inflated to the frame its meaning names | `[PROTOCOL Sample frames]` | not yet |
+| P-FRAMES-1 | Every line of `05-protocol-frames.tsv`, at a pinned commit, read as the page lays it out: direction, name, needs, hex, means | `[PROTOCOL Sample frames]` | done |
+| P-FRAMES-2 | Every server frame decoded to what its meaning says, with the capabilities it needs granted | `[PROTOCOL Sample frames]` | done |
+| P-FRAMES-3 | Every client frame the driver can send encoded byte for byte as the file holds it | `[PROTOCOL Sample frames]` | done |
+| P-FRAMES-4 | A compressed frame's sample inflated to the frame its meaning names | `[PROTOCOL Sample frames]` | done |
 
 ### A worked example
 

@@ -60,6 +60,10 @@ int trl_test_main(int argc, char **argv, const trl_test_case *cases, size_t coun
 /** @brief Writes `text` to a file at `path`, made or emptied first; whether it was written. */
 bool trl_test_write_file(const char *path, const char *text);
 
+/** @brief Reads the file at `path` whole, ended by a null, into `*text`, the caller's to free; null if it cannot be
+ * read. */
+bool trl_test_read_file(const char *path, char **text);
+
 /** @brief Checks that `condition` holds, in the case `test`. */
 #define TRL_CHECK(test, condition) trl_test_check((test), !!(condition), #condition, __FILE__, __LINE__)
 
