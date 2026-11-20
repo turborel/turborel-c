@@ -47,20 +47,20 @@ static void many_reply(script *s) {
 }
 
 /* Answers with a failure, if the plan is one; whether it was. */
-static bool answer_failure(script *s, plan plan) {
-    if (plan == PLAN_ERROR) {
+static bool answer_failure(script *s, reply_plan wanted) {
+    if (wanted == PLAN_ERROR) {
         script_error(s, -103, "42000", "a statement refused", NULL);
-    } else if (plan == PLAN_ERROR_08) {
+    } else if (wanted == PLAN_ERROR_08) {
         script_error(s, -919, "08006", "the server is stopping", NULL);
-    } else if (plan == PLAN_BEHIND) {
+    } else if (wanted == PLAN_BEHIND) {
         script_error(s, -920, "TBR01", "the replica has not applied the position asked for", NULL);
-    } else if (plan == PLAN_ROWS_THEN_ERROR) {
+    } else if (wanted == PLAN_ROWS_THEN_ERROR) {
         script_description(s, 1U);
         script_rows(s, 1U, 1U);
         script_error(s, -802, "22003", "out of range", NULL);
-    } else if (plan == PLAN_BROKEN_ROWS) {
+    } else if (wanted == PLAN_BROKEN_ROWS) {
         broken_rows(s);
-    } else if (plan == PLAN_PONG) {
+    } else if (wanted == PLAN_PONG) {
         script_bare(s, TRL_KIND_PONG);
     } else {
         return false;
@@ -70,25 +70,25 @@ static bool answer_failure(script *s, plan plan) {
 
 /* Answers a query or a prepared statement, if the plan is one of theirs;
    whether it was. */
-static bool answer_statement(script *s, plan plan) {
-    if (plan == PLAN_ROWS) {
+static bool answer_statement(script *s, reply_plan wanted) {
+    if (wanted == PLAN_ROWS) {
         rows_reply(s);
-    } else if (plan == PLAN_DONE) {
+    } else if (wanted == PLAN_DONE) {
         script_complete(s, 0, "00000", false, false);
-    } else if (plan == PLAN_NOTICES) {
+    } else if (wanted == PLAN_NOTICES) {
         notices_reply(s);
-    } else if (plan == PLAN_TAILS) {
+    } else if (wanted == PLAN_TAILS) {
         script_complete_tails(s);
-    } else if (plan == PLAN_MANY) {
+    } else if (wanted == PLAN_MANY) {
         many_reply(s);
-    } else if (plan == PLAN_PREPARED) {
+    } else if (wanted == PLAN_PREPARED) {
         script_prepared(s, 0U, 1U, 1U);
-    } else if (plan == PLAN_PREPARED_BARE) {
+    } else if (wanted == PLAN_PREPARED_BARE) {
         script_prepared(s, 0U, 0U, 0U);
-    } else if (plan == PLAN_SUSPEND) {
+    } else if (wanted == PLAN_SUSPEND) {
         script_rows(s, 1U, 1U);
         script_bare(s, TRL_KIND_SUSPENDED);
-    } else if (plan == PLAN_DESCRIBED) {
+    } else if (wanted == PLAN_DESCRIBED) {
         script_description(s, 1U);
     } else {
         return false;
@@ -97,13 +97,13 @@ static bool answer_statement(script *s, plan plan) {
 }
 
 /* Answers a statement as the plan says. */
-static void answer(script *s, plan plan) {
-    if (answer_failure(s, plan) || answer_statement(s, plan)) {
+static void answer(script *s, reply_plan wanted) {
+    if (answer_failure(s, wanted) || answer_statement(s, wanted)) {
         return;
     }
-    if (plan == PLAN_CHALLENGE) {
+    if (wanted == PLAN_CHALLENGE) {
         script_ready(s, "BOB", NULL, 0U);
-    } else if (plan == PLAN_ONLY_CHALLENGE) {
+    } else if (wanted == PLAN_ONLY_CHALLENGE) {
         script_challenge(s, (const uint8_t *)"x", 1U);
     }
 }

@@ -15,7 +15,7 @@
 #include <stdint.h>
 
 /** @brief What the server does with each request after Ready. */
-typedef enum plan {
+typedef enum reply_plan {
     PLAN_ROWS = 0,
     PLAN_DONE,
     PLAN_PONG,
@@ -33,11 +33,11 @@ typedef enum plan {
     PLAN_PREPARED_BARE,
     PLAN_ROWS_THEN_ERROR,
     PLAN_BEHIND,
-} plan;
+} reply_plan;
 
 /** @brief A server's plan, and whether it grants everything. */
 typedef struct serving {
-    plan plan;
+    reply_plan plan;
     bool everything;
 } serving;
 
