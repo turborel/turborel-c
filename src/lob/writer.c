@@ -7,7 +7,6 @@
  * passed as a parameter by its locator.
  */
 #include "codec/buffer.h"
-#include "codec/error.h"
 #include "codec/kinds.h"
 #include "codec/replies.h"
 #include "codec/requests.h"
