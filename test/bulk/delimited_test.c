@@ -310,7 +310,7 @@ static void tab_separated_records_and_delimiters(trl_test *test) {
     trl_dialect pipe = trl_dialect_tsv();
     pipe.delimiter = '|';
     TRL_CHECK(test, reads_as("a|b\tc", pipe, "[a][b\tc]"));
-    static const char wrong[] = {'"', '\n', '\r', '\0', (char)0xC3};
+    static const char wrong[] = {'"', '\n', '\r', '\0', '\xC3'};
     input in = input_of("", 1U);
     for (size_t i = 0U; i < sizeof wrong; ++i) {
         trl_dialect refused = trl_dialect_csv();

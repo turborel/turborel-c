@@ -15,7 +15,6 @@
 #include "bulk/imported.h"
 #include "bulk/names.h"
 #include "codec/buffer.h"
-#include "codec/error.h"
 #include "data/params.h"
 #include "failure.h"
 #include "format.h"

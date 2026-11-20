@@ -75,6 +75,7 @@ struct trl_delimited {
     size_t field_count;
     size_t field_capacity;
     const char **names;
+    char *name_texts;
     uint64_t lines;
     uint64_t records;
     bool header_pending;
@@ -137,6 +138,7 @@ void trl_delimited_free(trl_delimited *delimited) {
     free(delimited->input);
     free(delimited->fields);
     free((void *)delimited->names);
+    free(delimited->name_texts);
     trl_buffer_free(&delimited->bytes);
     trl_buffer_free(&delimited->texts);
     free(delimited);
@@ -433,7 +435,9 @@ static trl_source_read header(trl_delimited *d, trl_headings *out, trl_source_er
         names[i] = texts + d->fields[i].at;
     }
     free((void *)d->names);
+    free(d->name_texts);
     d->names = names;
+    d->name_texts = texts;
     out->names = names;
     out->count = d->field_count;
     return TRL_READ_OK;

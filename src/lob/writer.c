@@ -99,7 +99,7 @@ trl_status trl_lob_writer_new(trl_conn *conn, bool character, trl_lob_writer **o
     trl_lob_request request;
     memset(&request, 0, sizeof request);
     request.op = TRL_LOB_CREATE;
-    request.kind = character ? TRL_LOB_CHARACTER : TRL_LOB_BINARY;
+    request.kind = (uint8_t)(character ? TRL_LOB_CHARACTER : TRL_LOB_BINARY);
     trl_reply reply;
     if (!trl_lob_ask(conn, &request, &reply)) {
         free(writer);
@@ -177,7 +177,7 @@ trl_status trl_lob_writer_finish(trl_lob_writer *writer, trl_params *params) {
     trl_value located;
     memset(&located, 0, sizeof located);
     located.tag = TRL_TAG_LOB_LOCATOR;
-    located.as.locator.kind = writer->character ? TRL_LOB_CHARACTER : TRL_LOB_BINARY;
+    located.as.locator.kind = (uint8_t)(writer->character ? TRL_LOB_CHARACTER : TRL_LOB_BINARY);
     located.as.locator.locator = writer->locator;
     located.as.locator.octets = writer->octets;
     located.as.locator.characters = writer->characters;
