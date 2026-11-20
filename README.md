@@ -29,14 +29,15 @@ large objects, bulk copy, import and export, settings from a URI, the
 environment and service and password files, several servers, pipelines
 and pools.
 
-The driver is built in milestones, M0 to M8. It connects to a server
-over each transport, by each mechanism, by settings or a URI; runs
-statements, prepared or not, and reads their rows a batch at a time or
-through cursors; reads and writes large objects; copies, imports and
+The driver was built in milestones, M0 to M8, each done. It connects to
+a server over each transport, by each mechanism, by settings or a URI;
+runs statements, prepared or not, and reads their rows a batch at a time
+or through cursors; reads and writes large objects; copies, imports and
 exports; runs pipelines, pools and the SQL-agent; and gives the standard
-API and the ODBC driver. Milestone M8, the parity audit, is what remains.
-[CONFORMANCE.md](CONFORMANCE.md) shows what is done, row by row, and
-[TODO.md](TODO.md) what is open.
+API and the ODBC driver. The last milestone's audit checked every row
+against turborel-client and the spec.
+[CONFORMANCE.md](CONFORMANCE.md) shows each row, and [TODO.md](TODO.md)
+what is open.
 
 ## Requirements
 
@@ -70,8 +71,7 @@ or with pkg-config, `pkg-config --cflags --libs turborel`.
 
 ## A first query
 
-This is the standard API. Its names may change until milestone M8's
-audit has checked them.
+This is the standard API, as libpq's users will know it.
 
 ```c
 #include <turborel/turborel.h>
@@ -112,8 +112,7 @@ manager.
 
 [doc/](doc/README.md) is the manual: a User's Guide, an API Reference
 and Appendices, published at
-https://turborel.com/docs/drivers/c/. Each
-chapter is written as the milestone that fills it lands. The SQL a
+https://turborel.com/docs/drivers/c/. The SQL a
 program sends, and the server, are described in Turborel's own manual,
 [The Turborel Documentation Set](https://github.com/turborel/turborel/blob/main/doc/README.md).
 [VERSIONING.md](VERSIONING.md) tells how the driver's releases are

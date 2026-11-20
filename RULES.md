@@ -318,8 +318,8 @@ session's status, is reached through the low-level client or the
 driver's own extensions of the standard interface.
 
 Every failure is the driver's error, carrying its SQLCODE and SQLSTATE
-(R-ERR). The standard interface is built at milestone M7 and checked in
-M8's audit; until then its names may change.
+(R-ERR). The standard interface was built at milestone M7 and checked in
+M8's audit.
 
 The C API is in the manner of PostgreSQL's libpq, the C interface most
 database programmers know: a connection handle made from settings or a
