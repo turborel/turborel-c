@@ -89,3 +89,9 @@ jobs:
       - name: Fuzz the frame header
         timeout-minutes: 15
         run: cmake "-DCOMMAND=build/fuzz/fuzz/fuzz.frame;-seed=1;-runs=1000000" -P cmake/ci-run.cmake
+      - name: Fuzz the reply decoder
+        timeout-minutes: 15
+        run: cmake "-DCOMMAND=build/fuzz/fuzz/fuzz.reply;-seed=1;-runs=2000000;-max_len=4096" -P cmake/ci-run.cmake
+      - name: Fuzz JSON's stored form and text
+        timeout-minutes: 15
+        run: cmake "-DCOMMAND=build/fuzz/fuzz/fuzz.json;-seed=1;-runs=2000000;-max_len=4096" -P cmake/ci-run.cmake

@@ -15,3 +15,5 @@ function(trl_add_fuzzer name source)
 endfunction()
 
 trl_add_fuzzer(fuzz.frame frame_fuzz.c)
+trl_add_fuzzer(fuzz.reply reply_fuzz.c)
+trl_add_fuzzer(fuzz.json json_fuzz.c)
