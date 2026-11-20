@@ -11,6 +11,7 @@
 #include "codec/requests.h"
 #include "conn/conn.h"
 #include "failure.h"
+#include "format.h"
 #include "server.h"
 #include "turborel/turborel.h"
 
@@ -35,7 +36,7 @@ trl_tls *live_tls(bool present) {
         return NULL;
     }
     char chain[SERVER_PATH_BYTES];
-    (void)snprintf(chain, sizeof chain, "%s", live_path("client.pem"));
+    trl_format(chain, sizeof chain, "%s", live_path("client.pem"));
     if (present && trl_tls_present(tls, chain, live_path("client.key")) != TRL_OK) {
         trl_tls_free(tls);
         return NULL;

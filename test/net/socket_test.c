@@ -6,6 +6,7 @@
  * a login, and cancel over a connection of its own [PROTOCOL Cancel 'Z'].
  */
 #include "fake.h"
+#include "format.h"
 #include "harness.h"
 #include "turborel/turborel.h"
 
@@ -135,7 +136,7 @@ static void the_system_says_why_it_cannot_connect(trl_test *test) {
  */
 static void a_unix_socket_takes_a_secret_tcp_does_not(trl_test *test) {
     char path[PATH_BYTES];
-    (void)snprintf(path, sizeof path, "fake-%ld.sock", (long)time(NULL));
+    trl_format(path, sizeof path, "fake-%ld.sock", (long)time(NULL));
     fake f;
     TRL_CHECK(test, fake_start(&f, FAKE_READY, 1, path));
     trl_target *target = NULL;

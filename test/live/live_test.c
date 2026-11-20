@@ -29,6 +29,8 @@
 /* The platform's and the TLS library's headers declare more than the
    include checker can map to their own names (R-LINT-3). */
 // NOLINTBEGIN(misc-include-cleaner)
+#include "format.h"
+
 #include <pthread.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -450,7 +452,7 @@ int main(int argc, char **argv) {
     if (getcwd(cwd, sizeof cwd) == NULL) {
         return EXIT_FAILURE;
     }
-    (void)snprintf(dir, sizeof dir, "%s/live-server", cwd);
+    trl_format(dir, sizeof dir, "%s/live-server", cwd);
     const char *why = NULL;
     if (!server_start(&live_server, dir, &why)) {
         (void)fprintf(stderr, "%s\n", why);

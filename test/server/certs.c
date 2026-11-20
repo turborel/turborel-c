@@ -8,6 +8,8 @@
 /* The platform's and the TLS library's headers declare more than the
    include checker can map to their own names (R-LINT-3). */
 // NOLINTBEGIN(misc-include-cleaner)
+#include "format.h"
+
 #include <openssl/bio.h>
 #include <openssl/evp.h>
 #include <openssl/obj_mac.h>
@@ -40,7 +42,7 @@ static bool extend(X509 *cert, X509 *issuer, int nid, const char *value) {
     X509V3_CTX context;
     X509V3_set_ctx(&context, issuer, cert, NULL, NULL, 0);
     char text[PATH_BYTES];
-    (void)snprintf(text, sizeof text, "%s", value);
+    trl_format(text, sizeof text, "%s", value);
     X509_EXTENSION *extension = X509V3_EXT_conf_nid(NULL, &context, nid, text);
     bool added = extension != NULL && X509_add_ext(cert, extension, -1) == 1;
     X509_EXTENSION_free(extension);
@@ -75,12 +77,12 @@ static bool sign(X509 *cert, EVP_PKEY *key) {
 /* Writes `cert`, and `key` if not null, to `dir`/`name`.pem and .key. */
 static bool write_out(const char *dir, const char *name, X509 *cert, EVP_PKEY *key) {
     char path[PATH_BYTES];
-    (void)snprintf(path, sizeof path, "%s/%s.pem", dir, name);
+    trl_format(path, sizeof path, "%s/%s.pem", dir, name);
     BIO *file = BIO_new_file(path, "w");
     bool written = file != NULL && PEM_write_bio_X509(file, cert) == 1;
     BIO_free(file);
     if (written && key != NULL) {
-        (void)snprintf(path, sizeof path, "%s/%s.key", dir, name);
+        trl_format(path, sizeof path, "%s/%s.key", dir, name);
         file = BIO_new_file(path, "w");
         written = file != NULL && PEM_write_bio_PrivateKey(file, key, NULL, NULL, 0, NULL, NULL) == 1;
         BIO_free(file);

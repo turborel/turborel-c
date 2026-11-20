@@ -11,6 +11,7 @@
 #include "conn/conn.h"
 #include "conn/target.h"
 #include "failure.h"
+#include "format.h"
 #include "memory.h"
 #include "net/tls.h"
 #include "net/transport.h"
@@ -62,7 +63,7 @@ trl_status trl_canceller_new(trl_conn *conn, trl_canceller **out) {
    it: what the system said, a wait run out not told apart. */
 static void plain_failure(trl_failure *failure, const char *what, const trl_io_error *error) {
     char message[TRL_FAILURE_MESSAGE_BYTES];
-    (void)snprintf(message, sizeof message, "cannot %s: %s", what, error->text);
+    trl_format(message, sizeof message, "cannot %s: %s", what, error->text);
     trl_failure_broken(failure, message);
 }
 

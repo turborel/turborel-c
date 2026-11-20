@@ -16,6 +16,8 @@
 /* The platform's and the TLS library's headers declare more than the
    include checker can map to their own names (R-LINT-3). */
 // NOLINTBEGIN(misc-include-cleaner)
+#include "format.h"
+
 #include <arpa/inet.h> // IWYU pragma: keep
 #include <errno.h>
 #include <fcntl.h>
@@ -51,7 +53,7 @@ static void pause_a_while(void) {
 }
 
 void server_path(const server *s, const char *name, char *out, uint32_t capacity) {
-    (void)snprintf(out, capacity, "%s/%s", s->dir, name);
+    trl_format(out, capacity, "%s/%s", s->dir, name);
 }
 
 /* Whether the server takes TCP connections, and its socket is there. */
@@ -99,9 +101,9 @@ static void add_setting(const server *s, words *w, const char *setting) {
     char text[SERVER_PATH_BYTES * 2U];
     const char *equals = strchr(setting, '=');
     if (equals != NULL && equals[1] == '@') {
-        (void)snprintf(text, sizeof text, "%.*s%s/%s", (int)(equals - setting + 1), setting, s->dir, equals + 2);
+        trl_format(text, sizeof text, "%.*s%s/%s", (int)(equals - setting + 1), setting, s->dir, equals + 2);
     } else {
-        (void)snprintf(text, sizeof text, "%s", setting);
+        trl_format(text, sizeof text, "%s", setting);
     }
     add_word(w, text);
 }
@@ -198,7 +200,7 @@ bool server_start(server *s, const char *dir, const char **why) {
         *why = "TRL_TEST_SERVER names no server, so the live tests are skipped";
         return false;
     }
-    (void)snprintf(s->dir, sizeof s->dir, "%s", dir);
+    trl_format(s->dir, sizeof s->dir, "%s", dir);
     server_path(s, "turborel.sock", s->socket, sizeof s->socket);
     if ((mkdir(s->dir, DIR_MODE) != 0 && errno != EEXIST) || (unlink(s->socket) != 0 && errno != ENOENT)) {
         *why = "the server's directory cannot be made";

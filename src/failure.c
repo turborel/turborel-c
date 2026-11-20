@@ -9,6 +9,7 @@
 #include "codec/buffer.h"
 #include "codec/error.h"
 #include "codec/fields.h"
+#include "format.h"
 #include "memory.h"
 #include "turborel/turborel.h"
 
@@ -51,7 +52,7 @@ void trl_failure_clear(trl_failure *failure) {
 static void set_no_memory(trl_failure *failure) {
     trl_failure_clear(failure);
     failure->sqlcode = TRL_SQLCODE_RESOURCES;
-    (void)snprintf(failure->sqlstate, sizeof failure->sqlstate, "%s", TRL_SQLSTATE_RESOURCES);
+    trl_format(failure->sqlstate, sizeof failure->sqlstate, "%s", TRL_SQLSTATE_RESOURCES);
     failure->message = "memory could not be had";
     failure->rule = TRL_RULE_DESIGN;
     failure->diagnostics[0] = TRL_SEVERITY_ERROR;
@@ -125,7 +126,7 @@ void trl_failure_set(trl_failure *failure, int32_t sqlcode, const char *sqlstate
     trl_failure probe;
     trl_failure_init(&probe);
     probe.sqlcode = sqlcode;
-    (void)snprintf(probe.sqlstate, sizeof probe.sqlstate, "%s", sqlstate);
+    trl_format(probe.sqlstate, sizeof probe.sqlstate, "%s", sqlstate);
     strings from = {{{NULL, 0U}}};
     from.of[TRL_STRING_MESSAGE] = text(message);
     from.of[TRL_STRING_RULE] = text(TRL_RULE_DESIGN);
@@ -235,11 +236,11 @@ size_t trl_failure_text(const trl_failure *failure, char *out, size_t capacity) 
     }
     char rule[TRL_FAILURE_MESSAGE_BYTES] = "";
     if (failure->rule != NULL) {
-        (void)snprintf(rule, sizeof rule, " [%s]", failure->rule);
+        trl_format(rule, sizeof rule, " [%s]", failure->rule);
     }
     char place[TRL_FAILURE_MESSAGE_BYTES] = "";
     if (failure->placed) {
-        (void)snprintf(place, sizeof place, " (at character %llu)", (unsigned long long)failure->position);
+        trl_format(place, sizeof place, " (at character %llu)", (unsigned long long)failure->position);
     }
     int written = snprintf(out, capacity, "SQLCODE %ld (SQLSTATE %s): %s%s%s", (long)failure->sqlcode,
                            failure->sqlstate, failure->message, rule, place);

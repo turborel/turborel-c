@@ -13,6 +13,8 @@
 
 #include "net/transport.h"
 
+#include "format.h"
+
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -49,7 +51,7 @@ void trl_transport_close(trl_transport *transport) {
 
 void trl_io_error_set(trl_io_error *error, const char *text, bool timed_out) {
     error->timed_out = timed_out;
-    (void)snprintf(error->text, sizeof error->text, "%s", text);
+    trl_format(error->text, sizeof error->text, "%s", text);
 }
 
 #ifdef _WIN32
@@ -64,7 +66,7 @@ void trl_io_error_os(trl_io_error *error, int code) {
         said[--length] = '\0';
     }
     error->timed_out = false;
-    (void)snprintf(error->text, sizeof error->text, "%s (os error %d)", length > 0U ? said : "Unknown error", code);
+    trl_format(error->text, sizeof error->text, "%s (os error %d)", length > 0U ? said : "Unknown error", code);
 }
 
 #else
@@ -73,10 +75,10 @@ void trl_io_error_os(trl_io_error *error, int code) {
     char said[TRL_IO_TEXT_BYTES] = "";
     /* POSIX's, of XSI's form, declared by <string.h> under the feature macro. */
     if (strerror_r(code, said, sizeof said) != 0) { // NOLINT(misc-include-cleaner)
-        (void)snprintf(said, sizeof said, "Unknown error");
+        trl_format(said, sizeof said, "Unknown error");
     }
     error->timed_out = false;
-    (void)snprintf(error->text, sizeof error->text, "%s (os error %d)", said, code);
+    trl_format(error->text, sizeof error->text, "%s (os error %d)", said, code);
 }
 
 #endif

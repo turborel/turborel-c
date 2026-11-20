@@ -12,6 +12,8 @@
    checker does not know (R-LINT-3). */
 // NOLINTBEGIN(misc-include-cleaner)
 #define WIN32_LEAN_AND_MEAN
+#include "format.h"
+
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
@@ -56,7 +58,7 @@ static void a_pipe_not_there_is_refused(trl_test *test) {
  */
 static void a_busy_pipe_is_waited_for_in_time(trl_test *test) {
     char name[NAME_BYTES];
-    (void)snprintf(name, sizeof name, "\\\\.\\pipe\\turborel-c-busy-%lu", (unsigned long)GetCurrentProcessId());
+    trl_format(name, sizeof name, "\\\\.\\pipe\\turborel-c-busy-%lu", (unsigned long)GetCurrentProcessId());
     HANDLE server =
         CreateNamedPipeA(name, PIPE_ACCESS_DUPLEX, PIPE_TYPE_BYTE | PIPE_WAIT, 1U, PIPE_BYTES, PIPE_BYTES, 0U, NULL);
     TRL_CHECK(test, server != INVALID_HANDLE_VALUE);

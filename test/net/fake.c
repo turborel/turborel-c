@@ -17,6 +17,8 @@
 /* The platform's headers declare more than the include checker can map
    to their own names (R-LINT-3). */
 // NOLINTBEGIN(misc-include-cleaner)
+#include "format.h"
+
 #include <arpa/inet.h> // IWYU pragma: keep
 #include <netinet/in.h>
 #include <poll.h>
@@ -209,13 +211,13 @@ static bool listen_tcp(fake *f) {
 
 /* Listens at a Unix socket. */
 static bool listen_local(fake *f, const char *path) {
-    (void)snprintf(f->path, sizeof f->path, "%s", path);
+    trl_format(f->path, sizeof f->path, "%s", path);
     (void)unlink(path);
     f->listener = socket(AF_UNIX, SOCK_STREAM, 0);
     struct sockaddr_un address;
     memset(&address, 0, sizeof address);
     address.sun_family = AF_UNIX;
-    (void)snprintf(address.sun_path, sizeof address.sun_path, "%s", path);
+    trl_format(address.sun_path, sizeof address.sun_path, "%s", path);
     return f->listener >= 0 && bind(f->listener, (const struct sockaddr *)&address, sizeof address) == 0 &&
            listen(f->listener, BACKLOG) == 0;
 }
@@ -252,8 +254,8 @@ bool fake_start_tls(fake *f, fake_mode mode, int connections, const char *dir, b
     f->connections = connections;
     char chain[PATH_BYTES];
     char key[PATH_BYTES];
-    (void)snprintf(chain, sizeof chain, "%s/server.pem", dir);
-    (void)snprintf(key, sizeof key, "%s/server.key", dir);
+    trl_format(chain, sizeof chain, "%s/server.pem", dir);
+    trl_format(key, sizeof key, "%s/server.key", dir);
     SSL_CTX *context = SSL_CTX_new(TLS_server_method());
     f->tls = context;
     if (context == NULL || SSL_CTX_use_certificate_chain_file(context, chain) != 1 ||

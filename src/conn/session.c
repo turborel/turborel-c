@@ -16,6 +16,7 @@
 #include "conn/conn.h"
 #include "conn/target.h"
 #include "failure.h"
+#include "format.h"
 #include "net/transport.h"
 #include "turborel/turborel.h"
 
@@ -103,8 +104,8 @@ trl_status trl_conn_set_read_timeout(trl_conn *conn, uint32_t read_ms) {
     }
     if (!conn->transport.ops->bound(&conn->transport, read_ms)) {
         char message[TRL_FAILURE_MESSAGE_BYTES];
-        (void)snprintf(message, sizeof message, "cannot bound how long the connection waits: %s",
-                       conn->transport.error.text);
+        trl_format(message, sizeof message, "cannot bound how long the connection waits: %s",
+                   conn->transport.error.text);
         trl_failure_broken(&conn->failure, message);
         return TRL_FAILED;
     }
@@ -130,7 +131,7 @@ static bool needs(trl_conn *conn, const char *capability) {
         return true;
     }
     char message[TRL_FAILURE_MESSAGE_BYTES];
-    (void)snprintf(message, sizeof message, "the server did not grant %s", capability);
+    trl_format(message, sizeof message, "the server did not grant %s", capability);
     trl_failure_broken(&conn->failure, message);
     return false;
 }
@@ -241,8 +242,8 @@ static trl_status terminate(trl_conn *conn) {
     uint32_t within = conn->read_ms == TRL_NO_LIMIT ? TRL_TERMINATE_WITHIN_MS : conn->read_ms;
     if (conn->transport.ops->bound != NULL && !conn->transport.ops->bound(&conn->transport, within)) {
         char message[TRL_FAILURE_MESSAGE_BYTES];
-        (void)snprintf(message, sizeof message, "cannot bound how long the connection waits: %s",
-                       conn->transport.error.text);
+        trl_format(message, sizeof message, "cannot bound how long the connection waits: %s",
+                   conn->transport.error.text);
         trl_failure_broken(&conn->failure, message);
         return TRL_FAILED;
     }

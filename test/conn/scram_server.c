@@ -9,6 +9,7 @@
 #include "auth/scram.h"
 #include "codec/buffer.h"
 #include "codec/kinds.h"
+#include "format.h"
 #include "script.h"
 
 #include <stdbool.h>
@@ -34,13 +35,13 @@ static void hello_initial(trl_slice body, char *out, size_t capacity) {
         at += U32_BYTES + u32_at(body.bytes + at);
     }
     size_t length = u32_at(body.bytes + at);
-    (void)snprintf(out, capacity, "%.*s", (int)length, (const char *)body.bytes + at + U32_BYTES);
+    trl_format(out, capacity, "%.*s", (int)length, (const char *)body.bytes + at + U32_BYTES);
 }
 
 /* An Answer's bytes, null-ended. */
 static void answer_of(trl_slice body, char *out, size_t capacity) {
     size_t length = u32_at(body.bytes);
-    (void)snprintf(out, capacity, "%.*s", (int)length, (const char *)body.bytes + U32_BYTES);
+    trl_format(out, capacity, "%.*s", (int)length, (const char *)body.bytes + U32_BYTES);
 }
 
 /* Writes the server's signature, or a wrong one, of `auth`. */
@@ -59,9 +60,9 @@ static void sign(script *s, const scram_server *server, const trl_scram_keys *ke
 static void check_proof(script *s, scram_server *server, const char *final) {
     const char *proof_at = strstr(final, ",p=");
     char without[TEXT_BYTES];
-    (void)snprintf(without, sizeof without, "%.*s", (int)(proof_at - final), final);
+    trl_format(without, sizeof without, "%.*s", (int)(proof_at - final), final);
     char auth[TEXT_BYTES * 3U];
-    (void)snprintf(auth, sizeof auth, "%s,%s,%s", server->bare, server->first, without);
+    trl_format(auth, sizeof auth, "%s,%s,%s", server->bare, server->first, without);
     uint8_t salt[TEXT_BYTES];
     size_t salt_length = 0U;
     (void)trl_base64_decode(SALT, strlen(SALT), salt, &salt_length);
@@ -93,9 +94,9 @@ void scram_serving(script *s, uint8_t kind, trl_slice body) {
     if (kind == TRL_KIND_HELLO) {
         hello_initial(body, text, sizeof text);
         const char *bare = strstr(text, "n=");
-        (void)snprintf(server->bare, sizeof server->bare, "%s", bare);
-        (void)snprintf(server->first, sizeof server->first, "r=%sSERVER,s=" SALT ",i=%u", strstr(bare, "r=") + 2,
-                       ITERATIONS);
+        trl_format(server->bare, sizeof server->bare, "%s", bare);
+        trl_format(server->first, sizeof server->first, "r=%sSERVER,s=" SALT ",i=%u", strstr(bare, "r=") + 2,
+                   ITERATIONS);
         script_challenge(s, (const uint8_t *)server->first, strlen(server->first));
         return;
     }

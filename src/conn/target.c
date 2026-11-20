@@ -6,6 +6,7 @@
 #include "conn/target.h"
 
 #include "failure.h"
+#include "format.h"
 #include "memory.h"
 #include "net/tls.h"
 #include "net/transport.h"
@@ -160,9 +161,9 @@ bool trl_target_is_plain_tcp(const trl_target *target) {
 void trl_io_failed(trl_failure *failure, const char *what, const trl_io_error *error) {
     char message[TRL_FAILURE_MESSAGE_BYTES];
     if (error->timed_out) {
-        (void)snprintf(message, sizeof message, "cannot %s: the server did not answer in time (%s)", what, error->text);
+        trl_format(message, sizeof message, "cannot %s: the server did not answer in time (%s)", what, error->text);
     } else {
-        (void)snprintf(message, sizeof message, "cannot %s: %s", what, error->text);
+        trl_format(message, sizeof message, "cannot %s: %s", what, error->text);
     }
     trl_failure_broken(failure, message);
 }

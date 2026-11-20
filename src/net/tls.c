@@ -9,6 +9,7 @@
 #include "auth/crypto.h"
 #include "auth/scram.h"
 #include "failure.h"
+#include "format.h"
 #include "memory.h"
 #include "net/transport.h"
 #include "turborel/turborel.h"
@@ -97,11 +98,10 @@ static void describe(tls_state *state, trl_io_error *error) {
     long verified = SSL_get_verify_result(state->ssl);
     char text[TRL_IO_TEXT_BYTES];
     if (verified != X509_V_OK) {
-        (void)snprintf(text, sizeof text, "%s (%s)", reason == NULL ? "certificate verify failed" : reason,
-                       X509_verify_cert_error_string(verified));
+        trl_format(text, sizeof text, "%s (%s)", reason == NULL ? "certificate verify failed" : reason,
+                   X509_verify_cert_error_string(verified));
     } else {
-        (void)snprintf(text, sizeof text, "%s",
-                       reason == NULL ? "the server closed the connection within TLS" : reason);
+        trl_format(text, sizeof text, "%s", reason == NULL ? "the server closed the connection within TLS" : reason);
     }
     ERR_clear_error();
     trl_io_error_set(error, text, false);
@@ -220,11 +220,11 @@ static bool name_server(SSL *ssl, const char *name, trl_failure *failure) {
     char message[TRL_FAILURE_MESSAGE_BYTES];
     char sent[TRL_NAME_BYTES];
     if (!is_dns_name(name) || strlen(name) >= sizeof sent) {
-        (void)snprintf(message, sizeof message, "%s is no server's name: invalid dns name", name);
+        trl_format(message, sizeof message, "%s is no server's name: invalid dns name", name);
         trl_failure_broken(failure, message);
         return false;
     }
-    (void)snprintf(sent, sizeof sent, "%s", name);
+    trl_format(sent, sizeof sent, "%s", name);
     X509_VERIFY_PARAM_set_hostflags(param, X509_CHECK_FLAG_NO_PARTIAL_WILDCARDS);
     if (X509_VERIFY_PARAM_set1_host(param, sent, 0U) != 1 || SSL_set_tlsext_host_name(ssl, sent) != 1) {
         trl_failure_no_memory(failure);
@@ -300,7 +300,7 @@ static bool handshake(tls_state *state, trl_failure *failure) {
     trl_io_error why;
     describe(state, &why);
     char message[TRL_FAILURE_MESSAGE_BYTES];
-    (void)snprintf(message, sizeof message, "the TLS handshake failed: %s", why.text);
+    trl_format(message, sizeof message, "the TLS handshake failed: %s", why.text);
     trl_failure_broken(failure, message);
     return false;
 }

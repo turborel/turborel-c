@@ -13,6 +13,7 @@
 #include "codec/buffer.h"
 #include "codec/error.h"
 #include "failure.h"
+#include "format.h"
 #include "memory.h"
 #include "turborel/turborel.h"
 
@@ -324,7 +325,7 @@ bool trl_mechanism_answer(trl_mechanism *mechanism, trl_slice challenge, trl_buf
         return answered;
     }
     char message[TRL_FAILURE_MESSAGE_BYTES];
-    (void)snprintf(message, sizeof message, "%s has no answer to a challenge", trl_mechanism_name(mechanism));
+    trl_format(message, sizeof message, "%s has no answer to a challenge", trl_mechanism_name(mechanism));
     trl_failure_broken(failure, message);
     return false;
 }

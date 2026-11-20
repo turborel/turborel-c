@@ -54,6 +54,7 @@ add_library(
   src/version.c
   src/decimal.c
   src/failure.c
+  src/format.c
   src/memory.c
   src/auth/base64.c
   src/auth/binding.c

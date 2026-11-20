@@ -12,6 +12,7 @@
 #include "codec/error.h"
 #include "codec/utf8.h"
 #include "failure.h"
+#include "format.h"
 #include "memory.h"
 #include "turborel/turborel.h"
 
@@ -45,7 +46,7 @@
 /* Refuses the login: "SCRAM: " and why. */
 static bool refused(trl_failure *failure, const char *why) {
     char message[TRL_FAILURE_MESSAGE_BYTES];
-    (void)snprintf(message, sizeof message, "SCRAM: %s", why);
+    trl_format(message, sizeof message, "SCRAM: %s", why);
     trl_failure_set(failure, TRL_SQLCODE_CONNECTION, TRL_SQLSTATE_INVALID_AUTHORIZATION, message);
     return false;
 }
@@ -122,7 +123,7 @@ bool trl_scram_client_first(trl_scram *scram, const char *user, const char *nonc
     put_saslname(&scram->bare, user);
     put_text(&scram->bare, ",r=");
     put_text(&scram->bare, nonce);
-    (void)snprintf(scram->nonce, sizeof scram->nonce, "%s", nonce);
+    trl_format(scram->nonce, sizeof scram->nonce, "%s", nonce);
     put_text(out, header(scram->channel));
     trl_put_raw(out, scram->bare.data, scram->bare.length);
     scram->stage = TRL_STAGE_SENT;
@@ -148,12 +149,12 @@ static bool next_field(trl_slice message, size_t *at, trl_slice *field) {
 static bool attribute(bool present, trl_slice field, char name, trl_slice *value, trl_failure *failure) {
     char why[TRL_FAILURE_MESSAGE_BYTES];
     if (!present) {
-        (void)snprintf(why, sizeof why, "the attribute %c is missing", name);
+        trl_format(why, sizeof why, "the attribute %c is missing", name);
         return refused(failure, why);
     }
     if (field.length < TRL_ATTRIBUTE_PREFIX || field.bytes[0] != (uint8_t)name || field.bytes[1] != '=') {
-        (void)snprintf(why, sizeof why, "the attribute %c was expected, not %.*s", name, (int)field.length,
-                       (const char *)field.bytes);
+        trl_format(why, sizeof why, "the attribute %c was expected, not %.*s", name, (int)field.length,
+                   (const char *)field.bytes);
         return refused(failure, why);
     }
     value->bytes = field.bytes + TRL_ATTRIBUTE_PREFIX;
@@ -337,8 +338,8 @@ bool trl_scram_verify(trl_scram *scram, trl_slice message, trl_failure *failure)
     }
     if (message.length >= TRL_ATTRIBUTE_PREFIX && message.bytes[0] == 'e' && message.bytes[1] == '=') {
         char why[TRL_FAILURE_MESSAGE_BYTES];
-        (void)snprintf(why, sizeof why, "the server refused: %.*s", (int)(message.length - TRL_ATTRIBUTE_PREFIX),
-                       (const char *)message.bytes + TRL_ATTRIBUTE_PREFIX);
+        trl_format(why, sizeof why, "the server refused: %.*s", (int)(message.length - TRL_ATTRIBUTE_PREFIX),
+                   (const char *)message.bytes + TRL_ATTRIBUTE_PREFIX);
         return refused(failure, why);
     }
     trl_slice text = {NULL, 0U};

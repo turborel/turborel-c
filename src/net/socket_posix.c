@@ -18,6 +18,7 @@
 /* Each platform declares its sockets in headers of its own, which the
    include checker does not know (R-LINT-3). */
 // NOLINTBEGIN(misc-include-cleaner)
+#include "format.h"
 #include "memory.h"
 
 #include <errno.h>
@@ -234,7 +235,7 @@ static bool set_up(int fd, uint32_t within_ms, trl_transport *out) {
 
 bool trl_tcp_open(const char *host, uint16_t port, uint32_t within_ms, trl_transport *out) {
     char service[TRL_PORT_TEXT];
-    (void)snprintf(service, sizeof service, "%u", (unsigned int)port);
+    trl_format(service, sizeof service, "%u", (unsigned int)port);
     struct addrinfo hints;
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_UNSPEC;
@@ -244,7 +245,7 @@ bool trl_tcp_open(const char *host, uint16_t port, uint32_t within_ms, trl_trans
     int resolved = getaddrinfo(host, service, &hints, &found);
     if (resolved != 0) {
         char text[TRL_IO_TEXT_BYTES];
-        (void)snprintf(text, sizeof text, "failed to lookup address information: %s", gai_strerror(resolved));
+        trl_format(text, sizeof text, "failed to lookup address information: %s", gai_strerror(resolved));
         trl_io_error_set(&out->error, text, false);
         return false;
     }

@@ -16,6 +16,7 @@
 #include "conn/conn.h"
 #include "conn/target.h"
 #include "failure.h"
+#include "format.h"
 #include "memory.h"
 #include "net/transport.h"
 #include "turborel/turborel.h"
@@ -169,8 +170,8 @@ static bool next_reply(trl_conn *conn, trl_reply *out) {
         char message[TRL_FAILURE_MESSAGE_BYTES];
         /* Read again with no bound, for its length alone. */
         (void)trl_frame_header_decode(head, sizeof head, UINT32_MAX, &header);
-        (void)snprintf(message, sizeof message, "a message of %lu bytes is longer than the %lu taken",
-                       (unsigned long)header.length, (unsigned long)conn->max_body);
+        trl_format(message, sizeof message, "a message of %lu bytes is longer than the %lu taken",
+                   (unsigned long)header.length, (unsigned long)conn->max_body);
         trl_conn_lose_by(conn, message);
         return false;
     }

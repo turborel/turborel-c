@@ -13,6 +13,7 @@
    include checker does not know (R-LINT-3). */
 // NOLINTBEGIN(misc-include-cleaner)
 #define WIN32_LEAN_AND_MEAN
+#include "format.h"
 #include "memory.h"
 
 #include <limits.h>
@@ -186,7 +187,7 @@ static bool set_up(SOCKET socket, uint32_t within_ms, trl_transport *out) {
 /* Resolves `host` and `port`; on failure, says why as the system says it. */
 static bool resolve(const char *host, uint16_t port, ADDRINFOA **found, trl_transport *out) {
     char service[TRL_PORT_TEXT];
-    (void)snprintf(service, sizeof service, "%u", (unsigned int)port);
+    trl_format(service, sizeof service, "%u", (unsigned int)port);
     ADDRINFOA hints;
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_UNSPEC;
@@ -199,7 +200,7 @@ static bool resolve(const char *host, uint16_t port, ADDRINFOA **found, trl_tran
     trl_io_error error;
     trl_io_error_os(&error, resolved);
     char text[TRL_IO_TEXT_BYTES];
-    (void)snprintf(text, sizeof text, "failed to lookup address information: %s", error.text);
+    trl_format(text, sizeof text, "failed to lookup address information: %s", error.text);
     trl_io_error_set(&out->error, text, false);
     return false;
 }
@@ -295,7 +296,7 @@ static HANDLE open_pipe(const wchar_t *name, uint32_t within_ms, trl_transport *
         }
         if (within_ms != 0U && GetTickCount64() - began >= within_ms) {
             char text[TRL_IO_TEXT_BYTES];
-            (void)snprintf(text, sizeof text, "every instance of the pipe is busy (%s)", out->error.text);
+            trl_format(text, sizeof text, "every instance of the pipe is busy (%s)", out->error.text);
             trl_io_error_set(&out->error, text, true);
             return INVALID_HANDLE_VALUE;
         }

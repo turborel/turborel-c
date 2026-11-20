@@ -7,6 +7,7 @@
  */
 #include "codec/error.h"
 #include "failure.h"
+#include "format.h"
 #include "memory.h"
 #include "net/tls.h"
 #include "turborel/turborel.h"
@@ -51,7 +52,7 @@ struct trl_tls {
 static void library_said(char *out, size_t capacity) {
     unsigned long code = ERR_get_error();
     const char *reason = code == 0U ? NULL : ERR_reason_error_string(code);
-    (void)snprintf(out, capacity, "%s", reason == NULL ? "the TLS library gave no reason" : reason);
+    trl_format(out, capacity, "%s", reason == NULL ? "the TLS library gave no reason" : reason);
     ERR_clear_error();
 }
 
@@ -60,7 +61,7 @@ static trl_status failed(trl_tls *tls, const char *what, const char *path) {
     char why[TRL_FAILURE_MESSAGE_BYTES];
     library_said(why, sizeof why);
     char message[TRL_FAILURE_MESSAGE_BYTES];
-    (void)snprintf(message, sizeof message, "%s %s: %s", what, path, why);
+    trl_format(message, sizeof message, "%s %s: %s", what, path, why);
     trl_failure_broken(&tls->failure, message);
     return TRL_FAILED;
 }
@@ -129,7 +130,7 @@ trl_status trl_tls_trust_file(trl_tls *tls, const char *path) {
     ERR_clear_error();
     if (added == 0U) {
         char message[TRL_FAILURE_MESSAGE_BYTES];
-        (void)snprintf(message, sizeof message, "%s holds no certificate", path);
+        trl_format(message, sizeof message, "%s holds no certificate", path);
         trl_failure_broken(&tls->failure, message);
         return TRL_FAILED;
     }

@@ -20,6 +20,7 @@
 #include "conn/options.h"
 #include "conn/target.h"
 #include "failure.h"
+#include "format.h"
 #include "memory.h"
 #include "net/tls.h"
 #include "net/transport.h"
@@ -187,8 +188,7 @@ static bool bound(trl_conn *conn, uint32_t ms) {
         return true;
     }
     char message[TRL_FAILURE_MESSAGE_BYTES];
-    (void)snprintf(message, sizeof message, "cannot bound how long the connection waits: %s",
-                   conn->transport.error.text);
+    trl_format(message, sizeof message, "cannot bound how long the connection waits: %s", conn->transport.error.text);
     trl_failure_broken(&conn->failure, message);
     return false;
 }
@@ -210,9 +210,8 @@ static bool in_the_clear(trl_conn *conn, const trl_target *target, const trl_mec
         return true;
     }
     char message[TRL_FAILURE_MESSAGE_BYTES];
-    (void)snprintf(message, sizeof message,
-                   "%s is sent only over TLS, a Unix socket or a named pipe, never over plain TCP",
-                   trl_mechanism_name(mechanism));
+    trl_format(message, sizeof message, "%s is sent only over TLS, a Unix socket or a named pipe, never over plain TCP",
+               trl_mechanism_name(mechanism));
     trl_failure_set(&conn->failure, TRL_SQLCODE_CONNECTION, TRL_SQLSTATE_INVALID_AUTHORIZATION, message);
     return false;
 }
