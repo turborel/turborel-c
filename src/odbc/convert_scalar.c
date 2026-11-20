@@ -210,7 +210,7 @@ static SQLRETURN bit_give(trl_odbc_diag *diag, const number *n, const trl_odbc_t
         return trl_odbc_fail(diag, "22003", "Numeric value out of range");
     }
     if (target->buffer != NULL) {
-        *(unsigned char *)target->buffer = d >= 1.0 ? 1U : 0U;
+        *(unsigned char *)target->buffer = (unsigned char)(d >= 1.0 ? 1U : 0U);
     }
     if (target->length != NULL) {
         *target->length = 1;
@@ -260,7 +260,7 @@ static SQLRETURN numeric_give(trl_odbc_diag *diag, const number *n, const trl_od
     }
     SQL_NUMERIC_STRUCT out;
     memset(&out, 0, sizeof out);
-    out.sign = text[0] == '-' ? 0U : 1U;
+    out.sign = (SQLCHAR)(text[0] == '-' ? 0U : 1U);
     out.scale = (SQLSCHAR)target->scale;
     out.precision = (SQLCHAR)(target->precision > 0 ? target->precision : TRL_NUMERIC_MOST);
     bool dropped = false;

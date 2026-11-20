@@ -69,6 +69,10 @@ function(trl_odbc_targets)
     target_include_directories(turborelodbc_objects SYSTEM PUBLIC "${TRL_ODBC_INCLUDE_DIR}")
   endif()
   target_link_libraries(turborelodbc_objects PUBLIC turborel_objects ${TRL_ODBCINST_LIBRARY})
+  # The C library's mathematics, a library of its own on Linux.
+  if(NOT WIN32)
+    target_link_libraries(turborelodbc_objects PUBLIC m)
+  endif()
   trl_c_target(turborelodbc_objects)
   set_target_properties(turborelodbc_objects PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
