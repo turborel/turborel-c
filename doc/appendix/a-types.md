@@ -2,17 +2,15 @@
 
 [Contents](README.md)
 
-This appendix will map every data type and value tag of the native
-protocol, 1 to 27, to the C type the driver gives and takes,
-with the bounds of each, such as the exact number's units and scale, a
-timestamp's displacement and an interval's qualifier. It is filled at
-milestone M1.
+This appendix maps every data type and value tag of the native
+protocol, 1 to 27, to the C type the driver gives and takes, with the
+bounds of each, such as the exact number's units and scale, a
+timestamp's displacement and an interval's qualifier.
 
-The codec reads and writes every type and value below, with the bounds
+The driver reads and writes every type and value below, with the bounds
 given; a reply that breaks one fails the connection, SQLCODE -919,
-SQLSTATE 08006. Of the C types, `trl_decimal` is public now
-([Values](../client/23-values.md)); the C API gives the others from
-milestone M3, with the C types named here.
+SQLSTATE 08006. [Values](../client/23-values.md) gives the functions
+that read each value, and those that make each parameter.
 
 ## Data types
 
@@ -47,13 +45,13 @@ Arrays, rows and multisets nest at most 16 deep, as turborel's types do.
 | 0 | null | none | |
 | 1, 5 | character string | UTF-8 bytes and their length | UTF-8 |
 | 2 | exact number | `trl_decimal` | units the whole of `trl_int128`; scale the whole of `uint32_t` |
-| 3 | approximate number | the double's 64 bits, `uint64_t` | every bit kept: NaN, -0.0 and the infinities too |
+| 3 | approximate number | `double`, its 64 bits kept | every bit kept: NaN, -0.0 and the infinities too |
 | 4 | a plug-in's value | its type's name, its text, its bytes | kept and sent back unchanged |
 | 6, 7 | binary string | bytes and their length | |
-| 8 to 12 | date, time, timestamp | zoned `bool`, precision `uint8_t`, displacement in minutes `int16_t`, instant in UTC microseconds `int64_t` | a displacement of 16 bits |
-| 13 | interval | its qualifier, then units `trl_int128`: months of a year-month interval, microseconds of a day-time one | fields 0 to 5 |
+| 8 to 12 | date, time, timestamp | `trl_datetime`: zoned `bool`, precision `uint8_t`, displacement in minutes `int16_t`, instant in UTC microseconds `int64_t` | a displacement of 16 bits |
+| 13 | interval | `trl_interval`: its qualifier, then units `trl_int128`: months of a year-month interval, microseconds of a day-time one | fields 0 to 5 |
 | 14 | truth value | `bool` | 0 or 1; unknown is null |
-| 15 | DECFLOAT | coefficient `trl_int128`, exponent `int32_t` | canonical: at most 34 digits, no trailing zero, zero of exponent 0, adjusted exponent -6143 to 6144 |
+| 15 | DECFLOAT | `trl_decfloat`: coefficient `trl_int128`, exponent `int32_t` | canonical: at most 34 digits, no trailing zero, zero of exponent 0, adjusted exponent -6143 to 6144 |
 | 16, 17 | array, row | a list of values | nested at most 16 deep |
 | 18, 19, 20 | large object whole | kind, character or binary; its octets | a character one's UTF-8 |
 | 21 | large object by locator | kind; locator `uint32_t`; octets and characters `uint64_t` | |

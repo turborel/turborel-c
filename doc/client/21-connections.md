@@ -5,9 +5,10 @@
 This page describes how the driver gives turborel-client's connections:
 targets, TLS, mechanisms and the SCRAM key cache, the options of what a
 connection asks for and how long it waits, the connection itself and
-what the server tells it, and cancel and terminate. It is filled at
-milestone M2; reset and change-user come at M3. The User's Guide's
-[Connecting](../user/02-connecting.md) shows them at work.
+what the server tells it, and cancel and terminate; reset and
+change-user are on [Statements and Cursors](22-statements.md). The
+User's Guide's [Connecting](../user/02-connecting.md) shows them at
+work.
 
 ## Targets
 

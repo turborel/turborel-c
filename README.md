@@ -30,8 +30,11 @@ environment and service and password files, several servers, pipelines
 and pools.
 
 The driver is built in milestones, M0 to M8: it connects to a server,
-over each transport, by each mechanism, and runs no statement yet. [CONFORMANCE.md](CONFORMANCE.md) shows what is done, row by
-row, and [TODO.md](TODO.md) what is open.
+over each transport, by each mechanism; runs statements, prepared or
+not, reads their rows a batch at a time or through cursors, and controls
+the session; large objects, bulk copy and the rest are to come.
+[CONFORMANCE.md](CONFORMANCE.md) shows what is done, row by row, and
+[TODO.md](TODO.md) what is open.
 
 ## Requirements
 

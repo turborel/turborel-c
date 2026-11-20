@@ -474,6 +474,18 @@ rule here, the rule is kept:
 - Doc comments are Doxygen's, the convention of C libraries, checked by
   Clang's `-Wdocumentation`, by `rules.source` and by Doxygen.
 
+Where the driver departs from turborel-client itself:
+
+- turborel-client parses an XML value's serialization with Turborel's
+  own XML parser, which reads a document type declaration and expands
+  the entities it declares. This driver parses it as well-formed
+  content, by XML 1.0's rules or 1.1's, and does not read a document
+  type declaration: text holding one is refused, SQLSTATE 2200N, saying
+  so. A name is checked by XML's ASCII rules, any character past ASCII
+  taken as a name character, where Turborel checks each against the
+  tables of XML 1.0 and 1.1. Its bounds, 512 deep, 2^20 nodes and
+  16 MiB of text, and their failure, SQLCODE -900, are Turborel's.
+
 ### This driver's own
 
 #### D9. Failures are status codes, with a failure object of SQLCODE and SQLSTATE
@@ -500,10 +512,22 @@ reports resources it cannot grant; what is past Turborel's limits, or
 not built in, as TLS in a library built without a TLS library, is
 SQLCODE -900, SQLSTATE 0A000; a misuse turborel-client has no case for,
 as a canceller of a connection over the program's own stream, is
-SQLCODE -910, SQLSTATE TB910. Each failure the driver raises cites the
-rule `DESIGN`, with the severity FATAL if it ends the connection, else
-ERROR, as turborel-client's do. A null handle or buffer passed in is
-refused with a status, never dereferenced.
+SQLCODE -910, SQLSTATE TB910. Query attributes past their bounds are
+refused before sending with SQLSTATE 08006, the code the server would
+fail the connection with, the connection kept. XML text that is not
+well-formed content is SQLCODE -301, SQLSTATE 2200N, as Turborel gives
+it, citing ISO/IEC 9075-14:2006 draft §10.16 GR6a ii. Each failure the
+driver raises cites the rule `DESIGN`, but that one, with the severity
+FATAL if it ends the connection, else ERROR, as turborel-client's do. A
+null handle or buffer passed in is refused with a status, never
+dereferenced, and a parameter refused as it is added, as text that is
+not UTF-8, is a status too, nothing sent.
+
+A statement's failure is the connection's; several statements run as
+one request give their outcomes and the failure that stopped them, the
+call itself succeeding. Warnings are not failures: a completion's
+SQLSTATE of class 01, its conditions, and notices are kept on the
+connection, apart from its failure.
 
 #### D10. Opaque handles, and ownership said by every function
 
@@ -524,6 +548,16 @@ serves one login at a time. What the library
 allocates it frees. Text is UTF-8, ended by a null byte; binary data
 comes with its length. Types are named `trl_name`, without `_t`, which
 POSIX reserves.
+
+A result, a prepared statement, the outcomes of several statements, a
+parameter list and an XML tree are the caller's, each freed by its own
+`_free`, and none depends on the connection after it is made: a result
+copies what it holds out of the reply it was read from, so it outlives
+the connection's later calls. A batch given to a handler, and a notice
+given to one, last only until the handler returns. A cursor is no
+handle but a plain struct naming a statement and a number. What the last
+completion told, its conditions and the notices kept are the
+connection's, valid until the next statement.
 
 #### D11. No global mutable state, and one thread at a time on a handle
 
