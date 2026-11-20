@@ -118,22 +118,22 @@ static void a_refusal_or_a_reply_out_of_turn_fails(trl_test *test) {
     trl_mechanism_free(trust);
 }
 
-/* Connects over a SCRAM server ending as `end` says, with `cache` if given. */
-static trl_status scram_login(ending end, trl_key_cache *cache, trl_conn **conn, bool *proof_right) {
+/* Connects over a SCRAM server of `s` ending as `end` says, with `cache` if
+   given; the caller frees `s` once it has freed the connection. */
+static trl_status scram_login(ending end, trl_key_cache *cache, script *s, trl_conn **conn, bool *proof_right) {
     scram_server server;
     memset(&server, 0, sizeof server);
     server.ending = end;
-    script s;
-    script_init(&s, scram_serving, &server);
+    script_init(s, scram_serving, &server);
     trl_mechanism *scram = NULL;
     (void)trl_mechanism_scram(PASSWORD, &scram);
     if (cache != NULL) {
         (void)trl_mechanism_scram_key_cache(scram, cache);
     }
-    trl_status made = script_connect(&s, scram, NULL, conn);
+    trl_status made = script_connect(s, scram, NULL, conn);
     *proof_right = server.proof_right;
     trl_mechanism_free(scram);
-    script_free(&s);
+    s->data = NULL;
     return made;
 }
 
@@ -151,14 +151,17 @@ static void scram_logs_in_and_keeps_its_keys(trl_test *test) {
     (void)trl_key_cache_new(&cache);
     trl_conn *conn = NULL;
     bool proof_right = false;
-    TRL_CHECK(test, scram_login(ENDING_PROVED, cache, &conn, &proof_right) == TRL_OK && proof_right);
+    script s;
+    TRL_CHECK(test, scram_login(ENDING_PROVED, cache, &s, &conn, &proof_right) == TRL_OK && proof_right);
     trl_conn_free(conn);
+    script_free(&s);
     uint64_t hits = 0U;
     uint64_t misses = 0U;
     trl_key_cache_lookups(cache, &hits, &misses);
     TRL_CHECK(test, hits == 0U && misses == 1U && trl_key_cache_size(cache) == 1U);
-    TRL_CHECK(test, scram_login(ENDING_PROVED, cache, &conn, &proof_right) == TRL_OK && proof_right);
+    TRL_CHECK(test, scram_login(ENDING_PROVED, cache, &s, &conn, &proof_right) == TRL_OK && proof_right);
     trl_conn_free(conn);
+    script_free(&s);
     trl_key_cache_lookups(cache, &hits, &misses);
     TRL_CHECK(test, hits == 1U && misses == 1U);
     trl_key_cache_free(cache);
@@ -178,16 +181,19 @@ static void scram_is_refused_unless_the_server_proves(trl_test *test) {
     (void)trl_key_cache_new(&cache);
     trl_conn *conn = NULL;
     bool proof_right = false;
-    TRL_CHECK(test, scram_login(ENDING_WRONG_SIGNATURE, cache, &conn, &proof_right) == TRL_FAILED);
+    script s;
+    TRL_CHECK(test, scram_login(ENDING_WRONG_SIGNATURE, cache, &s, &conn, &proof_right) == TRL_FAILED);
     TRL_CHECK(test, strcmp(trl_failure_sqlstate(trl_conn_failure(conn)), "28000") == 0);
     TRL_CHECK(test, strstr(trl_failure_message(trl_conn_failure(conn)), "did not prove it knows the user") != NULL);
     TRL_CHECK(test, trl_key_cache_size(cache) == 0U);
     trl_conn_free(conn);
-    TRL_CHECK(test, scram_login(ENDING_UNPROVED, cache, &conn, &proof_right) == TRL_FAILED);
+    script_free(&s);
+    TRL_CHECK(test, scram_login(ENDING_UNPROVED, cache, &s, &conn, &proof_right) == TRL_FAILED);
     TRL_CHECK(test, strcmp(trl_failure_sqlstate(trl_conn_failure(conn)), "08006") == 0);
     TRL_CHECK(test, strcmp(trl_failure_message(trl_conn_failure(conn)),
                            "the server did not prove it knows the user's verifier") == 0);
     trl_conn_free(conn);
+    script_free(&s);
     trl_key_cache_free(cache);
 }
 
