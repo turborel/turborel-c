@@ -100,7 +100,19 @@ static void socket_close(trl_transport *transport) {
     free(transport->state);
 }
 
-static const trl_transport_ops socket_ops = {socket_read, socket_write, socket_bound, socket_close};
+/* The address the socket reached, as numbers. */
+static bool socket_peer(const trl_transport *transport, char *out, size_t capacity) {
+    struct sockaddr_storage peer;
+    int length = (int)sizeof peer;
+    if (getpeername(socket_of(transport), (struct sockaddr *)&peer, &length) != 0 ||
+        (peer.ss_family != AF_INET && peer.ss_family != AF_INET6)) {
+        return false;
+    }
+    return getnameinfo((const struct sockaddr *)&peer, (socklen_t)length, out, (DWORD)capacity, NULL, 0,
+                       NI_NUMERICHOST) == 0;
+}
+
+static const trl_transport_ops socket_ops = {socket_read, socket_write, socket_bound, socket_close, socket_peer};
 
 /* Waits for a connect begun without blocking, at most `ms`; the error it
    came to, WSAETIMEDOUT if the wait ran out. */
@@ -331,7 +343,7 @@ static void pipe_close(trl_transport *transport) {
     free(transport->state);
 }
 
-static const trl_transport_ops pipe_ops = {pipe_read, pipe_write, pipe_bound, pipe_close};
+static const trl_transport_ops pipe_ops = {pipe_read, pipe_write, pipe_bound, pipe_close, NULL};
 
 /* Opens the pipe, trying again while every instance is busy, within
    `within_ms`; INVALID_HANDLE_VALUE if it cannot. */

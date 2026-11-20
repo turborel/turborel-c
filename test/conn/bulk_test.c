@@ -195,7 +195,8 @@ static trl_status exported(bulk_plan *plan, trl_export_format format, written_ou
 
 /**
  * Verifies: [CLIENT Copying and exporting] an export writes a query's
- * columns and rows as CSV, a header then a record a row, as they come;
+ * columns and rows as CSV, a header then a record a row, as they come,
+ * a field quoted at Unicode's white space as at ASCII's;
  * as native frames, read back with every value as it was.
  */
 static void an_export_writes_its_rows(trl_test *test) {
@@ -210,9 +211,9 @@ static void an_export_writes_its_rows(trl_test *test) {
     TRL_CHECK(test, out.length == sizeof csv - 1U && memcmp(out.bytes, csv, out.length) == 0);
     plan.query = EXPORT_QUOTED;
     memset(&out, 0, sizeof out);
-    TRL_CHECK(test, exported(&plan, TRL_EXPORT_CSV, &out, &rows, sqlstate) == TRL_OK && rows == 5U);
+    TRL_CHECK(test, exported(&plan, TRL_EXPORT_CSV, &out, &rows, sqlstate) == TRL_OK && rows == 6U);
     static const char quoted[] = "C0,C1\r\n\"a,b\",\"say \"\"hi\"\"\"\r\n\" x\",\"y\t\"\r\n\"l\nb\",\"c\rd\"\r\n"
-                                 "\"\vz\",\"z\f\"\r\n\"\",\r\n";
+                                 "\"\vz\",\"z\f\"\r\n\"\xC2\xA0n\",\"m\xE3\x80\x80\"\r\n\"\",\r\n";
     TRL_CHECK(test, out.length == sizeof quoted - 1U && memcmp(out.bytes, quoted, out.length) == 0);
     plan.query = EXPORT_ROWS;
     memset(&out, 0, sizeof out);

@@ -10,6 +10,7 @@
 #include "format.h"
 #include "memory.h"
 #include "net/tls.h"
+#include "net/tls_roots.h"
 #include "turborel/turborel.h"
 
 #include <stdbool.h>
@@ -27,16 +28,6 @@
 #include <openssl/ssl.h>
 #include <openssl/x509.h>
 #include <openssl/x509_vfy.h>
-
-#ifdef __APPLE__
-#include <CoreFoundation/CoreFoundation.h>
-#include <Security/Security.h>
-#endif
-#ifdef _WIN32
-#define WIN32_LEAN_AND_MEAN
-#include <wincrypt.h>
-#include <windows.h>
-#endif
 
 struct trl_tls {
     SSL_CTX *context;
@@ -139,74 +130,6 @@ trl_status trl_tls_trust_file(trl_tls *tls, const char *path) {
     return TRL_OK;
 }
 
-#if defined(__APPLE__) || defined(_WIN32)
-/* Adds one certificate, DER, to the store; whether it was. */
-static bool add_der(X509_STORE *store, const uint8_t *der, size_t length) {
-    const unsigned char *at = der;
-    X509 *certificate = d2i_X509(NULL, &at, (long)length);
-    bool added = certificate != NULL && X509_STORE_add_cert(store, certificate) == 1;
-    X509_free(certificate);
-    return added;
-}
-
-#endif
-
-#ifdef __APPLE__
-/* The system's anchors, of the keychain's trust settings. */
-static size_t add_platform(X509_STORE *store) {
-    CFArrayRef anchors = NULL;
-    if (SecTrustCopyAnchorCertificates(&anchors) != errSecSuccess || anchors == NULL) {
-        return 0U;
-    }
-    size_t added = 0U;
-    for (CFIndex i = 0; i < CFArrayGetCount(anchors); ++i) {
-        /* An array of Core Foundation hands out its items as const void *. */
-        union {
-            const void *item;
-            SecCertificateRef certificate;
-        } at = {CFArrayGetValueAtIndex(anchors, i)};
-        SecCertificateRef certificate = at.certificate;
-        CFDataRef der = SecCertificateCopyData(certificate);
-        if (der != NULL) {
-            added += add_der(store, CFDataGetBytePtr(der), (size_t)CFDataGetLength(der)) ? 1U : 0U;
-            CFRelease(der);
-        }
-    }
-    CFRelease(anchors);
-    return added;
-}
-#elif defined(_WIN32)
-/* The system's store of root authorities. */
-static size_t add_platform(X509_STORE *store) {
-    HCERTSTORE roots = CertOpenSystemStoreW(0, L"ROOT");
-    if (roots == NULL) {
-        return 0U;
-    }
-    size_t added = 0U;
-    PCCERT_CONTEXT at = NULL;
-    while ((at = CertEnumCertificatesInStore(roots, at)) != NULL) {
-        added += add_der(store, at->pbCertEncoded, at->cbCertEncoded) ? 1U : 0U;
-    }
-    (void)CertCloseStore(roots, 0U);
-    return added;
-}
-#else
-/* The TLS library's own paths are the platform's store. */
-static size_t add_platform(X509_STORE *store) {
-    (void)store;
-    return 0U;
-}
-#endif
-
-/* Whether SSL_CERT_FILE or SSL_CERT_DIR is set and not empty. */
-static bool named_by_environment(void) {
-    /* Read once, on the thread that asks for the platform's authorities;
-       the library sets no variable. */
-    const char *file = getenv("SSL_CERT_FILE"); // NOLINT(concurrency-mt-unsafe)
-    const char *dir = getenv("SSL_CERT_DIR");   // NOLINT(concurrency-mt-unsafe)
-    return (file != NULL && file[0] != '\0') || (dir != NULL && dir[0] != '\0');
-}
-
 trl_status trl_tls_trust_platform(trl_tls *tls) {
     if (tls == NULL) {
         return TRL_INVALID_ARGUMENT;
@@ -216,12 +139,14 @@ trl_status trl_tls_trust_platform(trl_tls *tls) {
         return open;
     }
     ERR_clear_error();
-    bool environment = named_by_environment();
-    size_t added = environment ? 0U : add_platform(SSL_CTX_get_cert_store(tls->context));
-    bool paths = (environment || added == 0U) && SSL_CTX_set_default_verify_paths(tls->context) == 1;
+    char why[TRL_FAILURE_MESSAGE_BYTES];
+    size_t added = trl_tls_roots_add(SSL_CTX_get_cert_store(tls->context), why, sizeof why);
     ERR_clear_error();
-    if (added == 0U && !paths) {
-        trl_failure_broken(&tls->failure, "cannot trust the platform's certificate authorities: it holds none");
+    if (added == 0U) {
+        char message[TRL_FAILURE_MESSAGE_BYTES];
+        trl_format(message, sizeof message, "cannot trust the platform's certificate authorities: %s",
+                   why[0] != '\0' ? why : "it holds none");
+        trl_failure_broken(&tls->failure, message);
         return TRL_FAILED;
     }
     tls->trusts = true;

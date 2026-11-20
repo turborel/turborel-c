@@ -113,6 +113,16 @@ TRL_API size_t trl_result_column_count(const trl_result *result);
 TRL_API const char *trl_result_column_name(const trl_result *result, size_t column);
 
 /**
+ * @brief Whether a column is NOT NULL, as the server described it, as
+ * turborel-client's column's `not_null` [PROTOCOL Composite fields].
+ *
+ * @param result The result.
+ * @param column Which, from 0.
+ * @return Whether it is; false past the last.
+ */
+TRL_API bool trl_result_column_not_null(const trl_result *result, size_t column);
+
+/**
  * @brief A column's type.
  *
  * @param result The result.

@@ -145,8 +145,9 @@ SQLCODE -919 (SQLSTATE 28000): the user or the password is wrong
 
 TLS settings, a `trl_tls`, say which certificate authorities are
 trusted: those of a PEM file, by `trl_tls_trust_file`; the platform's,
-by `trl_tls_trust_platform`, which are those of the files SSL_CERT_FILE
-and SSL_CERT_DIR name if either is set; or both. `trl_tls_present` names
+by `trl_tls_trust_platform`, which are the system's, or those of the
+files SSL_CERT_FILE and SSL_CERT_DIR name if either is set,
+SSL_CERT_DIR a list of directories; or both. `trl_tls_present` names
 the certificate chain and key a client presents, for the mechanism
 `certificate`. TLS is 1.2 or 1.3, and the server's certificate must be
 signed by an authority trusted and be of the name checked.

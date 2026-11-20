@@ -27,7 +27,9 @@ typedef enum trl_token {
 
 /**
  * @brief Passes `at` over spaces, newlines and comments [ISO/IEC 9075:1992
- * §5.2]; false at text no separator ends, as a comment not closed.
+ * §5.2], as Turborel's lexer does: a newline LF or CR LF, a simple
+ * comment ended by one, a bracketed comment holding others nested in it;
+ * false at text no separator ends, as a comment not closed.
  */
 bool trl_separators(const char *text, size_t *at);
 

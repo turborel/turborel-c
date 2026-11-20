@@ -11,6 +11,8 @@
 #include "harness.h"
 #include "turborel/turborel.h"
 
+#include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <string.h>
 
@@ -248,19 +250,55 @@ static void a_frame_is_framed(trl_test *test) {
     fixture_free(&f);
 }
 
+/* Whether `text` begins and ends with white space of `octets`, as UTF-8 writes it. */
+static bool space_both_ends(const char *text, size_t octets) {
+    const uint8_t *bytes = (const uint8_t *)text;
+    size_t length = strlen(text);
+    return trl_utf8_space_at(bytes, length) == octets && trl_utf8_space_before(bytes, length) == octets;
+}
+
+/**
+ * Verifies: [DESIGN] D8 white space is Unicode's White_Space, as Rust's
+ * `char::is_whitespace` takes it, at a text's start and end: ASCII's
+ * tab to carriage return and space, U+0085, U+00A0, U+1680, U+2000 to
+ * U+200A, U+2028, U+2029, U+202F, U+205F and U+3000; not U+200B, U+2030,
+ * U+180E, a letter or a sequence cut short.
+ */
+static void white_space_is_unicodes(trl_test *test) {
+    static const struct {
+        const char *text;
+        size_t octets;
+    } spaces[] = {
+        {"\t", 1U},           {"\n", 1U},           {"\v", 1U},
+        {"\f", 1U},           {"\r", 1U},           {" ", 1U},
+        {"\xC2\x85", 2U},     {"\xC2\xA0", 2U},     {"\xE1\x9A\x80", 3U},
+        {"\xE2\x80\x80", 3U}, {"\xE2\x80\x8A", 3U}, {"\xE2\x80\xA8", 3U},
+        {"\xE2\x80\xA9", 3U}, {"\xE2\x80\xAF", 3U}, {"\xE2\x81\x9F", 3U},
+        {"\xE3\x80\x80", 3U},
+    };
+    bool every = true;
+    for (size_t i = 0U; i < sizeof spaces / sizeof spaces[0]; ++i) {
+        every = every && space_both_ends(spaces[i].text, spaces[i].octets);
+    }
+    TRL_CHECK(test, every);
+    static const char *const others[] = {
+        "a", "\x1F", "\xC2\x84", "\xC2\xA1", "\xE2\x80\x8B", "\xE2\x80\xB0", "\xE1\xA0\x8E", "\xE2\x80", "\xE3",
+    };
+    for (size_t i = 0U; i < sizeof others / sizeof others[0]; ++i) {
+        every = every && space_both_ends(others[i], 0U);
+    }
+    TRL_CHECK(test, every);
+    TRL_CHECK(test, trl_utf8_space_at(NULL, 0U) == 0U && trl_utf8_space_before(NULL, 0U) == 0U);
+}
+
 int main(int argc, char **argv) {
     static const trl_test_case cases[] = {
-        TRL_TEST_CASE(integers_are_little_endian),
-        TRL_TEST_CASE(signed_numbers_keep_their_bits),
-        TRL_TEST_CASE(i128_is_sixteen_bytes),
-        TRL_TEST_CASE(flags_are_zero_or_one),
-        TRL_TEST_CASE(strings_and_bytes_are_counted),
-        TRL_TEST_CASE(strings_are_utf8),
-        TRL_TEST_CASE(utf8_is_checked_at_its_edges),
-        TRL_TEST_CASE(keys_are_sixteen_bytes),
-        TRL_TEST_CASE(a_count_past_the_body_fails),
-        TRL_TEST_CASE(a_body_is_read_whole),
-        TRL_TEST_CASE(a_frame_is_framed),
+        TRL_TEST_CASE(integers_are_little_endian),    TRL_TEST_CASE(signed_numbers_keep_their_bits),
+        TRL_TEST_CASE(i128_is_sixteen_bytes),         TRL_TEST_CASE(flags_are_zero_or_one),
+        TRL_TEST_CASE(strings_and_bytes_are_counted), TRL_TEST_CASE(strings_are_utf8),
+        TRL_TEST_CASE(utf8_is_checked_at_its_edges),  TRL_TEST_CASE(white_space_is_unicodes),
+        TRL_TEST_CASE(keys_are_sixteen_bytes),        TRL_TEST_CASE(a_count_past_the_body_fails),
+        TRL_TEST_CASE(a_body_is_read_whole),          TRL_TEST_CASE(a_frame_is_framed),
     };
     return trl_test_main(argc, argv, cases, TRL_TEST_COUNT(cases));
 }

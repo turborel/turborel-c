@@ -25,6 +25,10 @@
 #include <windows.h>
 #endif
 
+bool trl_transport_peer(const trl_transport *transport, char *out, size_t capacity) {
+    return transport->ops != NULL && transport->ops->peer != NULL && transport->ops->peer(transport, out, capacity);
+}
+
 bool trl_transport_write_all(trl_transport *transport, const uint8_t *bytes, size_t length) {
     size_t sent = 0U;
     while (sent < length) {

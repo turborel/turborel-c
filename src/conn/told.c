@@ -224,6 +224,18 @@ bool trl_conn_commit_position(const trl_conn *conn, uint64_t *position) {
     return true;
 }
 
+void trl_conn_clear_conditions(trl_conn *conn) {
+    if (conn == NULL) {
+        return;
+    }
+    for (size_t i = 0U; i < conn->last.condition_count; ++i) {
+        trl_failure_clear(&conn->last.conditions[i]);
+    }
+    free(conn->last.conditions);
+    conn->last.conditions = NULL;
+    conn->last.condition_count = 0U;
+}
+
 size_t trl_conn_condition_count(const trl_conn *conn) {
     return conn == NULL ? 0U : conn->last.condition_count;
 }

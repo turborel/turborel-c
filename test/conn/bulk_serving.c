@@ -91,7 +91,9 @@ static void insert_prepared(script *s, bool lobs) {
 
 /* Rows of values CSV must quote, the last's second value null. */
 static void quoted_rows(script *s) {
-    static const char *const values[] = {"a,b", "say \"hi\"", " x", "y\t", "l\nb", "c\rd", "\vz", "z\f", ""};
+    static const char *const values[] = {
+        "a,b", "say \"hi\"", " x", "y\t", "l\nb", "c\rd", "\vz", "z\f", "\xC2\xA0n", "m\xE3\x80\x80", "",
+    };
     size_t count = sizeof values / sizeof values[0];
     trl_buffer body;
     trl_buffer_init(&body);

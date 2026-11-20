@@ -15,6 +15,7 @@ work.
 ### NAME
 
 `trl_target_tcp`, `trl_target_local`, `trl_target_tls`,
+`trl_target_is_plain_tcp`, `trl_target_is_tls`, `trl_target_host`,
 `trl_target_failure`, `trl_target_free`: where a server is.
 
 ### SYNOPSIS
@@ -29,6 +30,9 @@ trl_status trl_target_tcp(const char *host, uint16_t port, trl_target **out);
 trl_status trl_target_local(const char *path, trl_target **out);
 trl_status trl_target_tls(const char *host, uint16_t port, const char *server_name, trl_tls *tls,
                           trl_target **out);
+bool trl_target_is_plain_tcp(const trl_target *target);
+bool trl_target_is_tls(const trl_target *target);
+const char *trl_target_host(const trl_target *target);
 const trl_failure *trl_target_failure(const trl_target *target);
 void trl_target_free(trl_target *target);
 ```
@@ -40,6 +44,9 @@ within the connect timeout. A local target is a Unix socket on Linux and
 macOS, a named pipe on Windows. A TLS target begins TLS on TCP, the
 server's certificate checked against `server_name`, or the host if it is
 null; it holds `tls` from then on [PROTOCOL The Native Protocol].
+`trl_target_is_plain_tcp` and `trl_target_is_tls` say which a target is,
+and `trl_target_host` gives the host of one over TCP or TLS, null of a
+local one.
 
 ### ERRORS
 
@@ -71,10 +78,14 @@ void trl_tls_free(trl_tls *tls);
 Settings of TLS 1.2 and 1.3 that check the server's certificate and
 name, of the TLS library the driver was built with (OpenSSL 3.5 or
 later, or AWS-LC). `trl_tls_trust_file` trusts the authorities of a PEM
-file; `trl_tls_trust_platform` the platform's: the keychain's on macOS,
-the system store on Windows, the TLS library's own paths elsewhere, or,
-on any, those of the files SSL_CERT_FILE and SSL_CERT_DIR name if either
-is set. `trl_tls_present` presents a certificate chain and its key, of
+file; `trl_tls_trust_platform` the platform's, as turborel-client
+takes them: on macOS the keychain's trust settings, the user's over the
+administrator's over the system's; on Windows the system store; the TLS
+library's own file and directory elsewhere; or, on any, those of the
+files SSL_CERT_FILE and SSL_CERT_DIR name if either is set, SSL_CERT_DIR
+a list of directories apart by the platform's separator, `:` or `;`,
+each regular file of each read, one that cannot be read passed over.
+None at all trusted is a failure. `trl_tls_present` presents a certificate chain and its key, of
 two PEM files [CLIENT Connecting]. A target made of the settings holds
 them; they change no more after.
 
@@ -100,6 +111,10 @@ what proves the user.
 ### SYNOPSIS
 
 ```c
+#define TRL_MECHANISM_TRUST "trust"
+#define TRL_MECHANISM_PASSWORD "password"
+#define TRL_MECHANISM_CERTIFICATE "certificate"
+
 typedef enum trl_channel_binding {
     TRL_CHANNEL_BINDING_PREFER = 0, TRL_CHANNEL_BINDING_DISABLE, TRL_CHANNEL_BINDING_REQUIRE,
 } trl_channel_binding;
@@ -131,7 +146,9 @@ TLS 1.3, by `tls-server-end-point` over TLS 1.2, as its GS2 header
 names; with no binding to be had, it says it could bind, as `y`.
 `TRL_CHANNEL_BINDING_REQUIRE` refuses a login not bound;
 `TRL_CHANNEL_BINDING_DISABLE` binds nothing. `trl_mechanism_bind` binds a
-TLS stream the program opened itself, for `trl_connect_stream`.
+TLS stream the program opened itself, for `trl_connect_stream`. `trl_mechanism_name` gives the name a mechanism is sent by,
+`TRL_MECHANISM_TRUST`, `TRL_MECHANISM_PASSWORD` or
+`TRL_MECHANISM_CERTIFICATE` of those three.
 
 `password`, and SCRAM unless `trl_mechanism_scram_in_the_clear` says
 otherwise, are secrets: `trl_connect` refuses them to a target over
@@ -227,7 +244,7 @@ bytes, a value of at most 1,024; `TRL_NO_MEMORY`.
 ### NAME
 
 `trl_connect`, `trl_connect_stream`, `trl_conn_failure`,
-`trl_conn_is_lost`, `trl_conn_server`, `trl_conn_authorization`,
+`trl_conn_is_lost`, `trl_conn_target`, `trl_conn_server`, `trl_conn_authorization`,
 `trl_conn_granted`, `trl_conn_granted_count`, `trl_conn_granted_at`,
 `trl_conn_setting`, `trl_conn_setting_count`, `trl_conn_setting_at`,
 `trl_conn_set_read_timeout`, `trl_conn_read_timeout`,
@@ -251,6 +268,7 @@ trl_status trl_connect_stream(const trl_stream *stream, const char *user, trl_me
                               const trl_conn_options *options, trl_conn **out);
 const trl_failure *trl_conn_failure(const trl_conn *conn);
 bool trl_conn_is_lost(const trl_conn *conn);
+const trl_target *trl_conn_target(const trl_conn *conn);
 const char *trl_conn_server(const trl_conn *conn);
 const char *trl_conn_authorization(const trl_conn *conn);
 bool trl_conn_granted(const trl_conn *conn, const char *capability);
@@ -283,11 +301,16 @@ received when it was not loses the connection
 
 `trl_connect_stream` logs in over a stream the program opened, as a TLS
 stream of its own, through its functions, and the caller answers for its
-privacy. A stream whose `bound` is given bounds itself: it is bounded by
-the read timeout the options give as it opens, and its read timeout is
-set as a socket's is; one whose `bound` is null waits as its maker set
+privacy. A stream whose `bound` is given bounds itself: it logs in
+within the connect timeout the options give, then is bounded by their
+read timeout, and its read timeout is set as a socket's is; one whose `bound` is null waits as its maker set
 it to, Terminate too, and its read timeout cannot be set
 [CLIENT Timeouts].
+
+`trl_conn_target` gives where the connection reached its server: its
+target, of TCP or TLS the address it reached in place of the host's
+name, as turborel-client keeps it, so its canceller reaches the same
+server however the name resolves after; null of a program's own stream.
 
 Each Status the server sends, at login and after a statement, is kept:
 `trl_conn_setting` gives a setting as the server last told it, by its
@@ -306,7 +329,9 @@ before it sends anything, the connection kept.
 
 `trl_conn_terminate` sends Terminate: the session ends, its transaction
 as SESSION.COMMIT_AT_END says, and the server closes; a commit that
-fails then is its failure, a Notice or a Status before it read past. It
+fails then is its failure, a Notice or a Status before it read past, a
+compressed one inflated, and a frame the server broke off as it closed
+the connection's failure. It
 waits at most the read timeout, else 60 seconds, on a stream that bounds
 itself [PROTOCOL Terminate 'X']. The connection is lost after.
 `trl_conn_free` closes a connection, over TLS with TLS's closing
@@ -349,8 +374,9 @@ void trl_canceller_free(trl_canceller *canceller);
 ### DESCRIPTION
 
 A canceller is made of a connection on the connection's thread, and
-used on another. `trl_cancel` opens a connection of its own to the same
-target, sends Cancel with the key Ready gave as its first and only
+used on another. `trl_cancel` opens a connection of its own to the
+address the connection reached, as `trl_conn_target` gives it, sends
+Cancel with the key Ready gave as its first and only
 message, and reads until the server closes; the statement cancelled
 fails with SQLCODE -920, SQLSTATE TB920 [PROTOCOL Cancel 'Z']. It gives
 up after 10 seconds, or `within_ms` [CLIENT Running statements].

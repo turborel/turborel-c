@@ -9,9 +9,15 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
 
 /* The last byte that stands alone, ASCII. */
 #define TRL_ASCII_LAST 0x7FU
+/* The most octets of a white space character, and ASCII's of them. */
+#define TRL_SPACE_MOST 3U
+#define TRL_SPACE 0x20U
+#define TRL_TAB 0x09U
+#define TRL_CARRIAGE_RETURN 0x0DU
 /* The bounds of a continuation byte. */
 #define TRL_CONTINUATION_FIRST 0x80U
 #define TRL_CONTINUATION_LAST 0xBFU
@@ -103,4 +109,66 @@ bool trl_utf8_valid(const uint8_t *bytes, size_t length) {
         at += count;
     }
     return true;
+}
+
+/* A white space character of more than one octet, as UTF-8 writes it:
+   its lead octet, and the range of its last; a second octet of two-octet
+   ones is that range. */
+typedef struct space {
+    uint8_t octets[TRL_SPACE_MOST];
+    uint8_t last_to;
+    uint8_t length;
+} space;
+
+/* The white space characters past ASCII: U+0085, U+00A0, U+1680, U+2000
+   to U+200A, U+2028 and U+2029, U+202F, U+205F, U+3000. */
+static const space spaces[] = {
+    {{0xC2U, 0x85U, 0x00U}, 0x85U, 2U}, {{0xC2U, 0xA0U, 0x00U}, 0xA0U, 2U}, {{0xE1U, 0x9AU, 0x80U}, 0x80U, 3U},
+    {{0xE2U, 0x80U, 0x80U}, 0x8AU, 3U}, {{0xE2U, 0x80U, 0xA8U}, 0xA9U, 3U}, {{0xE2U, 0x80U, 0xAFU}, 0xAFU, 3U},
+    {{0xE2U, 0x81U, 0x9FU}, 0x9FU, 3U}, {{0xE3U, 0x80U, 0x80U}, 0x80U, 3U},
+};
+
+/* Whether the `length` octets at `bytes` are the space `s`. */
+static bool is_space(const uint8_t *bytes, size_t length, const space *s) {
+    if (length < s->length) {
+        return false;
+    }
+    size_t last = (size_t)s->length - 1U;
+    return memcmp(bytes, s->octets, last) == 0 && bytes[last] >= s->octets[last] && bytes[last] <= s->last_to;
+}
+
+/* Whether `c` is white space of ASCII: tab to carriage return, and space. */
+static bool ascii_space(uint8_t c) {
+    return c == TRL_SPACE || (c >= TRL_TAB && c <= TRL_CARRIAGE_RETURN);
+}
+
+size_t trl_utf8_space_at(const uint8_t *bytes, size_t length) {
+    if (length == 0U) {
+        return 0U;
+    }
+    if (ascii_space(bytes[0])) {
+        return 1U;
+    }
+    for (size_t i = 0U; i < sizeof spaces / sizeof spaces[0]; ++i) {
+        if (is_space(bytes, length, &spaces[i])) {
+            return spaces[i].length;
+        }
+    }
+    return 0U;
+}
+
+size_t trl_utf8_space_before(const uint8_t *bytes, size_t length) {
+    if (length == 0U) {
+        return 0U;
+    }
+    if (ascii_space(bytes[length - 1U])) {
+        return 1U;
+    }
+    for (size_t i = 0U; i < sizeof spaces / sizeof spaces[0]; ++i) {
+        size_t n = spaces[i].length;
+        if (length >= n && is_space(bytes + length - n, n, &spaces[i])) {
+            return n;
+        }
+    }
+    return 0U;
 }

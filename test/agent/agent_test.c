@@ -117,7 +117,9 @@ static bool text_is(const trl_agent_text *value, const char *text) {
  * Verifies: [CLIENT The SQL-agent] CONNECT, SET CONNECTION and DISCONNECT
  * are read as Turborel reads them, in any case, a semicolon at the end;
  * a literal's quoted parts joined across newlines, a quote written twice,
- * the introducer of SQL_TEXT taken; any statement beginning otherwise is
+ * the introducer of SQL_TEXT taken; a newline LF or CR LF, a simple
+ * comment ended by one, a bracketed comment holding others nested in it,
+ * as Turborel's lexer reads them; any statement beginning otherwise is
  * another's.
  */
 static void connection_statements_are_read(trl_test *test) {
@@ -128,6 +130,9 @@ static void connection_statements_are_read(trl_test *test) {
     TRL_CHECK(test, read_as("SELECT 1", &st, &code, &at) == TRL_AGENT_OTHER);
     TRL_CHECK(test, read_as("SET SCHEMA 'X'", &st, &code, &at) == TRL_AGENT_OTHER);
     TRL_CHECK(test, read_as("/* open", &st, &code, &at) == TRL_AGENT_OTHER);
+    TRL_CHECK(test, read_as("/* a /* b */ c */\r\nCONNECT TO 'n'", &st, &code, &at) == TRL_AGENT_CONNECT);
+    TRL_CHECK(test, read_as("-- a\rb\nDISCONNECT ALL", &st, &code, &at) == TRL_AGENT_DISCONNECT);
+    TRL_CHECK(test, read_as("/* a /* b */ CONNECT TO 'n'", &st, &code, &at) == TRL_AGENT_OTHER);
     TRL_CHECK(test, read_as(" set connection default ;", &st, &code, &at) == TRL_AGENT_SET);
     TRL_CHECK(test, st.object == TRL_AGENT_DEFAULT);
     TRL_CHECK(test, read_as("SET CONNECTION 'c'", &st, &code, &at) == TRL_AGENT_SET && text_is(&st.name, "c"));

@@ -74,6 +74,7 @@ static void numbers_read_back(trl_test *test) {
               reads_as(&f, "0.0000000000000000000000000000000000000001", "0.0000000000000000000000000000000000000001"));
     TRL_CHECK(test, reads_as(&f, "123456789012345678.9", "123456789012345678.9"));
     TRL_CHECK(test, reads_as(&f, "-12345678901234567890", "-12345678901234567890"));
+    TRL_CHECK(test, reads_as(&f, "1e+2", "1.0E2") && reads_as(&f, "100.000", "100.000"));
     fixture_free(&f);
 }
 
@@ -125,6 +126,7 @@ static void strings_read_back(trl_test *test) {
     TRL_CHECK(test, reads_as(&f, "\"q\\\"b\\\\s\\/\\b\\f\\n\\r\\t\\u0001\\u001F\\u00e9\"",
                              "\"q\\\"b\\\\s/\\b\\f\\n\\r\\t\\u0001\\u001f\xC3\xA9\""));
     TRL_CHECK(test, reads_as(&f, "\"\\ud83d\\ude00\"", "\"\xF0\x9F\x98\x80\""));
+    TRL_CHECK(test, reads_as(&f, "\"\\uD83D\\uDE00\\u0800\\u00A9\"", "\"\xF0\x9F\x98\x80\xE0\xA0\x80\xC2\xA9\""));
     fixture_free(&f);
 }
 
@@ -140,9 +142,30 @@ static void invalid_texts_fail(trl_test *test) {
     fixture_init(&f);
     char out[TEXT_BYTES];
     const char *texts[] = {
-        "",         "01",    "[1,]",       "{\"a\"}", "tru",         "\"open",      "1 2",
-        "\"\x01\"", "-",     "1.",         ".5",      "1e",          "\"\\ud800\"", "\"\\udc00\"",
-        "\"\\x\"",  "[1 2]", "{\"a\":1,}", "\xFF",    "\"\\u12G4\"", "{1:2}",       "nul",
+        "",
+        "01",
+        "[1,]",
+        "{\"a\"}",
+        "tru",
+        "\"open",
+        "1 2",
+        "\"\x01\"",
+        "-",
+        "1.",
+        ".5",
+        "1e",
+        "\"\\ud800\"",
+        "\"\\udc00\"",
+        "\"\\x\"",
+        "[1 2]",
+        "{\"a\":1,}",
+        "\xFF",
+        "\"\\u12G4\"",
+        "{1:2}",
+        "nul",
+        "\"\\ud83dx\"",
+        "\"\\ud83d\\u0041\"",
+        "\"\\ud83d\\uzzzz\"",
     };
     for (size_t i = 0U; i < TRL_TEST_COUNT(texts); ++i) {
         TRL_CHECK(test, !reserialized(&f, texts[i], out));

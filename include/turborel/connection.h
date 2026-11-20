@@ -53,9 +53,9 @@ TRL_API trl_status trl_connect(const trl_target *target, const char *user, trl_m
  * @brief A stream the program opened, such as a TLS stream of its own:
  * functions the connection reads and writes through.
  *
- * The connection waits as the stream's maker set it to; its timeouts do
- * not apply. The caller answers for the stream's privacy: no mechanism is
- * refused over it.
+ * A stream that bounds itself is bounded by the options' timeouts, as a
+ * socket is; one that does not waits as its maker set it to. The caller
+ * answers for the stream's privacy: no mechanism is refused over it.
  */
 typedef struct trl_stream {
     /** @brief Passed to each function. */
@@ -77,8 +77,8 @@ typedef struct trl_stream {
      * bound: whether it could. May be null, of a stream its maker bounds:
      * the connection then waits as the maker set it, Terminate too, and
      * its read timeout cannot be set. A stream that bounds itself is
-     * bounded by the read timeout the options give as it opens, as a
-     * socket is [CLIENT Timeouts].
+     * bounded by the connect timeout the options give while it logs in,
+     * then by their read timeout, as a socket is [CLIENT Timeouts].
      */
     bool (*bound)(void *context, uint32_t ms);
 } trl_stream;
@@ -92,8 +92,8 @@ typedef struct trl_stream {
  * as it is freed, even if this fails.
  * @param user The user.
  * @param mechanism What proves the user.
- * @param options What to ask for; null for the defaults. Its timeouts do
- * not apply.
+ * @param options What to ask for, and of a stream that bounds itself how
+ * long it waits; null for the defaults.
  * @param out Where the connection goes, as trl_connect() gives it.
  * @return As trl_connect() returns.
  */
@@ -116,6 +116,17 @@ TRL_API const trl_failure *trl_conn_failure(const trl_conn *conn);
  * @return Whether it is.
  */
 TRL_API bool trl_conn_is_lost(const trl_conn *conn);
+
+/**
+ * @brief Where the connection reached its server, as turborel-client's
+ * `target`: its target, of TCP or TLS the address it reached in place of
+ * the host's name, which its canceller reaches too.
+ *
+ * @param conn The connection.
+ * @return The target, owned by the connection; null of a connection over
+ * the program's own stream, or if `conn` is null.
+ */
+TRL_API const trl_target *trl_conn_target(const trl_conn *conn);
 
 /**
  * @brief The server's product, as Ready told it, as "turborel 0.0.0

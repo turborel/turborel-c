@@ -115,6 +115,27 @@ static void numbers_past_a_c_type_are_refused(trl_test *test) {
 }
 
 /**
+ * Verifies: [DESIGN] D2 numbers at the C types' edges: a fraction of a bit
+ * dropped (01S07), a bit past 1 (22003), text a number begins (22018), a
+ * DECFLOAT as an integer, a float past a REAL's range (22003).
+ */
+static void numbers_at_the_c_types_edges(trl_test *test) {
+    odbc_opened o;
+    TRL_CHECK(test, odbc_open(&o));
+    TRL_CHECK(test, one_row(o.stmt, "VALUES (CAST(0.5 AS NUMERIC(2,1)), CAST(2 AS INTEGER), '1x', "
+                                    "CAST(1.5 AS DECFLOAT), CAST(1E39 AS DOUBLE PRECISION))"));
+    char state[6];
+    number_out v;
+    TRL_CHECK(test, got(o.stmt, 1, SQL_C_BIT, &v, state) == SQL_SUCCESS_WITH_INFO && v.utiny == 0U);
+    TRL_CHECK(test, got(o.stmt, 2, SQL_C_BIT, &v, state) == SQL_ERROR && strcmp(state, "22003") == 0);
+    TRL_CHECK(test, got(o.stmt, 3, SQL_C_SLONG, &v, state) == SQL_ERROR && strcmp(state, "22018") == 0);
+    TRL_CHECK(test, got(o.stmt, 4, SQL_C_SLONG, &v, state) == SQL_SUCCESS_WITH_INFO && v.integer == 1);
+    TRL_CHECK(test, got(o.stmt, 5, SQL_C_FLOAT, &v, state) == SQL_ERROR && strcmp(state, "22003") == 0);
+    (void)SQLFreeStmt(o.stmt, SQL_CLOSE);
+    odbc_close(&o);
+}
+
+/**
  * Verifies: [DESIGN] D2 exact numbers given as SQL_C_NUMERIC at the scale
  * the bound column asks, by SQL_ARD_TYPE, a fraction past it dropped
  * (01S07); a negative one's sign; an approximate one's.
@@ -547,6 +568,7 @@ int main(int argc, char **argv) {
     static const trl_test_case cases[] = {
         TRL_TEST_CASE(numbers_are_given_as_c_integers_and_floats),
         TRL_TEST_CASE(numbers_past_a_c_type_are_refused),
+        TRL_TEST_CASE(numbers_at_the_c_types_edges),
         TRL_TEST_CASE(numbers_are_given_as_sql_numeric),
         TRL_TEST_CASE(datetimes_and_uuids_are_given_as_structures),
         TRL_TEST_CASE(strings_are_given_in_pieces),

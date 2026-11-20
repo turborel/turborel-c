@@ -519,6 +519,46 @@ Where it departs from turborel-client on its own:
   of them, which places a failure as Turborel's parser does but words it
   in its own way.
 
+Where it departs from turborel-client on its own, by C's means or for
+the driver's own reasons, as the parity audit of M8 found:
+
+- turborel-client's public items that are its language's, or its
+  protocol crate's, have no counterpart: the trait a program writes a
+  mechanism of its own by, as C has no traits and a mechanism's state is
+  the library's; a stream opened to a target apart from a connection;
+  reading one section of a service file, the list of settings' keys and
+  of their environment's variables, layering options and parsing a
+  setting's word, and building TLS of a mode, each reached through
+  settings as a whole (`trl_settings_resolve`); the SQL-agent's reading
+  of a connection statement alone; a role's description and the names
+  of the settings it is told by; the constants a connection, a pool and
+  the told settings are made with; an import's heading's type and the
+  text of its parts' positions and counts; and the protocol crate's
+  statement splitter, packages' signing keys and the operations on sets
+  of capabilities, timings, failures and completions. Each feature they
+  serve is the library's, as the pages of the manual give it.
+- A limit of 0 is none throughout, as `TRL_NO_LIMIT` says, so
+  `trl_cancel_within(canceller, 0)` waits as long as the server takes,
+  where turborel-client's `cancel_within(Duration::ZERO)` fails at once.
+- Arguments turborel-client takes are refused as the driver's error
+  where they could only fail later: a most body of 0 or past 16 MiB
+  (`trl_conn_set_max_body`), a pool of at most 0 connections
+  (`trl_pool_new`), a value that cannot be sent, as a string not UTF-8,
+  JSON past Turborel's limits, a UUID not of 16 octets or a multiset of
+  more than 65535 elements, and a pipeline run while a copy is open; the
+  connection is kept. A JSON value received of more than 256 MiB is past
+  Turborel's limits, SQLCODE -900, its request's failure alone, which
+  only a most body raised past 256 MiB can let come. A value written of
+  tag 5, 7, 10 or 12 is sent so where the program gives it, as the
+  server takes it, where turborel-client writes 1, 6, 9 and 11.
+- The SQL-agent reads a statement's leading words alone, as its
+  connection statements need: text it does not read as one goes to the
+  current connection, whose server fails it as its lexer does, where
+  turborel-client lexes the whole text first and fails it, SQLCODE
+  -101, before any connection.
+- A password file is read as C reads a string: a NUL in it ends its
+  text there.
+
 Where the standard API departs from its models, libpq and ODBC 3.x:
 
 - A connection by a URI is `trl_connect_uri`, as `trl_connect` is the

@@ -128,8 +128,30 @@ static void headings_name_columns(trl_test *test) {
     trl_buffer_free(&out);
 }
 
+/* Where trl_separators() leaves `text`, or -1 if it fails. */
+static long separated(const char *text) {
+    size_t at = 0U;
+    return trl_separators(text, &at) ? (long)at : -1L;
+}
+
+/**
+ * Verifies: [CLIENT Importing] separators are read as Turborel's lexer
+ * reads them: a space, a newline of LF or CR LF, a simple comment ended by
+ * one, a bracketed comment holding others nested in it; a lone CR is
+ * none, and a comment not ended fails where it begins.
+ */
+static void separators_are_turborels(trl_test *test) {
+    TRL_CHECK(test, separated(" \n\r\nX") == 4L && separated("\rX") == 0L && separated("\r") == 0L);
+    TRL_CHECK(test, separated("-- a\rb\r\nX") == 8L && separated("-- open") == -1L && separated("-X") == 0L);
+    TRL_CHECK(test, separated("/* a /* b */ c */X") == 17L && separated("/* a /* b */") == -1L);
+    TRL_CHECK(test, separated("/X") == 0L && separated("/* * / */X") == 9L);
+    size_t at = 2U;
+    TRL_CHECK(test, !trl_separators("  /* open", &at) && at == 2U);
+}
+
 int main(int argc, char **argv) {
     static const trl_test_case cases[] = {
+        TRL_TEST_CASE(separators_are_turborels),
         TRL_TEST_CASE(table_names_are_delimited),
         TRL_TEST_CASE(what_is_no_table_name_is_refused),
         TRL_TEST_CASE(letters_past_ascii),

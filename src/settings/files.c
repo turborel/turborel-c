@@ -17,6 +17,7 @@
 #endif
 
 #include "codec/buffer.h"
+#include "codec/utf8.h"
 #include "failure.h"
 #include "format.h"
 #include "memory.h"
@@ -43,27 +44,22 @@
 #define TRL_FIELDS 4U
 /* The fields a line is matched by, the host, the port and the user, before its password. */
 #define TRL_MATCHED 3U
-/* The longest file read, a bound against a file of no end, and the
-   octets read of it at a time. */
-#define TRL_MOST_FILE_BYTES 16777216U
+/* The octets of a file read at a time. */
 #define TRL_CHUNK_BYTES 4096U
 /* The brackets of a section's name. */
 #define TRL_BRACKETS 2U
 
-/* Whether `c` is white space, as a line's ends are trimmed of. */
-static bool white(char c) {
-    return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\v' || c == '\f';
-}
-
-/* `text` of `length` trimmed of white space at both ends: where it begins,
-   and its length in `length`. */
+/* `text` of `length` trimmed of white space at both ends, Unicode's, as
+   Rust's `trim` trims: where it begins, and its length in `length`. */
 static const char *trimmed(const char *text, size_t *length) {
-    while (*length > 0U && white(text[0])) {
-        ++text;
-        --*length;
+    for (size_t n = trl_utf8_space_at((const uint8_t *)text, *length); n > 0U;
+         n = trl_utf8_space_at((const uint8_t *)text, *length)) {
+        text += n;
+        *length -= n;
     }
-    while (*length > 0U && white(text[*length - 1U])) {
-        --*length;
+    for (size_t n = trl_utf8_space_before((const uint8_t *)text, *length); n > 0U;
+         n = trl_utf8_space_before((const uint8_t *)text, *length)) {
+        *length -= n;
     }
     return text;
 }
@@ -189,8 +185,9 @@ static FILE *opened(const char *path, int *why) {
 #endif
 }
 
-/* The whole text of the file at `path`, the caller's to free; null, with
-   `why`, the system's code, if it cannot be read, 0 if memory could not
+/* The whole text of the file at `path`, as Rust's `read_to_string`
+   reads one: the caller's to free; null, with `why`, the system's code,
+   if it cannot be read, EILSEQ if it is not UTF-8, 0 if memory could not
    be had. */
 static char *read_whole(const char *path, int *why) {
     FILE *file = opened(path, why);
@@ -201,13 +198,16 @@ static char *read_whole(const char *path, int *why) {
     trl_buffer_init(&text);
     char chunk[TRL_CHUNK_BYTES];
     bool more = true;
-    while (more && text.length <= TRL_MOST_FILE_BYTES) {
+    while (more && text.state == TRL_BUFFER_OK) {
         size_t got = fread(chunk, 1U, sizeof chunk, file);
         trl_put_raw(&text, (const uint8_t *)chunk, got);
         more = got == sizeof chunk;
     }
     *why = ferror(file) != 0 ? errno : 0;
     (void)fclose(file);
+    if (*why == 0 && text.state == TRL_BUFFER_OK && !trl_utf8_valid(text.data, text.length)) {
+        *why = EILSEQ;
+    }
     trl_put_u8(&text, 0U);
     if (*why != 0 || text.state != TRL_BUFFER_OK) {
         trl_buffer_free(&text);
@@ -303,14 +303,14 @@ bool trl_password_find(const char *text, const char *host, const char *port, con
     for (const char *line = text; *line != '\0';) {
         const char *end = strchr(line, '\n');
         size_t length = end == NULL ? strlen(line) : (size_t)(end - line);
-        if (length > 0U && line[length - 1U] == '\r') {
+        /* A line ends at LF or CR LF, as Rust's `lines` ends one; a CR
+           the file ends with is the last line's own. */
+        if (end != NULL && length > 0U && line[length - 1U] == '\r') {
             --length;
         }
-        const char *start = line;
-        while (start < line + length && white(*start)) {
-            ++start;
-        }
-        if ((start == line + length || *start != TRL_COMMENT) && line_gives(line, length, wanted, out)) {
+        size_t rest = length;
+        const char *start = trimmed(line, &rest);
+        if ((rest == 0U || *start != TRL_COMMENT) && line_gives(line, length, wanted, out)) {
             return true;
         }
         if (end == NULL) {

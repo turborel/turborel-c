@@ -37,12 +37,15 @@ typedef enum after {
     AFTER_TERMINATE_NOTICE_ERROR,
     AFTER_TERMINATE_NOTICE,
     AFTER_TERMINATE_COMPRESSED_ERROR,
+    AFTER_TERMINATE_BROKEN_OFF,
 } after;
 
 /* The capabilities a test's server grants. */
 typedef struct serving {
     after after;
     bool compression;
+    /* How long a stream that bounds itself was bounded to as Hello came. */
+    uint32_t bound_at_hello;
 } serving;
 
 /* Writes a long Status compressed, a z frame holding it, then a Pong. */
@@ -81,22 +84,31 @@ static void compressed_error(script *s) {
     trl_buffer_free(&frame);
 }
 
+/* Answers Terminate as the test asks, before the server closes. */
+static void after_terminate(script *s, const serving *plan) {
+    if (plan->after == AFTER_TERMINATE_NOTICE_ERROR || plan->after == AFTER_TERMINATE_NOTICE) {
+        script_notice(s, "01000", "a warning");
+    }
+    if (plan->after == AFTER_TERMINATE_NOTICE_ERROR) {
+        script_status(s, "READ_ONLY", "NO");
+    }
+    if (plan->after == AFTER_TERMINATE_ERROR || plan->after == AFTER_TERMINATE_NOTICE_ERROR) {
+        script_error(s, -320, "40002", "a deferred constraint is not satisfied", NULL);
+    }
+    if (plan->after == AFTER_TERMINATE_COMPRESSED_ERROR) {
+        compressed_error(s);
+    }
+    if (plan->after == AFTER_TERMINATE_BROKEN_OFF) {
+        static const uint8_t broken[] = {TRL_KIND_NOTICE, 40U, 0U, 0U, 0U, 5U, 0U};
+        trl_put_raw(&s->to_client, broken, sizeof broken);
+    }
+}
+
 /* Answers each request after Ready as the test asks. */
 static void after_ready(script *s, const serving *plan, uint8_t kind) {
     static const uint8_t long_header[] = {TRL_KIND_PONG, 100U, 0U, 0U, 0U};
     if (kind == TRL_KIND_TERMINATE) {
-        if (plan->after == AFTER_TERMINATE_NOTICE_ERROR || plan->after == AFTER_TERMINATE_NOTICE) {
-            script_notice(s, "01000", "a warning");
-        }
-        if (plan->after == AFTER_TERMINATE_NOTICE_ERROR) {
-            script_status(s, "READ_ONLY", "NO");
-        }
-        if (plan->after == AFTER_TERMINATE_ERROR || plan->after == AFTER_TERMINATE_NOTICE_ERROR) {
-            script_error(s, -320, "40002", "a deferred constraint is not satisfied", NULL);
-        }
-        if (plan->after == AFTER_TERMINATE_COMPRESSED_ERROR) {
-            compressed_error(s);
-        }
+        after_terminate(s, plan);
         return;
     }
     switch (plan->after) {
@@ -124,6 +136,7 @@ static void after_ready(script *s, const serving *plan, uint8_t kind) {
     case AFTER_TERMINATE_NOTICE_ERROR:
     case AFTER_TERMINATE_NOTICE:
     case AFTER_TERMINATE_COMPRESSED_ERROR:
+    case AFTER_TERMINATE_BROKEN_OFF:
     default:
         script_bare(s, TRL_KIND_PONG);
         break;
@@ -133,9 +146,10 @@ static void after_ready(script *s, const serving *plan, uint8_t kind) {
 /* A server granting `ping` and `status`, and `compression` if asked. */
 static void respond(script *s, uint8_t kind, trl_slice body) {
     (void)body;
-    const serving *plan = s->data;
+    serving *plan = s->data;
     static const char *const granted[] = {TRL_CAPABILITY_STATUS, TRL_CAPABILITY_PING, TRL_CAPABILITY_COMPRESSION};
     if (kind == TRL_KIND_HELLO) {
+        plan->bound_at_hello = s->bound_ms;
         script_status(s, "SESSION.TIME_ZONE", "+00:00");
         script_ready(s, "ANN", granted, plan->compression ? 3U : 2U);
         return;
@@ -160,7 +174,7 @@ static trl_conn *connected(script *s, serving *plan, const trl_conn_options *opt
  * loses the connection, another does not, and a reply out of turn loses it.
  */
 static void ping_is_answered_by_pong(trl_test *test) {
-    serving plan = {AFTER_STATUS_PONG, false};
+    serving plan = {AFTER_STATUS_PONG, false, 0U};
     script s;
     trl_conn *conn = connected(&s, &plan, NULL);
     TRL_CHECK(test, trl_conn_ping(conn) == TRL_OK);
@@ -190,7 +204,7 @@ static void ping_is_answered_by_pong(trl_test *test) {
  * [PROTOCOL Capabilities].
  */
 static void a_capability_not_granted_sends_nothing(trl_test *test) {
-    serving plan = {AFTER_PONG, false};
+    serving plan = {AFTER_PONG, false, 0U};
     script s;
     script_init(&s, NULL, &plan);
     script_ready(&s, "ANN", NULL, 0U);
@@ -224,7 +238,7 @@ static uint32_t asked_count(const script *s) {
 static void an_offer_of_the_programs_own(trl_test *test) {
     trl_conn_options *options = NULL;
     TRL_CHECK(test, trl_conn_options_new(&options) == TRL_OK);
-    serving plan = {AFTER_PONG, false};
+    serving plan = {AFTER_PONG, false, 0U};
     script s;
     trl_conn *conn = connected(&s, &plan, options);
     TRL_CHECK(test, asked_count(&s) == 18U);
@@ -266,7 +280,7 @@ static void compressed_frames_only_once_granted(trl_test *test) {
     if (!trl_compression_built()) {
         return;
     }
-    serving plan = {AFTER_COMPRESSED_PONG, true};
+    serving plan = {AFTER_COMPRESSED_PONG, true, 0U};
     script s;
     trl_conn *conn = connected(&s, &plan, NULL);
     TRL_CHECK(test, trl_conn_ping(conn) == TRL_OK);
@@ -288,7 +302,7 @@ static void compressed_frames_only_once_granted(trl_test *test) {
  * its maker, so its read timeout is not set.
  */
 static void a_longer_reply_loses_the_connection(trl_test *test) {
-    serving plan = {AFTER_LONG_PONG, false};
+    serving plan = {AFTER_LONG_PONG, false, 0U};
     script s;
     trl_conn *conn = connected(&s, &plan, NULL);
     TRL_CHECK(test, trl_conn_set_max_body(conn, 0U) == TRL_INVALID_ARGUMENT);
@@ -312,7 +326,7 @@ static void a_longer_reply_loses_the_connection(trl_test *test) {
  * every call after fails, the connection lost.
  */
 static void terminate_gives_a_failing_commit(trl_test *test) {
-    serving plan = {AFTER_PONG, false};
+    serving plan = {AFTER_PONG, false, 0U};
     script s;
     trl_conn *conn = connected(&s, &plan, NULL);
     TRL_CHECK(test, trl_conn_terminate(conn) == TRL_OK && s.kinds[1] == TRL_KIND_TERMINATE);
@@ -332,11 +346,12 @@ static void terminate_gives_a_failing_commit(trl_test *test) {
 /**
  * Verifies: [CLIENT Connecting] a Notice and a Status before the Error
  * that ends Terminate are read past, and the Error reported; a Notice
- * before the close ends it well; an Error sent compressed, once
+ * before the close ends it well, a frame broken off by it fails as the
+ * connection's (08006); an Error sent compressed, once
  * `compression` is granted, inflated and reported [PROTOCOL Compressed frames].
  */
 static void terminate_reads_past_a_notice_to_its_error(trl_test *test) {
-    serving plan = {AFTER_TERMINATE_NOTICE_ERROR, false};
+    serving plan = {AFTER_TERMINATE_NOTICE_ERROR, false, 0U};
     script s;
     trl_conn *conn = connected(&s, &plan, NULL);
     TRL_CHECK(test, trl_conn_terminate(conn) == TRL_FAILED);
@@ -346,6 +361,12 @@ static void terminate_reads_past_a_notice_to_its_error(trl_test *test) {
     plan.after = AFTER_TERMINATE_NOTICE;
     conn = connected(&s, &plan, NULL);
     TRL_CHECK(test, trl_conn_terminate(conn) == TRL_OK);
+    trl_conn_free(conn);
+    script_free(&s);
+    plan.after = AFTER_TERMINATE_BROKEN_OFF;
+    conn = connected(&s, &plan, NULL);
+    TRL_CHECK(test, trl_conn_terminate(conn) == TRL_FAILED);
+    TRL_CHECK(test, strcmp(trl_failure_sqlstate(trl_conn_failure(conn)), "08006") == 0);
     trl_conn_free(conn);
     script_free(&s);
     if (trl_compression_built()) {
@@ -361,22 +382,24 @@ static void terminate_reads_past_a_notice_to_its_error(trl_test *test) {
 
 /**
  * Verifies: [CLIENT Timeouts] a stream of the program's own that bounds
- * itself is bounded by the read timeout the options give as it opens,
- * its read timeout settable as a connection's, and Terminate waits at most
+ * itself logs in within the connect timeout the options give, then is
+ * bounded by their read timeout, its read timeout settable as a
+ * connection's, and Terminate waits at most
  * it; one its maker bounds cannot be [CLIENT Connecting].
  */
 static void a_stream_that_bounds_itself(trl_test *test) {
-    serving plan = {AFTER_PONG, false};
+    serving plan = {AFTER_PONG, false, 0U};
     script s;
     script_init(&s, respond, &plan);
     s.bounds = true;
     trl_conn_options *options = NULL;
     (void)trl_conn_options_new(&options);
-    (void)trl_conn_options_timeouts(options, 0U, 250U);
+    (void)trl_conn_options_timeouts(options, 100U, 250U);
     trl_mechanism *trust = NULL;
     (void)trl_mechanism_trust(&trust);
     trl_conn *conn = NULL;
     TRL_CHECK(test, script_connect(&s, trust, options, &conn) == TRL_OK && s.bounded && s.bound_ms == 250U);
+    TRL_CHECK(test, plan.bound_at_hello == 100U);
     TRL_CHECK(test, trl_conn_read_timeout(conn) == 250U);
     TRL_CHECK(test, trl_conn_set_read_timeout(conn, 0U) == TRL_OK && s.bound_ms == 0U);
     TRL_CHECK(test, trl_conn_terminate(conn) == TRL_OK && s.bound_ms == 60000U);

@@ -68,6 +68,9 @@ static void trust_password_and_certificate(trl_test *test) {
     TRL_CHECK(test, strcmp(trl_mechanism_name(trust), "trust") == 0 && initial_is(trust, ""));
     TRL_CHECK(test, strcmp(trl_mechanism_name(password), "password") == 0 && initial_is(password, "ann's"));
     TRL_CHECK(test, strcmp(trl_mechanism_name(certificate_one), "certificate") == 0 && initial_is(certificate_one, ""));
+    TRL_CHECK(test, strcmp(trl_mechanism_name(trust), TRL_MECHANISM_TRUST) == 0 &&
+                        strcmp(trl_mechanism_name(password), TRL_MECHANISM_PASSWORD) == 0 &&
+                        strcmp(trl_mechanism_name(certificate_one), TRL_MECHANISM_CERTIFICATE) == 0);
     TRL_CHECK(test, !trl_mechanism_secret(trust) && trl_mechanism_secret(password));
     TRL_CHECK(test, !trl_mechanism_secret(certificate_one));
     trl_failure failure;

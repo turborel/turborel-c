@@ -29,6 +29,8 @@ static void a_query_is_read_or_refused(trl_test *test) {
     TRL_CHECK(test, trl_query(conn, "Q", &result) == TRL_OK && trl_result_row_count(result) == 3U);
     TRL_CHECK(test,
               strcmp(trl_result_column_name(result, 1U), "C1") == 0 && trl_result_column_name(result, 2U) == NULL);
+    TRL_CHECK(test, !trl_result_column_not_null(result, 0U) && trl_result_column_not_null(result, 1U) &&
+                        !trl_result_column_not_null(result, 2U) && !trl_result_column_not_null(NULL, 0U));
     TRL_CHECK(test, trl_result_value(result, 3U, 0U) == NULL && trl_result_value(result, 0U, 2U) == NULL);
     TRL_CHECK(test, trl_result_column_type(result, 2U) == NULL && trl_conn_in_transaction(conn));
     trl_result_free(result);
@@ -50,8 +52,9 @@ static void a_query_is_read_or_refused(trl_test *test) {
 
 /**
  * Verifies: [CLIENT What the server tells] a completion's tails: the
- * commit's position, the rows, the identity values, the conditions and the
- * server's time; a warning's SQLSTATE [PROTOCOL Complete 'K'].
+ * commit's position, the rows, the identity values, the conditions, which
+ * a program may drop once it took them, and the server's time; a
+ * warning's SQLSTATE [PROTOCOL Complete 'K'].
  */
 static void a_completion_tells_its_tails(trl_test *test) {
     serving plan = {PLAN_TAILS, true};
@@ -66,6 +69,10 @@ static void a_completion_tells_its_tails(trl_test *test) {
     TRL_CHECK(test, trl_conn_generated_count(conn) == 2U && strcmp(trl_conn_generated_at(conn, 1U), "8") == 0);
     TRL_CHECK(test, trl_conn_condition_count(conn) == 1U);
     TRL_CHECK(test, strcmp(trl_failure_message(trl_conn_condition_at(conn, 0U)), "null eliminated") == 0);
+    trl_conn_clear_conditions(conn);
+    TRL_CHECK(test, trl_conn_condition_count(conn) == 0U && trl_conn_condition_at(conn, 0U) == NULL);
+    TRL_CHECK(test, trl_conn_generated_count(conn) == 2U);
+    trl_conn_clear_conditions(NULL);
     trl_timing timing;
     TRL_CHECK(test, trl_conn_server_time(conn, &timing) && timing.total == 30U && timing.locks == 1U);
     TRL_CHECK(test, strcmp(trl_conn_warning(conn), "01003") == 0);

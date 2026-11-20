@@ -104,6 +104,7 @@ add_library(
   src/lob/reader.c
   src/lob/writer.c
   src/net/tls.c
+  src/net/tls_roots.c
   src/net/tls_settings.c
   src/net/transport.c
   src/stmt/pipeline.c

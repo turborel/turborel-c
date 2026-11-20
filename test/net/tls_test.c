@@ -30,6 +30,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #define PATH_BYTES 1024U
@@ -75,7 +76,10 @@ static void files_are_read_or_refused(trl_test *test) {
 /**
  * Verifies: [CLIENT Connecting] TLS that trusts no authority makes no
  * target; settings a target holds change no more; the platform's
- * authorities are trusted when asked for.
+ * authorities are trusted when asked for, those of the files SSL_CERT_FILE
+ * and SSL_CERT_DIR name where either is set, as rustls-native-certs reads
+ * them: SSL_CERT_DIR a list, a directory that cannot be read passed over,
+ * none at all trusted a failure.
  */
 static void a_target_needs_an_authority(trl_test *test) {
     trl_tls *tls = NULL;
@@ -88,8 +92,24 @@ static void a_target_needs_an_authority(trl_test *test) {
     TRL_CHECK(test, trl_tls_trust_platform(tls) == TRL_OK);
     /* The test runs on one thread here. */
     TRL_CHECK(test, setenv("SSL_CERT_FILE", "", 1) == 0); // NOLINT(concurrency-mt-unsafe)
-    TRL_CHECK(test, setenv("SSL_CERT_DIR", DIR, 1) == 0); // NOLINT(concurrency-mt-unsafe)
+    trl_tls *none = NULL;
+    (void)trl_tls_new(&none);
+    TRL_CHECK(test, trl_tls_trust_platform(none) == TRL_FAILED && failed_with(none, "cannot trust the platform's"));
+    trl_tls_free(none);
+    /* A directory within it, a file of no certificate and a dangling link
+       are passed over; the certificates its files hold are trusted. */
+    (void)mkdir(DIR "/within", 0700);
+    TRL_CHECK(test, trl_test_write_file(DIR "/notes.txt", "no certificate here\n"));
+    (void)unlink(DIR "/gone.pem");
+    TRL_CHECK(test, symlink(DIR "/nothing", DIR "/gone.pem") == 0);
+    TRL_CHECK(test, setenv("SSL_CERT_DIR", "nowhere::" DIR, 1) == 0); // NOLINT(concurrency-mt-unsafe)
     TRL_CHECK(test, trl_tls_trust_platform(tls) == TRL_OK);
+    TRL_CHECK(test, setenv("SSL_CERT_FILE", DIR "/ca.pem", 1) == 0); // NOLINT(concurrency-mt-unsafe)
+    TRL_CHECK(test, setenv("SSL_CERT_DIR", DIR "/within", 1) == 0);  // NOLINT(concurrency-mt-unsafe)
+    trl_tls *file = NULL;
+    (void)trl_tls_new(&file);
+    TRL_CHECK(test, trl_tls_trust_platform(file) == TRL_OK);
+    trl_tls_free(file);
     TRL_CHECK(test, unsetenv("SSL_CERT_FILE") == 0 && unsetenv("SSL_CERT_DIR") == 0); // NOLINT(concurrency-mt-unsafe)
     TRL_CHECK(test, trl_target_tls("localhost", TRL_DEFAULT_PORT, NULL, tls, &target) == TRL_OK);
     TRL_CHECK(test, trl_tls_trust_file(tls, DIR "/ca.pem") == TRL_FAILED);
@@ -314,6 +334,20 @@ static void null_arguments_are_refused(trl_test *test) {
     TRL_CHECK(test, trl_target_tcp("", 1U, &target) == TRL_INVALID_ARGUMENT);
     TRL_CHECK(test, trl_target_tcp("h", 1U, NULL) == TRL_INVALID_ARGUMENT);
     TRL_CHECK(test, trl_target_local(NULL, &target) == TRL_INVALID_ARGUMENT);
+    TRL_CHECK(test, !trl_target_is_tls(NULL) && !trl_target_is_plain_tcp(NULL) && trl_target_host(NULL) == NULL);
+    TRL_CHECK(test, trl_conn_target(NULL) == NULL);
+    TRL_CHECK(test, trl_target_local("x.sock", &target) == TRL_OK && trl_target_host(target) == NULL);
+    TRL_CHECK(test, !trl_target_is_tls(target) && !trl_target_is_plain_tcp(target));
+    trl_target_free(target);
+    TRL_CHECK(test, trl_target_tcp("h", 1U, &target) == TRL_OK && strcmp(trl_target_host(target), "h") == 0);
+    TRL_CHECK(test, trl_target_is_plain_tcp(target) && !trl_target_is_tls(target));
+    trl_target_free(target);
+    (void)trl_tls_new(&tls);
+    (void)trl_tls_trust_file(tls, DIR "/ca.pem");
+    TRL_CHECK(test, trl_target_tls("t", 1U, NULL, tls, &target) == TRL_OK && strcmp(trl_target_host(target), "t") == 0);
+    TRL_CHECK(test, trl_target_is_tls(target) && !trl_target_is_plain_tcp(target));
+    trl_target_free(target);
+    trl_tls_free(tls);
     trl_tls_free(NULL);
     trl_target_free(NULL);
 }

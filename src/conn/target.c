@@ -153,8 +153,27 @@ trl_target *trl_target_clone(const trl_target *target) {
     return copy;
 }
 
+bool trl_target_reached(trl_target *target, const trl_transport *transport) {
+    char address[TRL_ADDRESS_BYTES];
+    if ((target->kind != KIND_TCP && target->kind != KIND_TLS) ||
+        !trl_transport_peer(transport, address, sizeof address)) {
+        return true;
+    }
+    char *host = copy_of(address);
+    if (host == NULL) {
+        return false;
+    }
+    free(target->host);
+    target->host = host;
+    return true;
+}
+
 bool trl_target_is_plain_tcp(const trl_target *target) {
-    return target->kind == KIND_TCP;
+    return target != NULL && target->kind == KIND_TCP;
+}
+
+const char *trl_target_host(const trl_target *target) {
+    return target == NULL || (target->kind != KIND_TCP && target->kind != KIND_TLS) ? NULL : target->host;
 }
 
 void trl_io_failed(trl_failure *failure, const char *what, const trl_io_error *error) {
@@ -168,7 +187,7 @@ void trl_io_failed(trl_failure *failure, const char *what, const trl_io_error *e
 }
 
 bool trl_target_is_tls(const trl_target *target) {
-    return target->kind == KIND_TLS;
+    return target != NULL && target->kind == KIND_TLS;
 }
 
 trl_opening trl_target_open_preferring(const trl_target *target, uint32_t within_ms, trl_transport *out,

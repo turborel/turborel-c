@@ -148,6 +148,18 @@ trl_status trl_copy_finish(trl_copy *copy, uint64_t *rows) {
         *rows = 0U;
     }
     bool flushed = flush(copy);
+    if (!flushed && !trl_conn_is_lost(copy->conn)) {
+        /* Rows that could not be sent: the copy abandoned so the connection
+           takes requests again, as turborel-client's drop abandons it, the
+           failure kept the rows'. */
+        trl_failure kept;
+        trl_failure_init(&kept);
+        trl_failure_copy(&kept, &copy->conn->failure);
+        (void)end(copy, true);
+        trl_failure_copy(&copy->conn->failure, &kept);
+        trl_failure_clear(&kept);
+        return TRL_FAILED;
+    }
     if (!flushed) {
         copy->ended = true;
         copy->conn->copying = false;

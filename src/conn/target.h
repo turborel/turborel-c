@@ -13,9 +13,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-/** @brief Whether a target is TCP without TLS, over which no secret goes. */
-bool trl_target_is_plain_tcp(const trl_target *target);
-
 /**
  * @brief Opens a connection to the target, each step within `within_ms`,
  * its reads and writes bounded by it; `channel` gets what a TLS target's
@@ -46,8 +43,15 @@ typedef enum trl_opening {
 trl_opening trl_target_open_preferring(const trl_target *target, uint32_t within_ms, trl_transport *out,
                                        trl_tls_channel *channel, trl_failure *failure);
 
-/** @brief Whether the target is over TLS. */
-bool trl_target_is_tls(const trl_target *target);
+/**
+ * @brief Of a target over TCP or TLS, the address `transport` reached in
+ * place of its host, as turborel-client keeps the address a connection
+ * reached, so a canceller reaches the same server however the host's name
+ * resolves after; a TLS target's server name is kept, the certificate
+ * checked against it. Whether it could; a target of another kind, or a
+ * transport that tells no address, is as it was.
+ */
+bool trl_target_reached(trl_target *target, const trl_transport *transport);
 
 /** @brief Says why an open, read or write failed, as turborel-client says it. */
 void trl_io_failed(trl_failure *failure, const char *what, const trl_io_error *error);

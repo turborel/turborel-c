@@ -132,7 +132,19 @@ static void socket_close(trl_transport *transport) {
     free(transport->state);
 }
 
-static const trl_transport_ops socket_ops = {socket_read, socket_write, socket_bound, socket_close};
+/* The address the socket reached, as numbers: an IP address's, not a
+   Unix socket's. */
+static bool socket_peer(const trl_transport *transport, char *out, size_t capacity) {
+    struct sockaddr_storage peer;
+    socklen_t length = sizeof peer;
+    if (getpeername(fd_of(transport), (struct sockaddr *)&peer, &length) != 0 ||
+        (peer.ss_family != AF_INET && peer.ss_family != AF_INET6)) {
+        return false;
+    }
+    return getnameinfo((const struct sockaddr *)&peer, length, out, (socklen_t)capacity, NULL, 0, NI_NUMERICHOST) == 0;
+}
+
+static const trl_transport_ops socket_ops = {socket_read, socket_write, socket_bound, socket_close, socket_peer};
 
 /* Makes `out` a transport of `fd`, which it then owns. */
 static bool adopt(int fd, trl_transport *out) {

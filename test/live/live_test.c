@@ -478,12 +478,22 @@ static void *cancel_later(void *argument) {
 
 /**
  * Verifies: [PROTOCOL Cancel 'Z'] a statement cancelled from another
- * thread, by the key Ready gave over a connection of its own, fails with
- * SQLCODE -920, SQLSTATE TB920, the connection kept
+ * thread, by the key Ready gave over a connection of its own to the
+ * address the statement's connection reached, its host's name resolved
+ * once, fails with SQLCODE -920, SQLSTATE TB920, the connection kept
  * [CLIENT Running statements].
  */
 static void a_statement_is_cancelled_from_another_thread(trl_test *test) {
-    trl_conn *conn = live_trusted(NULL);
+    trl_target *named = NULL;
+    trl_mechanism *trust = NULL;
+    (void)trl_target_tcp("localhost", SERVER_PORT, &named);
+    (void)trl_mechanism_trust(&trust);
+    trl_conn *conn = live_connect(named, trust, NULL);
+    trl_mechanism_free(trust);
+    trl_target_free(named);
+    const trl_target *reached = trl_conn_target(conn);
+    TRL_CHECK(test, trl_target_is_plain_tcp(reached) && !trl_target_is_tls(reached));
+    TRL_CHECK(test, trl_target_host(reached) != NULL && strcmp(trl_target_host(reached), "127.0.0.1") == 0);
     trl_canceller *canceller = NULL;
     TRL_CHECK(test, conn != NULL && trl_canceller_new(conn, &canceller) == TRL_OK);
     if (canceller == NULL) {

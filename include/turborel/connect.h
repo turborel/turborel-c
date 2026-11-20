@@ -114,8 +114,12 @@ TRL_API trl_status trl_tls_new(trl_tls **out);
 TRL_API trl_status trl_tls_trust_file(trl_tls *tls, const char *path);
 
 /**
- * @brief Trusts the platform's certificate authorities: its store, or the
- * files SSL_CERT_FILE and SSL_CERT_DIR name instead, if either is set.
+ * @brief Trusts the platform's certificate authorities, as turborel-client
+ * takes them: its store, on macOS the keychain's trust settings of the
+ * user, the administrator and the system; or the files SSL_CERT_FILE and
+ * SSL_CERT_DIR name instead, if either is set, SSL_CERT_DIR a list of
+ * directories apart by the platform's separator, each regular file of each
+ * read, one that cannot be read passed over.
  *
  * @param tls The settings.
  * @return TRL_OK; TRL_FAILED if they cannot be had; TRL_INVALID_ARGUMENT
@@ -202,6 +206,34 @@ TRL_API trl_status trl_target_tls(const char *host, uint16_t port, const char *s
 TRL_API const trl_failure *trl_target_failure(const trl_target *target);
 
 /**
+ * @brief Whether a target is TCP without TLS, over which no secret goes,
+ * as turborel-client's `is_plain_tcp`.
+ *
+ * @param target The target; null gives false.
+ * @return Whether it is.
+ */
+TRL_API bool trl_target_is_plain_tcp(const trl_target *target);
+
+/**
+ * @brief Whether a target is over TLS, as turborel-client's `is_tls`.
+ *
+ * @param target The target; null gives false.
+ * @return Whether it is.
+ */
+TRL_API bool trl_target_is_tls(const trl_target *target);
+
+/**
+ * @brief The host of a target over TCP or TLS: the name or address it was
+ * made of, or, of a connection's target, the address the connection
+ * reached.
+ *
+ * @param target The target.
+ * @return The host, owned by the target; null of a local target, or if
+ * `target` is null.
+ */
+TRL_API const char *trl_target_host(const trl_target *target);
+
+/**
  * @brief Frees a target.
  *
  * @param target The target; null does nothing.
@@ -275,6 +307,13 @@ typedef enum trl_channel_binding {
 
 /** @brief What proves the user, and the state of its exchange. */
 typedef struct trl_mechanism trl_mechanism;
+
+/** @brief The name the mechanism `trust` is sent by, as turborel-client's `TRUST`. */
+#define TRL_MECHANISM_TRUST "trust"
+/** @brief The name the mechanism `password` is sent by, as turborel-client's `PASSWORD`. */
+#define TRL_MECHANISM_PASSWORD "password"
+/** @brief The name the mechanism `certificate` is sent by, as turborel-client's `CERTIFICATE`. */
+#define TRL_MECHANISM_CERTIFICATE "certificate"
 
 /**
  * @brief The mechanism `trust`: the server trusts the user as it names

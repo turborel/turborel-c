@@ -166,7 +166,13 @@ static void tls_close(trl_transport *transport) {
     release(state);
 }
 
-static const trl_transport_ops tls_ops = {tls_read, tls_write, tls_bound, tls_close};
+/* The address the transport beneath reached. */
+static bool tls_peer(const trl_transport *transport, char *out, size_t capacity) {
+    const tls_state *state = transport->state;
+    return trl_transport_peer(&state->inner, out, capacity);
+}
+
+static const trl_transport_ops tls_ops = {tls_read, tls_write, tls_bound, tls_close, tls_peer};
 
 /* Whether `c` may be in a DNS name's label. */
 static bool label_character(char c) {

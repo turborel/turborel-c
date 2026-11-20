@@ -257,6 +257,11 @@ static bool open_and_log_in(trl_conn *conn, const trl_target *target, const char
     if (!trl_target_open(target, options->connect_ms, &conn->transport, &channel, &conn->failure)) {
         return false;
     }
+    if (!trl_target_reached(conn->reach, &conn->transport)) {
+        trl_tls_channel_free(&channel);
+        trl_failure_no_memory(&conn->failure);
+        return false;
+    }
     bool logged_in = logged_in_over(conn, &channel, user, mechanism, options);
     trl_tls_channel_free(&channel);
     return logged_in;
@@ -279,6 +284,10 @@ trl_conn *trl_conn_open(const trl_target *target, const trl_target *plain, uint3
         fell_back = opening == TRL_OPENED_PLAIN;
     }
     conn->reach = trl_target_clone(fell_back ? plain : target);
+    if (conn->reach != NULL && *opened_now && !trl_target_reached(conn->reach, &conn->transport)) {
+        trl_target_free(conn->reach);
+        conn->reach = NULL;
+    }
     if (conn->reach == NULL && *opened_now) {
         trl_failure_no_memory(&conn->failure);
         trl_transport_close(&conn->transport);
@@ -298,6 +307,10 @@ trl_conn *trl_conn_failed_with(const trl_failure *failure) {
         trl_conn_lose(conn, &conn->failure);
     }
     return conn;
+}
+
+const trl_target *trl_conn_target(const trl_conn *conn) {
+    return conn == NULL ? NULL : conn->reach;
 }
 
 bool trl_conn_over_tls(const trl_conn *conn) {
@@ -379,8 +392,8 @@ static bool stream_bound(trl_transport *transport, uint32_t ms) {
     return true;
 }
 
-static const trl_transport_ops stream_ops = {stream_read, stream_write, NULL, stream_close};
-static const trl_transport_ops bounded_stream_ops = {stream_read, stream_write, stream_bound, stream_close};
+static const trl_transport_ops stream_ops = {stream_read, stream_write, NULL, stream_close, NULL};
+static const trl_transport_ops bounded_stream_ops = {stream_read, stream_write, stream_bound, stream_close, NULL};
 
 trl_status trl_connect_stream(const trl_stream *stream, const char *user, trl_mechanism *mechanism,
                               const trl_conn_options *options, trl_conn **out) {
@@ -406,11 +419,13 @@ trl_status trl_connect_stream(const trl_stream *stream, const char *user, trl_me
     conn->transport.ops = stream->bound == NULL ? &stream_ops : &bounded_stream_ops;
     conn->transport.state = held;
     const trl_conn_options *taken = options == NULL ? defaults : options;
-    bool logged_in = bound(conn, taken->read_ms);
+    /* A stream that bounds itself logs in within the connect timeout, then
+       waits as the read timeout says, as turborel-client's open_within. */
+    bool logged_in = bound(conn, taken->connect_ms) && log_in(conn, user, mechanism, taken);
     if (logged_in && stream->bound != NULL) {
+        logged_in = bound(conn, taken->read_ms);
         conn->read_ms = taken->read_ms;
     }
-    logged_in = logged_in && log_in(conn, user, mechanism, taken);
     trl_conn_options_free(defaults);
     return opened(conn, logged_in, out);
 }

@@ -14,6 +14,7 @@
 #include "codec/replies.h"
 #include "codec/requests.h"
 #include "codec/tags.h"
+#include "codec/utf8.h"
 #include "codec/values.h"
 #include "conn/conn.h"
 #include "data/text.h"
@@ -45,16 +46,11 @@ static void write_out(exporting *e) {
     e->bytes.length = 0U;
 }
 
-/* Whether `byte` is white space at a field's end, as Rust's
-   `char::is_whitespace` takes an ASCII one. */
-static bool white(uint8_t byte) {
-    return byte == ' ' || byte == '\t' || byte == '\n' || byte == '\r' || byte == '\v' || byte == '\f';
-}
-
 /* Whether a field must be quoted: empty, or holding a comma, a quote or a
-   line break, or with white space at either end. */
+   line break, or with white space at either end, Unicode's, as Rust's
+   `char::is_whitespace` takes it. */
 static bool must_quote(const uint8_t *text, size_t length) {
-    if (length == 0U || white(text[0]) || white(text[length - 1U])) {
+    if (length == 0U || trl_utf8_space_at(text, length) > 0U || trl_utf8_space_before(text, length) > 0U) {
         return true;
     }
     for (size_t i = 0U; i < length; ++i) {

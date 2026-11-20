@@ -183,6 +183,10 @@ const char *trl_result_column_name(const trl_result *result, size_t column) {
     return result == NULL || column >= result->column_count ? NULL : result->names[column];
 }
 
+bool trl_result_column_not_null(const trl_result *result, size_t column) {
+    return result != NULL && column < result->column_count && result->columns[column].not_null;
+}
+
 const trl_data_type *trl_result_column_type(const trl_result *result, size_t column) {
     return result == NULL || column >= result->column_count ? NULL : &result->columns[column].type;
 }

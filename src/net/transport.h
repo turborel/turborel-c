@@ -35,6 +35,8 @@ typedef struct trl_transport_ops {
     bool (*bound)(trl_transport *transport, uint32_t ms);
     /** @brief Closes it and frees its state. */
     void (*close)(trl_transport *transport);
+    /** @brief The address it reached, as numbers, into `out`; whether it has one. Null of one with none. */
+    bool (*peer)(const trl_transport *transport, char *out, size_t capacity);
 } trl_transport_ops;
 
 /** @brief A transport: its functions, its state, and its last failure. */
@@ -46,6 +48,12 @@ struct trl_transport {
     /** @brief Its last failure. */
     trl_io_error error;
 };
+
+/** @brief The bytes of an address as numbers, its null included, as of IPv6 with a zone. */
+#define TRL_ADDRESS_BYTES 64U
+
+/** @brief The address a transport over TCP reached, as numbers, into `out`; whether it has one. */
+bool trl_transport_peer(const trl_transport *transport, char *out, size_t capacity);
 
 /** @brief Writes all `length` bytes, or fails. */
 bool trl_transport_write_all(trl_transport *transport, const uint8_t *bytes, size_t length);

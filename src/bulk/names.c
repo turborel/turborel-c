@@ -50,6 +50,8 @@
 #define TRL_CJK_PUNCTUATION_LAST 0x303FU
 /* The octets of a comment's marks, as -- or the brackets of one. */
 #define TRL_COMMENT_MARK 2U
+/* The octets of a newline of CR LF. */
+#define TRL_CRLF_BYTES 2U
 
 /* UTF-8's lead bytes and bits. */
 #define TRL_ONE_BYTE 0x80U
@@ -375,27 +377,72 @@ static bool key_word(const char *word) {
                    sizeof key_words[0], compare_words) != NULL;
 }
 
-bool trl_separators(const char *text, size_t *at) {
+/* Skips a <bracketed comment> from its opening mark, another opening mark
+   within it beginning one nested in it, which needs its own end; false if
+   it does not end. */
+static bool bracketed_comment(const char *text, size_t *at) {
+    size_t start = *at;
+    size_t depth = 0U;
     for (;;) {
         char c = text[*at];
-        if (c == ' ' || c == '\n' || c == '\r') {
-            ++*at;
-        } else if (c == '-' && text[*at + 1U] == '-') {
-            const char *line = strpbrk(text + *at, "\r\n");
-            if (line == NULL) {
-                return false;
-            }
-            *at = (size_t)(line - text);
-        } else if (c == '/' && text[*at + 1U] == '*') {
-            const char *closed = strstr(text + *at + TRL_COMMENT_MARK, "*/");
-            if (closed == NULL) {
-                return false;
-            }
-            *at = (size_t)(closed - text) + TRL_COMMENT_MARK;
+        if (c == '\0') {
+            /* A comment not ended is told where it begins. */
+            *at = start;
+            return false;
+        }
+        if (c == '/' && text[*at + 1U] == '*') {
+            ++depth;
+        } else if (c == '*' && text[*at + 1U] == '/') {
+            --depth;
         } else {
+            ++*at;
+            continue;
+        }
+        *at += TRL_COMMENT_MARK;
+        if (depth == 0U) {
             return true;
         }
     }
+}
+
+/* Skips a <simple comment> from its mark: it ends with a newline, LF or
+   CR LF; false if none ends it. */
+static bool simple_comment(const char *text, size_t *at) {
+    const char *line = strchr(text + *at, '\n');
+    if (line == NULL) {
+        return false;
+    }
+    *at = (size_t)(line - text) + 1U;
+    return true;
+}
+
+/* Skips one part of a <separator> at `*at`: 1 if one was there, 0 if
+   none is, -1 if a comment does not end. */
+static int one_separator(const char *text, size_t *at) {
+    char c = text[*at];
+    if (c == ' ' || c == '\n') {
+        ++*at;
+        return 1;
+    }
+    if (c == '\r' && text[*at + 1U] == '\n') {
+        *at += TRL_CRLF_BYTES;
+        return 1;
+    }
+    if (c == '-' && text[*at + 1U] == '-') {
+        return simple_comment(text, at) ? 1 : -1;
+    }
+    if (c == '/' && text[*at + 1U] == '*') {
+        return bracketed_comment(text, at) ? 1 : -1;
+    }
+    return 0;
+}
+
+bool trl_separators(const char *text, size_t *at) {
+    int skipped = 1;
+    while (skipped > 0) {
+        skipped = one_separator(text, at);
+    }
+    return skipped == 0;
 }
 
 /* Reads a <delimited identifier>'s body after its quote into `name`. */

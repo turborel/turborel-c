@@ -13,6 +13,8 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 /**
@@ -96,6 +98,66 @@ static void uris_and_files_at_their_edges(trl_test *test) {
     TRL_CHECK(test, password_is("", "db", "1", "u", NULL));
 }
 
+/* Whether the password file of `text` gives `user` at db:1 the password
+   `expected`, of `length` octets, or none if it is null, as a connection's
+   settings take it. */
+static bool file_gives(const char *text, const char *expected, size_t length) {
+    char file[PATH_BYTES];
+    if (!scratch("passfile-edges", text, file)) {
+        return false;
+    }
+    trl_options *program = NULL;
+    (void)trl_options_new(&program);
+    (void)trl_options_set(program, TRL_SETTING_USER, "u");
+    (void)trl_options_set(program, TRL_SETTING_PASSFILE, file);
+    (void)trl_options_set(program, TRL_SETTING_HOST, "db");
+    (void)trl_options_set(program, TRL_SETTING_PORT, "1");
+    environment none = {{NULL}, {NULL}, 0U};
+    trl_settings *settings = laid(program, &none);
+    size_t whole = 0U;
+    bool given = trl_settings_password_for(settings, 0U, NULL, 0U, &whole);
+    char *password = given ? malloc(whole + 1U) : NULL;
+    bool same = expected == NULL ? !given
+                                 : given && password != NULL && whole == length &&
+                                       trl_settings_password_for(settings, 0U, password, whole + 1U, NULL) &&
+                                       memcmp(password, expected, length) == 0;
+    free(password);
+    trl_settings_free(settings);
+    trl_options_free(program);
+    (void)remove(file);
+    return same;
+}
+
+/**
+ * Verifies: [CLIENT The password file] a password file is read as
+ * turborel-client reads one: a password of any length whole; a file not
+ * UTF-8 gives none; a comment indented by any of Unicode's white space;
+ * a CR the file ends with kept as the password's own, a line ending in
+ * CR LF ended there [CLIENT The service file] a service file not UTF-8
+ * cannot be read.
+ */
+static void files_are_read_as_turborel_client_reads_them(trl_test *test) {
+    static char text[3000];
+    memcpy(text, "db:1:u:", 7U);
+    memset(text + 7, 'p', 2000U);
+    text[7U + 2000U] = '\0';
+    TRL_CHECK(test, file_gives(text, text + 7, 2000U));
+    TRL_CHECK(test, file_gives("db:1:u:\xFF", NULL, 0U));
+    TRL_CHECK(test, file_gives("\xE3\x80\x80# db:1:u:no\ndb:1:u:yes", "yes", 3U));
+    TRL_CHECK(test, file_gives("db:1:u:cr\r", "cr\r", 3U));
+    TRL_CHECK(test, file_gives("db:1:u:crlf\r\n", "crlf", 4U));
+    char file[PATH_BYTES];
+    TRL_CHECK(test, scratch("service-edges", "[s]\nuser = \xFF\n", file));
+    trl_options *options = NULL;
+    (void)trl_options_new(&options);
+    trl_failure failure;
+    trl_failure_init(&failure);
+    TRL_CHECK(test, !trl_service_read(file, "s", options, &failure) && unable(&failure, "cannot read"));
+    trl_failure_clear(&failure);
+    trl_options_free(options);
+    (void)remove(file);
+}
+
 /**
  * Verifies: [CLIENT Several servers] hosts ordered at random are each
  * host once, in an order the seed decides, the same for the same seed;
@@ -133,6 +195,7 @@ int main(int argc, char **argv) {
     static const trl_test_case cases[] = {
         TRL_TEST_CASE(edges_are_read_as_turborel_client_reads_them),
         TRL_TEST_CASE(uris_and_files_at_their_edges),
+        TRL_TEST_CASE(files_are_read_as_turborel_client_reads_them),
         TRL_TEST_CASE(hosts_are_shuffled_by_their_seed),
     };
     return trl_test_main(argc, argv, cases, TRL_TEST_COUNT(cases));

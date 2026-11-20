@@ -173,7 +173,8 @@ static void put_column(trl_buffer *body, uint32_t n) {
     trl_put_u8(body, TRL_TAG_VARYING);
     trl_put_u32(body, VARYING_LENGTH);
     trl_put_u8(body, 0U);
-    trl_put_flag(body, false);
+    /* The second column NOT NULL, the others not. */
+    trl_put_flag(body, n == 1U);
 }
 
 void script_description(script *s, uint32_t count) {

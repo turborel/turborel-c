@@ -38,8 +38,6 @@
 #define TRL_APPLICATION "application"
 /* The octets of an SQLSTATE's class. */
 #define TRL_CLASS_BYTES 2U
-/* Room for a password. */
-#define TRL_PASSWORD_BYTES 1024U
 
 void trl_shuffle(size_t *order, size_t count, uint64_t seed) {
     uint64_t state = seed;
@@ -185,13 +183,35 @@ static bool tls_made(const trl_settings *settings, trl_tls **out, trl_failure *f
     return true;
 }
 
+/* The password of host `host`, whole however long, as turborel-client
+   keeps it, into `*out`, the caller's to cleanse and free, and its length;
+   `*given` whether one is; false if memory cannot be had. */
+static bool password_of(const trl_settings *settings, size_t host, char **out, size_t *length, bool *given) {
+    *given = trl_settings_password_for(settings, host, NULL, 0U, length);
+    if (!*given) {
+        return true;
+    }
+    *out = trl_malloc(*length + 1U);
+    if (*out == NULL || !trl_settings_password_for(settings, host, *out, *length + 1U, NULL)) {
+        free(*out);
+        *out = NULL;
+        return false;
+    }
+    return true;
+}
+
 /* What proves the user at host `host`, over TLS if `secured`: SCRAM of a
    password, else the certificate named, else trust; null, with why, of a
    channel binding required that cannot bind (SQLSTATE 28000). */
 static trl_mechanism *proof(const attempt *a, size_t host, bool secured, trl_failure *failure) {
     const trl_settings *settings = a->settings;
-    char password[TRL_PASSWORD_BYTES];
-    bool given = trl_settings_password_for(settings, host, password, sizeof password, NULL);
+    size_t length = 0U;
+    char *password = NULL;
+    bool given = false;
+    if (!password_of(settings, host, &password, &length, &given)) {
+        trl_failure_no_memory(failure);
+        return NULL;
+    }
     trl_mechanism *mechanism = NULL;
     bool binds = false;
     trl_status made = TRL_OK;
@@ -207,7 +227,10 @@ static trl_mechanism *proof(const attempt *a, size_t host, bool secured, trl_fai
         made = trl_mechanism_password(password, &mechanism);
     }
 #endif
-    trl_cleanse((uint8_t *)password, sizeof password);
+    if (password != NULL) {
+        trl_cleanse((uint8_t *)password, length + 1U);
+        free(password);
+    }
     if (!given) {
         made = settings->laid[TRL_KEY_TLS_CERTIFICATE] != NULL ? trl_mechanism_certificate(&mechanism)
                                                                : trl_mechanism_trust(&mechanism);

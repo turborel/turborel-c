@@ -19,6 +19,7 @@ change-user and query attributes. The User's Guide's
 
 `trl_query`, `trl_query_params`, `trl_query_batches`,
 `trl_result_has_rows`, `trl_result_column_count`, `trl_result_column_name`,
+`trl_result_column_not_null`,
 `trl_result_column_type`, `trl_result_column_type_name`,
 `trl_result_column_type_written`, `trl_result_row_count`, `trl_result_value`,
 `trl_result_text`, `trl_result_more`, `trl_result_sqlcode`, `trl_result_sqlstate`,
@@ -39,6 +40,7 @@ trl_status trl_query_batches(trl_conn *conn, const char *sql, trl_batch_handler 
 bool trl_result_has_rows(const trl_result *result);
 size_t trl_result_column_count(const trl_result *result);
 const char *trl_result_column_name(const trl_result *result, size_t column);
+bool trl_result_column_not_null(const trl_result *result, size_t column);
 const trl_data_type *trl_result_column_type(const trl_result *result, size_t column);
 const char *trl_result_column_type_name(const trl_result *result, size_t column);
 const char *trl_result_column_type_written(const trl_result *result, size_t column);
@@ -75,7 +77,8 @@ no rows [CLIENT Running statements].
 
 `trl_result_has_rows` says whether the statement was a query.
 `trl_result_column_name` gives a column's name, or null of one the query
-did not name. `trl_result_column_type` gives a column's type, by which
+did not name; `trl_result_column_not_null` whether the server described it
+NOT NULL. `trl_result_column_type` gives a column's type, by which
 its values are read. With `declared-types` granted, which a connection
 asks for, the server tells the type each column was declared with
 [PROTOCOL Declared types]: `trl_result_column_type_name` gives its name
@@ -267,8 +270,9 @@ statement's failure is not the call's: `trl_ran_failure` gives it.
 `trl_conn_in_transaction`, `trl_conn_warning`, `trl_conn_rows_affected`,
 `trl_conn_generated_count`, `trl_conn_generated_at`,
 `trl_conn_server_time`, `trl_conn_commit_position`,
-`trl_conn_condition_count`, `trl_conn_condition_at`: the session's
-transaction, and what the last statement's completion told.
+`trl_conn_condition_count`, `trl_conn_condition_at`,
+`trl_conn_clear_conditions`: the session's transaction, and what the
+last statement's completion told.
 
 ### SYNOPSIS
 
@@ -290,6 +294,7 @@ bool trl_conn_server_time(const trl_conn *conn, trl_timing *timing);
 bool trl_conn_commit_position(const trl_conn *conn, uint64_t *position);
 size_t trl_conn_condition_count(const trl_conn *conn);
 const trl_failure *trl_conn_condition_at(const trl_conn *conn, size_t index);
+void trl_conn_clear_conditions(trl_conn *conn);
 ```
 
 ### DESCRIPTION
@@ -304,7 +309,10 @@ Each Complete replaces what the last told [PROTOCOL Complete 'K']. With
 in all, and tag 18 the server's time in microseconds, in all, queued and
 waiting for locks; with `generated-values`, tag 16 is each identity
 value an INSERT generated, as SQL writes it, in the order of its rows;
-with `conditions`, tag 17 is each condition the statement raised. `trl_conn_commit_position` gives tag 4, the
+with `conditions`, tag 17 is each condition the statement raised;
+`trl_conn_clear_conditions` drops them, as turborel-client's
+`take_conditions` takes them, so a program that tells them after each
+statement tells each once. `trl_conn_commit_position` gives tag 4, the
 log position of the last commit, with `commit-position`, kept until a
 later commit tells another. `trl_conn_warning` gives the completion's
 SQLSTATE if it is of class 01, else null. Each function that gives a
@@ -313,7 +321,8 @@ SQLSTATE if it is of class 01, else null. Each function that gives a
 ### ERRORS
 
 `trl_conn_set_autocommit` gives `TRL_INVALID_ARGUMENT` of a null
-connection; the rest give 0, false or null of one.
+connection; the rest give 0, false or null of one, and
+`trl_conn_clear_conditions` does nothing.
 
 ### EXAMPLES
 

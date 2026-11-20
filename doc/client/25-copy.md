@@ -249,7 +249,8 @@ memory holds a batch whatever the result's size
 [CLIENT Copying and exporting]. As CSV: a header of the columns' names, then a record a
 row, each ended by CR LF, each value as `trl_value_to_text` writes it, a
 field quoted where it is empty or holds a comma, a quote or a line
-break, or begins or ends with white space, a quote in it written twice,
+break, or begins or ends with white space, Unicode's, as U+00A0 or
+U+3000 as well as a space or a tab, a quote in it written twice,
 a null an empty field. As native: the frames the server sent, a
 Description then Rows, and a Complete. `*rows`, if not null, gets the
 rows written.

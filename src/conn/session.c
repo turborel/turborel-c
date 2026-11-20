@@ -228,12 +228,19 @@ static int closing_frame(trl_conn *conn, const uint8_t *at, size_t left, size_t 
 }
 
 /* What the server said as it closed: an Error, which `terminate` gives,
-   past any Notice or Status before it, or nothing it need. */
+   past any Notice or Status before it, or nothing it need; a frame it
+   broke off fails as the connection's. */
 static trl_status closing_said(trl_conn *conn, const trl_buffer *rest) {
     size_t at = 0U;
     for (;;) {
         size_t taken = 0U;
         int said = closing_frame(conn, rest->data + at, rest->length - at, &taken);
+        /* Bytes after the last whole frame are a frame the server broke
+           off, as turborel-client's reader finds it. */
+        if (said < 0 && at < rest->length) {
+            trl_failure_broken(&conn->failure, "the server closed the connection within a message");
+            return TRL_FAILED;
+        }
         if (said < 0) {
             return TRL_OK;
         }

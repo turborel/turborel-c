@@ -139,6 +139,15 @@ TRL_API size_t trl_conn_condition_count(const trl_conn *conn);
 TRL_API const trl_failure *trl_conn_condition_at(const trl_conn *conn, size_t index);
 
 /**
+ * @brief Drops the last statement's conditions, as turborel-client's
+ * `take_conditions` takes them, so a program that tells them after each
+ * statement tells each once; the rest of what the statement told is kept.
+ *
+ * @param conn The connection; null does nothing.
+ */
+TRL_API void trl_conn_clear_conditions(trl_conn *conn);
+
+/**
  * @brief Given each Notice as it comes: its SQLSTATE, message and
  * diagnostics, as a failure of SQLCODE 0, borrowed for the call alone.
  */

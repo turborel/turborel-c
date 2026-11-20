@@ -24,9 +24,9 @@
 #include <string.h>
 
 /* The names of the mechanisms that are not SCRAM. */
-#define TRL_TRUST "trust"
-#define TRL_PASSWORD "password"
-#define TRL_CERTIFICATE "certificate"
+#define TRL_TRUST TRL_MECHANISM_TRUST
+#define TRL_PASSWORD TRL_MECHANISM_PASSWORD
+#define TRL_CERTIFICATE TRL_MECHANISM_CERTIFICATE
 /* The bytes of an attribute's name and its equals sign, as "v=". */
 #define TRL_ATTRIBUTE_PREFIX 2U
 
