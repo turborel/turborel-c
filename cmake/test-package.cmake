@@ -2,8 +2,8 @@
 # (RULES.md D8), run by CTest as `package.install` in a build configured
 # with TRL_TEST_PACKAGE: the build installed to a directory of its own,
 # then test/package/ configured against it by find_package(turborel),
-# built and run; and, where pkg-config is, the program compiled again by
-# its flags alone.
+# built and run; and, where pkg-config is, but for Windows, the program
+# compiled again by its flags alone.
 #
 # Takes: BUILD_DIR, SOURCE_DIR, CONFIG, C_COMPILER, GENERATOR, SHARED.
 
@@ -28,6 +28,11 @@ endif()
 execute_process(COMMAND "${CMAKE_CTEST_COMMAND}" --test-dir "${trl_consumer}" -C "${CONFIG}" --output-on-failure
                 COMMAND_ERROR_IS_FATAL ANY)
 
+# MSVC takes no pkg-config flags, and a pkg-config there may be another
+# implementation's; the CMake package above is the way on Windows.
+if(WIN32)
+  return()
+endif()
 find_program(trl_pkg_config pkg-config)
 if(NOT trl_pkg_config)
   message(STATUS "pkg-config not found: turborel.pc is installed, not tried")
@@ -41,10 +46,6 @@ execute_process(
   OUTPUT_VARIABLE trl_flags
   OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
 message(STATUS "pkg-config turborel: ${trl_flags}")
-if(WIN32)
-  # MSVC takes no pkg-config flags; the CMake package above is its way.
-  return()
-endif()
 separate_arguments(trl_flag_list UNIX_COMMAND "${trl_flags}")
 set(trl_program "${BUILD_DIR}/package-test/by-pkg-config")
 execute_process(COMMAND "${C_COMPILER}" -std=c17 "${SOURCE_DIR}/test/package/consumer.c" ${trl_flag_list} -o
