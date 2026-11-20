@@ -350,7 +350,7 @@ static void an_xml_value_goes_both_ways(trl_test *test) {
 
 int main(int argc, char **argv) {
     char cwd[PATH_BYTES];
-    char dir[PATH_BYTES];
+    char dir[PATH_BYTES + sizeof "/live-session"];
     if (getcwd(cwd, sizeof cwd) == NULL) {
         return EXIT_FAILURE;
     }

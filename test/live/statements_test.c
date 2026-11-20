@@ -350,7 +350,7 @@ static void a_call_gives_its_output_parameters(trl_test *test) {
 
 int main(int argc, char **argv) {
     char cwd[PATH_BYTES];
-    char dir[PATH_BYTES];
+    char dir[PATH_BYTES + sizeof "/live-statements"];
     if (getcwd(cwd, sizeof cwd) == NULL) {
         return EXIT_FAILURE;
     }
