@@ -27,7 +27,7 @@ Code never cites this file (R-DOC-5).
 - TLS: C-CONN-6, C-CONN-7, C-CONN-9 and C-CONN-12, by the language's
   own TLS.
 - Capabilities and status: P-CAP-2, P-CAP-10, P-CAP-12, P-CAP-19, P-ZFRAME-6,
-  P-STATUS-2 to P-STATUS-10, the C-ASK rows and C-TOLD-1.
+  P-STATUS-2 to P-STATUS-11, the C-ASK rows and C-TOLD-1.
 - The SCRAM key cache: C-KEY-1 and C-KEY-3 to C-KEY-8.
 - Ending: P-CANCEL-1, P-CANCEL-2, P-TERM-1, C-CONN-14 and C-RUN-6.
 - The live tests' server set-up, with test certificates, SCRAM users and
@@ -39,8 +39,9 @@ Code never cites this file (R-DOC-5).
 ## M3 Statements
 
 - Queries and prepared statements: P-REQ-2, P-QUERY-2 to P-QUERY-6,
-  P-EXEC-2 to P-EXEC-4, the P-PREP, P-FETCH, P-CLOSE, P-DEALLOC and
-  P-DESC rows, the C-RUN rows but C-RUN-6, and the C-PREP rows.
+  P-EXEC-2 to P-EXEC-5, P-PREPD-2, the P-PREP, P-FETCH, P-CLOSE,
+  P-DEALLOC and P-DESC rows, the C-RUN rows but C-RUN-6, and the C-PREP
+  rows.
 - Completions, failures, notices and conditions: P-COMPL-2 to
   P-COMPL-6, the P-ERRN rows but P-ERRN-6, and C-TOLD-2 to C-TOLD-9.
 - The session: P-PING-1, the P-RESET and P-CHUSER rows, and the C-CTRL

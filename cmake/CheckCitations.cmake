@@ -5,10 +5,10 @@
 
 # The headings a citation may name, as [PROTOCOL <heading>] or [CLIENT <heading>]:
 # those of doc/client/05-protocol.md, and of doc/client/02-library.md and
-# 02-library-connections.md, in turborel's main at 1c4187e4.
+# 02-library-connections.md, in turborel's main at b40bd830.
 set(TRL_PROTOCOL_HEADINGS
     "The Native Protocol" "Frames" "Compressed frames" "Values and fields" "Data types" "Values"
-    "Composite fields" "The tail" "Opening a connection" "Mechanisms" "Capabilities" "Requests" "Hello 'H'"
+    "JSON values" "Composite fields" "The tail" "Opening a connection" "Mechanisms" "Capabilities" "Requests" "Hello 'H'"
     "Answer 'A'" "Query 'Q'" "Prepare 'P'" "Execute 'E'" "Fetch 'F'" "Close 'C'" "Deallocate 'D'" "Lob 'L'"
     "Cancel 'Z'" "Terminate 'X'" "Describe 'Y'" "Ping 'G'" "Reset 'W'" "ChangeUser 'U'" "CopyIn 'I'"
     "CopyData 'J'" "CopyEnd 'N'" "Replies" "Challenge 'C'" "Ready 'R'" "Prepared 'P'" "Description 'D'"

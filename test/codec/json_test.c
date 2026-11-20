@@ -2,7 +2,7 @@
  * @file json_test.c
  * @brief A JSON value's stored form, turborel's RULES.md D89 binary tree:
  * its nodes written from JSON text, read, and checked whole, damaged ones
- * refused [PROTOCOL Values].
+ * refused [PROTOCOL Values] [PROTOCOL JSON values].
  */
 #include "codec/buffer.h"
 #include "codec/error.h"
@@ -254,6 +254,42 @@ static void damaged_nodes_are_refused(trl_test *test) {
     TRL_CHECK(test, !trl_json_valid(decfloat, sizeof decfloat));
 }
 
+/**
+ * Verifies: [PROTOCOL JSON values] the page's example: `{"a":[1,"x"]}` is
+ * its 51 octets, byte for byte; and `{"b":1,"a":2}` keeps its members in
+ * that order, its directory putting `a`, at 14, first.
+ */
+static void the_pages_examples_are_byte_exact(trl_test *test) {
+    fixture f;
+    fixture_init(&f);
+    const uint8_t example[] = {
+        0x01, 0x0B, 0x01, 0x00, 0x00, 0x00, 0x25, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00,
+        0x00, 0x61, 0x0A, 0x02, 0x00, 0x00, 0x00, 0x0F, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x09, 0x00,
+        0x00, 0x00, 0x03, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08, 0x01, 0x00, 0x00, 0x00, 0x78,
+    };
+    TRL_CHECK(test, sizeof example == 51U);
+    TRL_CHECK(test, stored(&f, "{\"a\":[1,\"x\"]}") && buffer_is(&f.buffer, example, sizeof example));
+    TRL_CHECK(test, trl_json_valid(example, sizeof example));
+    TRL_CHECK(test, stored(&f, "{\"b\":1,\"a\":2}") && f.buffer.length > 18U);
+    const uint8_t directory[] = {0x0E, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x62};
+    TRL_CHECK(test, memcmp(f.buffer.data + 10U, directory, sizeof directory) == 0);
+    fixture_free(&f);
+}
+
+/**
+ * Verifies: [PROTOCOL JSON values] a decimal keeps the scale it was
+ * written with: 1.50 is units 150 and scale 2, a decimal node, not 1.5.
+ */
+static void a_decimal_keeps_its_scale(trl_test *test) {
+    fixture f;
+    fixture_init(&f);
+    const uint8_t decimal[] = {1, TRL_JSON_DECIMAL, 150, 0, 0, 0, 0, 0, 0, 0, 2};
+    TRL_CHECK(test, stored(&f, "1.50") && buffer_is(&f.buffer, decimal, sizeof decimal));
+    const uint8_t integer[] = {1, TRL_JSON_INTEGER, 15, 0, 0, 0, 0, 0, 0, 0};
+    TRL_CHECK(test, stored(&f, "15") && buffer_is(&f.buffer, integer, sizeof integer));
+    fixture_free(&f);
+}
+
 int main(int argc, char **argv) {
     static const trl_test_case cases[] = {
         TRL_TEST_CASE(literals_are_their_tags),
@@ -264,6 +300,8 @@ int main(int argc, char **argv) {
         TRL_TEST_CASE(nesting_is_bounded),
         TRL_TEST_CASE(damaged_documents_are_refused),
         TRL_TEST_CASE(damaged_nodes_are_refused),
+        TRL_TEST_CASE(the_pages_examples_are_byte_exact),
+        TRL_TEST_CASE(a_decimal_keeps_its_scale),
     };
     return trl_test_main(argc, argv, cases, TRL_TEST_COUNT(cases));
 }
