@@ -50,6 +50,16 @@ jobs:
       CC: ${{ matrix.cc }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # The live tests run against the nightly server's image (R-TEST-8),
+      # its turboreld started by the tests themselves, on the host's
+      # network, as the runner's user, the workspace its files' directory.
+      # macOS and Windows have no turboreld to run, so there the live tests
+      # are skipped.
+      - name: The nightly server, for the live tests
+        if: runner.os == 'Linux'
+        run: |
+          docker pull ghcr.io/turborel/turborel:nightly
+          echo "TRL_TEST_SERVER=docker run --rm -i --network host --user $(id -u):$(id -g) -v ${GITHUB_WORKSPACE}:${GITHUB_WORKSPACE} ghcr.io/turborel/turborel:nightly" >> "$GITHUB_ENV"
       - name: Debug, warnings as errors
         timeout-minutes: 30
         run: cmake "-DCOMMAND=cmake;--workflow;--preset;debug" -P cmake/ci-run.cmake
@@ -67,6 +77,16 @@ jobs:
       CC: clang
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # The live tests run against the nightly server's image (R-TEST-8),
+      # its turboreld started by the tests themselves, on the host's
+      # network, as the runner's user, the workspace its files' directory.
+      # macOS and Windows have no turboreld to run, so there the live tests
+      # are skipped.
+      - name: The nightly server, for the live tests
+        if: runner.os == 'Linux'
+        run: |
+          docker pull ghcr.io/turborel/turborel:nightly
+          echo "TRL_TEST_SERVER=docker run --rm -i --network host --user $(id -u):$(id -g) -v ${GITHUB_WORKSPACE}:${GITHUB_WORKSPACE} ghcr.io/turborel/turborel:nightly" >> "$GITHUB_ENV"
       - name: The tests under AddressSanitizer and UndefinedBehaviorSanitizer
         timeout-minutes: 30
         run: cmake "-DCOMMAND=cmake;--workflow;--preset;asan-ubsan" -P cmake/ci-run.cmake
@@ -75,6 +95,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # The live tests run against the nightly server's image (R-TEST-8),
+      # its turboreld started by the tests themselves, on the host's
+      # network, as the runner's user, the workspace its files' directory.
+      # macOS and Windows have no turboreld to run, so there the live tests
+      # are skipped.
+      - name: The nightly server, for the live tests
+        if: runner.os == 'Linux'
+        run: |
+          docker pull ghcr.io/turborel/turborel:nightly
+          echo "TRL_TEST_SERVER=docker run --rm -i --network host --user $(id -u):$(id -g) -v ${GITHUB_WORKSPACE}:${GITHUB_WORKSPACE} ghcr.io/turborel/turborel:nightly" >> "$GITHUB_ENV"
       - name: Coverage of src/, held to its floors (R-COV-2)
         run: cmake "-DCOMMAND=cmake;--workflow;--preset;coverage" -P cmake/ci-run.cmake
 

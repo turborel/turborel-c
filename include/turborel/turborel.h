@@ -8,9 +8,10 @@
  * interface, each in a header of its own under turborel/. Every function
  * is named `trl_` and every macro `TRL_`.
  *
- * This release holds the library's version, its exact numbers, and the
- * failure a handle keeps. Connections, statements and their results come
- * in later releases.
+ * This release holds the library's version, its exact numbers, and
+ * connections: their targets, TLS, mechanisms and SCRAM key cache, what
+ * they ask for and are told, terminate and cancel. Statements and their
+ * results come in later releases.
  *
  * @par Version
  * The library's version is the turborel release it is made for, the same
@@ -32,8 +33,9 @@
  * @par Thread safety
  * The library keeps no global mutable state and needs no initialization.
  * A handle is used by one thread at a time; different handles may be used
- * on different threads at once (RULES.md D11). The library starts no
- * thread.
+ * on different threads at once. A key cache may be used by every thread
+ * at once, and a canceller cancels a connection's statement from another
+ * thread (RULES.md D11). The library starts no thread.
  *
  * @par Linking
  * A program linking the static library defines `TRL_STATIC` before it
@@ -43,8 +45,10 @@
 #ifndef TRL_TURBOREL_H
 #define TRL_TURBOREL_H
 
-#include "turborel/base.h"    // IWYU pragma: export
-#include "turborel/failure.h" // IWYU pragma: export
-#include "turborel/numbers.h" // IWYU pragma: export
+#include "turborel/base.h"       // IWYU pragma: export
+#include "turborel/connect.h"    // IWYU pragma: export
+#include "turborel/connection.h" // IWYU pragma: export
+#include "turborel/failure.h"    // IWYU pragma: export
+#include "turborel/numbers.h"    // IWYU pragma: export
 
 #endif

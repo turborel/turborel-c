@@ -29,8 +29,8 @@ large objects, bulk copy, import and export, settings from a URI, the
 environment and service and password files, several servers, pipelines
 and pools.
 
-The driver is built in milestones, M0 to M8, and does not connect to a
-server yet. [CONFORMANCE.md](CONFORMANCE.md) shows what is done, row by
+The driver is built in milestones, M0 to M8: it connects to a server,
+over each transport, by each mechanism, and runs no statement yet. [CONFORMANCE.md](CONFORMANCE.md) shows what is done, row by
 row, and [TODO.md](TODO.md) what is open.
 
 ## Requirements
@@ -75,7 +75,7 @@ until then.
 
 int main(void) {
     trl_conn *conn = NULL;
-    if (trl_connect("turborel://ann@localhost:7422", &conn) != TRL_OK) {
+    if (trl_connect_uri("turborel://ann@localhost:7422", &conn) != TRL_OK) {
         fprintf(stderr, "%s: %s\n", trl_failure_sqlstate(trl_conn_failure(conn)),
                 trl_failure_message(trl_conn_failure(conn)));
         trl_conn_free(conn);

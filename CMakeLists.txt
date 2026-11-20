@@ -42,12 +42,35 @@ include(TrlDependencies)
 
 # One set of objects makes the library and is linked into the tests, which
 # reach the internal codec the library hides (RULES.md D13, D14).
+# Each platform's sockets in a file of its own (R-PLAT-2).
+if(WIN32)
+  set(trl_platform_sources src/net/socket_windows.c)
+else()
+  set(trl_platform_sources src/net/socket_posix.c)
+endif()
+
 add_library(
   turborel_objects OBJECT
   src/version.c
   src/decimal.c
   src/failure.c
   src/memory.c
+  src/auth/base64.c
+  src/auth/binding.c
+  src/auth/crypto.c
+  src/auth/key_cache.c
+  src/auth/mechanism.c
+  src/auth/scram.c
+  src/conn/cancel.c
+  src/conn/conn.c
+  src/conn/frames.c
+  src/conn/options.c
+  src/conn/session.c
+  src/conn/target.c
+  src/net/tls.c
+  src/net/tls_settings.c
+  src/net/transport.c
+  ${trl_platform_sources}
   src/codec/arena.c
   src/codec/buffer.c
   src/codec/compress.c
@@ -94,10 +117,32 @@ if(TRL_HAVE_ZLIB)
   target_link_libraries(turborel_objects PUBLIC ZLIB::ZLIB)
 endif()
 
+# The TLS library, for TLS and SCRAM's hashes, where it was found (D12).
+if(TRL_HAVE_TLS)
+  target_compile_definitions(turborel_objects PRIVATE TRL_HAVE_TLS)
+  target_link_libraries(turborel_objects PUBLIC OpenSSL::SSL OpenSSL::Crypto)
+endif()
+
+# What each platform's sockets, locks and certificate stores take.
+set(trl_system_libraries "")
+if(WIN32)
+  list(APPEND trl_system_libraries ws2_32 crypt32)
+elseif(APPLE)
+  list(APPEND trl_system_libraries "-framework Security" "-framework CoreFoundation")
+else()
+  find_package(Threads REQUIRED)
+  list(APPEND trl_system_libraries Threads::Threads)
+endif()
+target_link_libraries(turborel_objects PUBLIC ${trl_system_libraries})
+
 add_library(turborel $<TARGET_OBJECTS:turborel_objects>)
 if(TRL_HAVE_ZLIB)
   target_link_libraries(turborel PRIVATE ZLIB::ZLIB)
 endif()
+if(TRL_HAVE_TLS)
+  target_link_libraries(turborel PRIVATE OpenSSL::SSL OpenSSL::Crypto)
+endif()
+target_link_libraries(turborel PRIVATE ${trl_system_libraries})
 add_library(turborel::turborel ALIAS turborel)
 target_include_directories(turborel PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
                                            "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>")

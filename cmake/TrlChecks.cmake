@@ -46,6 +46,12 @@ if(TRL_COVERAGE)
   endif()
   add_compile_options(-fprofile-instr-generate -fcoverage-mapping)
   add_link_options(-fprofile-instr-generate)
+  # macOS's headers make snprintf a checking builtin, each call a branch
+  # of their own that no test takes; off, a branch counted is the code's,
+  # as on Linux.
+  if(APPLE)
+    add_compile_definitions(_FORTIFY_SOURCE=0)
+  endif()
   # The tools of the same LLVM as the compiler: beside it, or Xcode's.
   if(APPLE)
     execute_process(

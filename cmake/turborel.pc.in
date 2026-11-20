@@ -9,3 +9,4 @@ Version: @PROJECT_VERSION@
 @TRL_PC_REQUIRES@
 Cflags: -I${includedir}@TRL_PC_CFLAGS@
 Libs: -L${libdir} -lturborel
+@TRL_PC_LIBS_PRIVATE@

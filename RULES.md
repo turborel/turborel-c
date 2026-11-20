@@ -64,12 +64,18 @@ Each is told in full in [§7](#7-the-decisions).
 
 | Path | What |
 |---|---|
-| `include/turborel/turborel.h` | the public header, the whole interface (D13) |
+| `include/turborel/turborel.h` | the public header a program includes, which includes the interface's parts under `include/turborel/` (D13) |
 | `src/codec/` | the `codec` layer: frames, fields, types, values, JSON, the tail, messages, compression, with no I/O |
+| `src/auth/` | the `auth` layer: SCRAM-SHA-256 and its channel binding, the key cache, the mechanisms, over the TLS library's hashes |
+| `src/net/` | the `net` layer: TCP and Unix sockets, named pipes, TLS over them |
+| `src/conn/` | the `conn` layer: targets, options, connections, their login, session and cancel |
+| `src/failure.c`, `src/memory.c` | the failure a handle keeps (D9), and the allocations, which a test may fail (D14) |
 | `src/` | the other layers, one directory each, as they are written (D1) |
 | `test/harness.h`, `test/harness.c` | the one test harness (D14) |
 | `test/<layer>/*_test.c` | the tests, one executable per file, `layer.thing` in CTest |
 | `test/package/` | a program outside the tree, for the installed package's test |
+| `test/server/` | the live tests' server set-up: turboreld started and stopped, and its test certificates made (R-TEST-8) |
+| `test/live/` | the live tests, against that server |
 | `fuzz/` | the libFuzzer targets of the codec |
 | `cmake/` | CMake modules, and the checks tool: `check-source.cmake` with `CheckCitations.cmake` and `CheckManual.cmake`, `check-format.cmake`, `coverage-report.cmake`, `test-package.cmake`, `ci-run.cmake` |
 | `CMakeLists.txt`, `CMakePresets.json` | the build, and the workflows every check runs by |
@@ -473,19 +479,31 @@ rule here, the rule is kept:
 #### D9. Failures are status codes, with a failure object of SQLCODE and SQLSTATE
 
 A function that can fail returns a `trl_status`, `TRL_OK` for success, so
-a caller tests every call the same way. What the failure was is a
-failure object the handle keeps: its SQLCODE, its SQLSTATE, its message,
-the rule it cites, its position in the statement, whether a transaction
-is still active, and the diagnostics of tags 7 to 15, as
-turborel-client's `Failure` has them. It is valid until the next call on
-the same handle.
+a caller tests every call the same way. `TRL_FAILED` says what the
+failure was is a failure object the handle keeps: its SQLCODE, its
+SQLSTATE, its message, the rule it cites, its position in the statement,
+whether a transaction is still active, and the diagnostics of tags 7 to
+15, as turborel-client's `Failure` has them. It is valid until the next
+call on the same handle. A function that makes a handle gives it even
+when it fails, holding the failure, as libpq's `PQconnectdb` gives a
+connection; only memory not had for the handle itself is
+`TRL_NO_MEMORY`, with nothing made. A bad argument is
+`TRL_INVALID_ARGUMENT`, and changes nothing.
 
-The driver's own failures carry the codes turborel-client gives them: a
-connection lost or a malformed reply is SQLCODE -919, SQLSTATE 08006
-[PROTOCOL Frames]; a secret refused over plain TCP is 28000; memory not
-had is SQLCODE -918, SQLSTATE TB918, as Turborel reports resources it
-cannot grant. A null handle or buffer passed in is refused with a
-status, never dereferenced.
+The driver's own failures carry the codes turborel-client gives them,
+and where it has no such case, those of the drivers' shared table: a
+connection lost, timed out, or a malformed reply is SQLCODE -919,
+SQLSTATE 08006 [PROTOCOL Frames], as is a capability not granted, the
+connection kept; a secret refused over plain TCP, or a login refused,
+is 28000; memory not had is SQLCODE -918, SQLSTATE TB918, as Turborel
+reports resources it cannot grant; what is past Turborel's limits, or
+not built in, as TLS in a library built without a TLS library, is
+SQLCODE -900, SQLSTATE 0A000; a misuse turborel-client has no case for,
+as a canceller of a connection over the program's own stream, is
+SQLCODE -910, SQLSTATE TB910. Each failure the driver raises cites the
+rule `DESIGN`, with the severity FATAL if it ends the connection, else
+ERROR, as turborel-client's do. A null handle or buffer passed in is
+refused with a status, never dereferenced.
 
 #### D10. Opaque handles, and ownership said by every function
 
@@ -498,7 +516,11 @@ takes a null handle and does nothing.
 Each function's doc comment says what the caller owns afterwards. Unless
 it says otherwise, a string or array the library returns is borrowed,
 valid until the next call on the same handle or until it is freed, and
-what the caller passes in is copied, not kept. What the library
+what the caller passes in is copied, not kept, but where a function says
+it holds a handle: a TLS target holds its TLS settings, and a SCRAM
+mechanism its key cache, each until it is freed, so the program may free
+its own at once. A mechanism keeps the state of its exchange, so it
+serves one login at a time. What the library
 allocates it frees. Text is UTF-8, ended by a null byte; binary data
 comes with its length. Types are named `trl_name`, without `_t`, which
 POSIX reserves.
@@ -507,10 +529,16 @@ POSIX reserves.
 
 The library keeps no global mutable state and needs no initialization
 call (R-SAFE-5). A handle is used by one thread at a time; different
-handles may be used on different threads at once. Where a function
-departs from that, as the cancel of a running statement does by design,
-its doc comment says so. The library starts no thread (R-SAFE-6), and a
-callback the program gives runs on the thread that made the call.
+handles may be used on different threads at once. Two depart from that
+by design, as their doc comments say: a SCRAM key cache, which every
+thread may use at once, behind a lock of its own (POSIX threads'
+mutex, or a Windows SRW lock), its holds counted under it; and a
+canceller, made of a connection on the connection's thread, then used on
+another to cancel its statement. The library starts no thread
+(R-SAFE-6), and a callback the program gives, as a stream's, runs on
+the thread that made the call. On Windows each socket starts and cleans
+up Winsock itself, which counts its users, so no call of the program's
+must come first.
 
 #### D12. Dependencies: the C library, OpenSSL 3.5 or AWS-LC, and zlib
 
@@ -524,6 +552,11 @@ libraries, each production-grade by its own maintainers' account
 | AWS-LC | the same, in OpenSSL's place | its current release | Apache-2.0 and ISC | AWS's library, API-compatible with OpenSSL, for those who need its FIPS-validated builds. |
 | zlib | compressed frames, RFC 1950 | 1.2.11 or later | zlib | The reference implementation of the format the protocol's `z` frames carry. |
 
+Each platform's own libraries come with it: Winsock and the certificate
+store's crypt32 on Windows; the Security and Core Foundation frameworks
+on macOS, for the keychain's authorities; POSIX threads elsewhere, for
+the key cache's lock.
+
 `TRL_TLS` chooses OpenSSL, AWS-LC or none, and `TRL_ZLIB` whether zlib is
 looked for (`cmake/TrlDependencies.cmake`). A library not found is not
 required: a build without one builds, and refuses at run time what needs
@@ -534,7 +567,10 @@ it, with a failure saying the library was built without it.
 The library is `libturborel` on every platform, shared unless
 `BUILD_SHARED_LIBS` is `OFF`; static, it is used with `TRL_STATIC`
 defined, which the CMake package and the pkg-config file define for the
-program. Its interface is one header, `include/turborel/turborel.h`.
+program. Its interface is one header to include,
+`include/turborel/turborel.h`, which includes the interface's parts,
+each a header of its own: `base.h`, `numbers.h`, `failure.h`,
+`connect.h` and `connection.h`.
 Symbols are hidden by default (`C_VISIBILITY_PRESET hidden`), and only
 those marked `TRL_API` are exported, so what is not in the header cannot
 be linked to (R-STYLE-4).
@@ -560,6 +596,23 @@ nothing more. A case alone runs by naming it as its executable's
 argument. The checks tool runs as tests too, `rules.source` everywhere
 and `rules.format` under `lint`, so `ctest` runs every check a build can
 make.
+
+The live tests, `live.connections`, start the server the environment
+variable `TRL_TEST_SERVER` names, a path of turboreld or a command that
+runs it, as CI's `docker run` of the nightly image, on port 17438, with
+certificates made for the run (`test/server/`); without it they are
+skipped (CTest's code 77), so the other tests stay deterministic
+(R-TEST-5). Tests of real sockets and TLS without a server run against a
+fake server of their own on a thread (`test/net/fake.c`).
+
+A build of `TRL_FAULTS`, which the `debug`, `asan-ubsan`, `coverage` and
+`lint` presets make and no package ships, lets a test fail any
+allocation of the library's, and of the TLS library's, on purpose: the
+test `api.faults` fails each allocation of a whole session in turn, and
+checks that every one fails its call as memory not had, or as the
+connection lost, and leaks nothing (R-MEM-2, R-ERR-4). The count it
+keeps is a thread's own, in that build alone, the one departure from
+R-SAFE-5.
 
 ---
 
