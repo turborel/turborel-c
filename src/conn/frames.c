@@ -343,9 +343,9 @@ static bool drained(trl_conn *conn, uint8_t kind, trl_slice body) {
         trl_reply reply;
         read = next_frame(conn, &kind, &body);
         if (read && decode_frame(conn, kind, body, &reply, &error)) {
-            int taken = took(conn, &reply);
-            read = taken >= 0;
-            if (taken == 0) {
+            int said = took(conn, &reply);
+            read = said >= 0;
+            if (said == 0) {
                 noted(conn, &reply);
             }
         } else if (read) {
@@ -386,12 +386,12 @@ static bool receive_as(trl_conn *conn, trl_reply *out, bool one) {
         if (!decode_frame(conn, kind, body, out, &error)) {
             return undecoded(conn, kind, body, &error, one);
         }
-        int taken = took(conn, out);
-        if (taken <= 0) {
-            if (taken == 0) {
+        int said = took(conn, out);
+        if (said <= 0) {
+            if (said == 0) {
                 noted(conn, out);
             }
-            return taken == 0;
+            return said == 0;
         }
     }
 }

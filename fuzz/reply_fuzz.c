@@ -40,7 +40,11 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
     trl_slice body = {data + 1, size - 1U};
     bool decoded = trl_decode_reply(data[0], body, &arena, &reply, &error);
     trl_arena_free(&arena);
-    if (!decoded && error.sqlcode != TRL_SQLCODE_CONNECTION && error.sqlcode != TRL_SQLCODE_RESOURCES) {
+    /* A frame is malformed, memory runs out, or a value it holds cannot be
+       taken: it fails, never otherwise. */
+    bool known = error.sqlcode == TRL_SQLCODE_CONNECTION || error.sqlcode == TRL_SQLCODE_RESOURCES ||
+                 error.sqlcode == TRL_SQLCODE_CORRUPT || error.sqlcode == TRL_SQLCODE_UNSUPPORTED;
+    if (!decoded && !known) {
         __builtin_trap();
     }
     return 0;
