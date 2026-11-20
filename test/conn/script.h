@@ -100,6 +100,12 @@ void script_prepared(script *s, uint32_t number, uint32_t parameters, uint32_t c
  */
 void script_complete_tails(script *s);
 
+/** @brief Writes a Lob reply of `length` bytes of data. */
+void script_lob_data(script *s, const uint8_t *bytes, size_t length);
+
+/** @brief Writes a Lob reply of a locator. */
+void script_lob_locator(script *s, uint32_t locator);
+
 /** @brief Writes a Notice of `sqlstate` and `message`. */
 void script_notice(script *s, const char *sqlstate, const char *message);
 

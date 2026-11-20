@@ -33,6 +33,7 @@ trl_result *trl_result_make(void) {
     trl_result *result = trl_calloc(1U, sizeof *result);
     if (result != NULL) {
         trl_arena_init(&result->arena);
+        trl_failure_init(&result->failure);
     }
     return result;
 }
@@ -174,6 +175,11 @@ void trl_result_free(trl_result *result) {
         return;
     }
     trl_arena_free(&result->arena);
+    trl_failure_clear(&result->failure);
     free(result->rows);
     free(result);
+}
+
+const trl_failure *trl_result_failure(const trl_result *result) {
+    return result == NULL || !result->failed ? NULL : &result->failure;
 }

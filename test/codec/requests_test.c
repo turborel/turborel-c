@@ -230,7 +230,7 @@ static void copy_requests(trl_test *test) {
     fixture f;
     fixture_init(&f);
     const trl_slice columns[] = {text_of("ID")};
-    trl_copy_in copy = {text_of("T"), columns, 1U, true};
+    trl_copy_in_request copy = {text_of("T"), columns, 1U, true};
     trl_value values[1] = {{TRL_TAG_NULL, {{NULL, 0U}}}};
     trl_row_values rows[2] = {{values, 1U}, {values, 1U}};
     TRL_CHECK(test, trl_encode_copy_in(&f.buffer, &copy, &f.error));
@@ -288,7 +288,7 @@ static void fields_that_cannot_be_sent_are_refused(trl_test *test) {
     const trl_slice not_utf8 = {bad, sizeof bad};
     trl_hello hello = {1U, not_utf8, text_of("trust"), {NULL, 0U}, NULL, 0U, NULL, 0U};
     trl_query_request query = {not_utf8, false, NULL, 0U, false};
-    trl_copy_in copy = {not_utf8, NULL, 0U, false};
+    trl_copy_in_request copy = {not_utf8, NULL, 0U, false};
     trl_lob_request create = {TRL_LOB_CREATE, 0U, 0U, 0U, false, 2U, {NULL, 0U}};
     TRL_CHECK(test, !trl_encode_hello(&f.buffer, &hello, &f.error));
     TRL_CHECK(test, !trl_encode_query(&f.buffer, &query, &f.error));

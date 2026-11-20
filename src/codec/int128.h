@@ -64,6 +64,14 @@ bool trl_int128_of(trl_uint128 magnitude, bool negative, trl_int128 *out);
 unsigned int trl_uint128_divide_ten(trl_uint128 *value);
 
 /**
+ * @brief Divides `value` by `divisor` in place, the quotient kept.
+ * @param value The integer.
+ * @param divisor The divisor, not 0.
+ * @return The remainder.
+ */
+uint64_t trl_uint128_divide(trl_uint128 *value, uint64_t divisor);
+
+/**
  * @brief Multiplies `value` by ten and adds `digit`, in place.
  * @param value The integer.
  * @param digit 0 to 9.

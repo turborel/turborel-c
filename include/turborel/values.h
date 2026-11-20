@@ -262,6 +262,27 @@ TRL_API const trl_value *trl_value_at(const trl_value *value, size_t index);
 TRL_API trl_status trl_value_json_text(const trl_value *value, char *out, size_t capacity, size_t *length);
 
 /**
+ * @brief A value as turborel displays it: a string as itself; an exact
+ * number, an approximate one and a DECFLOAT as turborel writes them; a
+ * truth value TRUE or FALSE; a datetime and an interval as their
+ * literals' strings, in the datetime's zone; a binary string in
+ * upper-case hexadecimal; a large object's text, or its octets in
+ * hexadecimal, or, by its locator, what it is; a JSON value's text; an
+ * XML value's serialization; a UUID's text; a plug-in value's text; an
+ * array, row, multiset, structured value or reference as its literal;
+ * the null value NULL.
+ *
+ * @param value The value.
+ * @param out Where the text goes, ended by a null, cut short to fit; may
+ * be null if `capacity` is 0.
+ * @param capacity The bytes `out` holds.
+ * @param length Where the bytes of the whole text go, its null not
+ * counted; may be null.
+ * @return TRL_OK; TRL_INVALID_ARGUMENT of a null value; TRL_NO_MEMORY.
+ */
+TRL_API trl_status trl_value_to_text(const trl_value *value, char *out, size_t capacity, size_t *length);
+
+/**
  * @brief A UUID's octets.
  *
  * @param value A UUID.

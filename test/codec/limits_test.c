@@ -63,7 +63,7 @@ static bool encode_every_request(fixture *f) {
     trl_execute_request execute = {1U, values, 2U, 0U, false, &attribute, 1U, 2U};
     trl_lob_request append = {TRL_LOB_APPEND, 1U, 0U, 0U, false, 0U, text_of("data")};
     const trl_slice columns[] = {text_of("ID")};
-    trl_copy_in copy = {text_of("T"), columns, 1U, false};
+    trl_copy_in_request copy = {text_of("T"), columns, 1U, false};
     trl_row_values rows[1] = {{values, 2U}};
     uint8_t key[16] = {0};
     return trl_encode_hello(&f->buffer, &hello, &f->error) && trl_encode_query(&f->buffer, &query, &f->error) &&

@@ -12,6 +12,9 @@
 #include <string.h>
 
 /* The decimal radix. */
+/* The bits of a 128-bit integer, and of a half. */
+#define TRL_I128_BITS 128U
+#define TRL_U64_BITS 64U
 #define TRL_TEN 10U
 /* The bits of a 32-bit piece, and its mask. */
 #define TRL_HALF_BITS 32U
@@ -91,6 +94,27 @@ unsigned int trl_uint128_divide_ten(trl_uint128 *value) {
     }
     *value = joined(pieces);
     return (unsigned int)rest;
+}
+
+uint64_t trl_uint128_divide(trl_uint128 *value, uint64_t divisor) {
+    trl_uint128 quotient = {0U, 0U};
+    uint64_t rest = 0U;
+    for (unsigned int bit = TRL_I128_BITS; bit > 0U; --bit) {
+        unsigned int at = bit - 1U;
+        uint64_t half = at >= TRL_U64_BITS ? value->high : value->low;
+        uint64_t carried = rest >> (TRL_U64_BITS - 1U);
+        rest = (rest << 1U) | ((half >> (at % TRL_U64_BITS)) & 1U);
+        if (carried != 0U || rest >= divisor) {
+            rest -= divisor;
+            if (at >= TRL_U64_BITS) {
+                quotient.high |= (uint64_t)1U << (at - TRL_U64_BITS);
+            } else {
+                quotient.low |= (uint64_t)1U << at;
+            }
+        }
+    }
+    *value = quotient;
+    return rest;
 }
 
 bool trl_uint128_times_ten_plus(trl_uint128 *value, unsigned int digit) {

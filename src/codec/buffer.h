@@ -88,6 +88,13 @@ bool trl_buffer_ok(const trl_buffer *buffer, trl_codec_error *error);
 void trl_put_raw(trl_buffer *buffer, const uint8_t *bytes, size_t length);
 
 /**
+ * @brief Appends the bytes of a string ended by a null, the null not.
+ * @param buffer The buffer.
+ * @param text The string.
+ */
+void trl_put_text(trl_buffer *buffer, const char *text);
+
+/**
  * @brief Appends a `u8`.
  * @param buffer The buffer.
  * @param value The byte.

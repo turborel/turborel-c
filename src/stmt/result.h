@@ -11,6 +11,7 @@
 #include "codec/fields.h"
 #include "codec/replies.h"
 #include "codec/requests.h"
+#include "failure.h"
 #include "turborel/turborel.h"
 
 #include <stdbool.h>
@@ -43,6 +44,10 @@ struct trl_result {
     int32_t sqlcode;
     /** @brief Its completion's SQLSTATE. */
     char sqlstate[TRL_SQLSTATE_BYTES];
+    /** @brief Whether it holds a failure, of native rows not read. */
+    bool failed;
+    /** @brief The failure. */
+    trl_failure failure;
 };
 
 /** @brief A new, empty result; null if memory cannot be had. */

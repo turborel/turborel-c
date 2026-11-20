@@ -282,3 +282,22 @@ void script_complete_tails(script *s) {
     script_reply(s, TRL_KIND_COMPLETE, &body);
     trl_buffer_free(&body);
 }
+
+void script_lob_data(script *s, const uint8_t *bytes, size_t length) {
+    trl_buffer body;
+    trl_buffer_init(&body);
+    trl_put_u8(&body, TRL_LOB_DATA);
+    trl_slice data = {bytes, length};
+    trl_put_bytes(&body, data);
+    script_reply(s, TRL_KIND_LOB_REPLY, &body);
+    trl_buffer_free(&body);
+}
+
+void script_lob_locator(script *s, uint32_t locator) {
+    trl_buffer body;
+    trl_buffer_init(&body);
+    trl_put_u8(&body, TRL_LOB_LOCATOR);
+    trl_put_u32(&body, locator);
+    script_reply(s, TRL_KIND_LOB_REPLY, &body);
+    trl_buffer_free(&body);
+}

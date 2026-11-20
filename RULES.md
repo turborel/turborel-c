@@ -497,6 +497,14 @@ Where it departs from turborel-client on its own:
   taken as a name character, where Turborel checks each against the
   tables of XML 1.0 and 1.1. Its bounds, 512 deep, 2^20 nodes and
   16 MiB of text, and their failure, SQLCODE -900, are Turborel's.
+- An import lexes a table's name and a heading as Turborel's lexer does,
+  but without Unicode's character tables: a character past ASCII is
+  taken as a letter unless it is a sign of Latin-1 or in the blocks of
+  punctuation and symbols, U+2000 to U+2BFF and U+3000 to U+303F, and an
+  identifier is put in upper case for the letters of Latin-1, Latin
+  Extended-A, Greek and Cyrillic alone, where Turborel takes a letter by
+  Unicode's Alphabetic property and applies Unicode's full case mapping. A name of other scripts is written as given, so a
+  table named in them is better given as a delimited identifier.
 
 ### This driver's own
 
@@ -569,12 +577,19 @@ comes with its length. Types are named `trl_name`, without `_t`, which
 POSIX reserves.
 
 A result, a prepared statement, the outcomes of several statements, a
-parameter list and an XML tree are the caller's, each freed by its own
-`_free`, and none depends on the connection after it is made: a result
+parameter list, an XML tree and what an import did are the caller's,
+each freed by its own `_free`, and none depends on the connection after
+it is made: a result
 copies what it holds out of the reply it was read from, so it outlives
 the connection's later calls. A batch given to a handler, and a notice
 given to one, last only until the handler returns. A cursor is no
-handle but a plain struct naming a statement and a number. What the last
+handle but a plain struct naming a statement and a number. A copy, a
+large object's reader and writer use the connection they were made on
+until they are freed, and are the caller's; a copy not ended is
+abandoned as it is freed. Delimited text is the caller's, its reader's
+context the program's, and the source it gives is valid until it is
+freed; the headings and a record's message it gives last until its next
+call. What the last
 completion told, its conditions and the notices kept are the
 connection's, valid until the next statement.
 

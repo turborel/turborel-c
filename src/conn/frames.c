@@ -59,9 +59,21 @@ static bool io_lost(trl_conn *conn, const char *what) {
     return false;
 }
 
+/* Whether a request of `kind` may be sent while a copy is under way
+   [PROTOCOL CopyIn 'I']. */
+static bool sent_while_copying(uint8_t kind) {
+    return kind == TRL_KIND_COPY_DATA || kind == TRL_KIND_COPY_END || kind == TRL_KIND_PING;
+}
+
 bool trl_conn_send(trl_conn *conn) {
     if (conn->lost) {
         trl_failure_copy(&conn->failure, &conn->lost_by);
+        trl_buffer_free(&conn->out);
+        return false;
+    }
+    if (conn->copying && conn->out.length > 0U && !sent_while_copying(conn->out.data[0])) {
+        trl_failure_set(&conn->failure, TRL_SQLCODE_API, TRL_SQLSTATE_API,
+                        "a copy is under way: until it ends, only its rows, its end and Ping are sent");
         trl_buffer_free(&conn->out);
         return false;
     }
@@ -222,6 +234,7 @@ static bool decode_frame(trl_conn *conn, uint8_t kind, trl_slice body, trl_reply
     } else {
         arena = conn->keep;
     }
+    conn->last_body = body;
     return trl_decode_reply(kind, body, arena, out, error);
 }
 

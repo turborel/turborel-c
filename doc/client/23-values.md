@@ -185,6 +185,47 @@ pointer or a value of another kind; `trl_value_json_text` also
 
 [Running Queries](../user/03-queries.md) reads each kind.
 
+## Values as text
+
+### NAME
+
+`trl_value_to_text`: a value written as Turborel displays it.
+
+### SYNOPSIS
+
+```c
+trl_status trl_value_to_text(const trl_value *value, char *out, size_t capacity, size_t *length);
+```
+
+### DESCRIPTION
+
+`trl_value_to_text` writes a value as Turborel's own client displays it,
+as an export writes each value of CSV [CLIENT Copying and exporting]: a
+string as itself; an exact number with its scale's digits, as 12.50; an
+approximate one in its shortest digits with an exponent, as 7.5E0; a
+DECFLOAT plain, or with an exponent where it is very large or small; a
+truth value TRUE or FALSE; a datetime as its literal's string, in its
+zone's local time, its fraction to its precision, its zone after it; an
+interval as its literal's string; a binary string in upper-case
+hexadecimal; a large object sent whole as its text or its octets in
+hexadecimal, one by its locator as what it is, as
+`<CHARACTER LARGE OBJECT of 70000 characters>`; a JSON value's text; an
+XML value's serialization; a UUID's text; a plug-in value's text; an
+array, row, multiset, structured value or reference as its literal,
+each element as its own literal, as `ARRAY['it''s', FALSE]`; the null
+value NULL. The text is ended by a null and cut short to fit
+`capacity`; `length`, if not null, gets the whole text's bytes.
+
+### ERRORS
+
+`TRL_INVALID_ARGUMENT` of a null value, or a null `out` with `capacity`
+past 0; `TRL_NO_MEMORY`.
+
+### EXAMPLES
+
+[Copying, Importing and Exporting](../user/07-copying.md) exports values
+as text.
+
 ## Data types
 
 ### NAME

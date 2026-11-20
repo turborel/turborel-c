@@ -34,4 +34,23 @@ bool trl_put_approximate_numeral(trl_buffer *buffer, uint64_t bits);
  */
 void trl_put_decfloat_numeral(trl_buffer *buffer, trl_decfloat value);
 
+/**
+ * @brief Appends a double as turborel's values display it, Rust's `{:E}`:
+ * the shortest digits that read back, a point after the first if there
+ * are more, `E` and the exponent, as "7.5E0", "1E2" or "-2.5E-1"; zero as
+ * "0E0" or "-0E0"; "NaN", "inf" and "-inf".
+ * @param buffer Where it goes.
+ * @param bits The double's bits.
+ */
+void trl_put_approximate_text(trl_buffer *buffer, uint64_t bits);
+
+/**
+ * @brief Appends a DECFLOAT as turborel's values display it: plain if it
+ * is zero or its adjusted exponent is from -6 to 33, else its first digit,
+ * a point and the rest if there are more, `E` and the adjusted exponent.
+ * @param buffer Where it goes.
+ * @param value The number, canonical.
+ */
+void trl_put_decfloat_text(trl_buffer *buffer, trl_decfloat value);
+
 #endif

@@ -96,6 +96,10 @@ void trl_put_raw(trl_buffer *buffer, const uint8_t *bytes, size_t length) {
     buffer->length += length;
 }
 
+void trl_put_text(trl_buffer *buffer, const char *text) {
+    trl_put_raw(buffer, (const uint8_t *)text, strlen(text));
+}
+
 uint8_t *trl_put_space(trl_buffer *buffer, size_t length) {
     if (!reserve(buffer, length) || buffer->data == NULL) {
         return NULL;

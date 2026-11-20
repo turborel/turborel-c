@@ -197,6 +197,21 @@ void trl_failure_copy(trl_failure *failure, const trl_failure *from) {
     }
 }
 
+void trl_failure_of_type(trl_failure *failure, const char *data_type) {
+    trl_failure was;
+    trl_failure_init(&was);
+    trl_failure_copy(&was, failure);
+    strings of = {{{NULL, 0U}}};
+    of.of[TRL_STRING_MESSAGE] = text(was.message);
+    of.of[TRL_STRING_RULE] = text(was.rule);
+    for (size_t i = 0U; i < TRL_DIAGNOSTICS; ++i) {
+        of.of[TRL_STRING_DIAGNOSTICS + i] = text(was.diagnostics[i]);
+    }
+    of.of[TRL_STRING_DIAGNOSTICS + TRL_DIAGNOSTIC_DATA_TYPE] = text(data_type);
+    set_all(failure, was.sqlcode, text(was.sqlstate), &of);
+    trl_failure_clear(&was);
+}
+
 int32_t trl_failure_sqlcode(const trl_failure *failure) {
     return failure == NULL ? 0 : failure->sqlcode;
 }

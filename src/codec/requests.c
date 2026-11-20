@@ -195,7 +195,7 @@ bool trl_encode_change_user(trl_buffer *buffer, trl_slice user, trl_slice mechan
     return finish(buffer, start, written, error);
 }
 
-bool trl_encode_copy_in(trl_buffer *buffer, const trl_copy_in *copy, trl_codec_error *error) {
+bool trl_encode_copy_in(trl_buffer *buffer, const trl_copy_in_request *copy, trl_codec_error *error) {
     size_t start = trl_frame_start(buffer, TRL_KIND_COPY_IN);
     bool written = trl_write_string(buffer, copy->table, error) &&
                    trl_write_strings(buffer, copy->columns, copy->column_count, error);
@@ -217,6 +217,13 @@ bool trl_encode_copy_data(trl_buffer *buffer, const trl_row_values *rows, size_t
         written = trl_write_row(buffer, rows[i].values, rows[i].count, error);
     }
     return finish(buffer, start, written, error);
+}
+
+bool trl_encode_copy_rows(trl_buffer *buffer, trl_slice rows, size_t count, trl_codec_error *error) {
+    size_t start = trl_frame_start(buffer, TRL_KIND_COPY_DATA);
+    trl_put_count(buffer, count);
+    trl_put_raw(buffer, rows.bytes, rows.length);
+    return finish(buffer, start, true, error);
 }
 
 bool trl_encode_copy_end(trl_buffer *buffer, bool abandon, trl_codec_error *error) {

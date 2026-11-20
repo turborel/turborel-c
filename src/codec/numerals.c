@@ -33,6 +33,10 @@
 #define TRL_TEN 10
 /* The sign bit of a double's bits; the rest is zero of either zero. */
 #define TRL_DOUBLE_SIGN 0x8000000000000000U
+/* The adjusted exponents of a DECFLOAT written plain: from -6, and below
+   its most digits, 34. */
+#define TRL_PLAIN_LEAST (-6)
+#define TRL_DECFLOAT_DIGITS 34
 
 /* The bits of `x`, by which doubles are compared (R-NUM-4). */
 static uint64_t bits_of(double x) {
@@ -145,4 +149,72 @@ void trl_put_decfloat_numeral(trl_buffer *buffer, trl_decfloat value) {
     trl_put_raw(buffer, (const uint8_t *)digits, whole);
     trl_put_u8(buffer, (uint8_t)'.');
     trl_put_raw(buffer, (const uint8_t *)digits + whole, (size_t)places);
+}
+
+/* The shortest numeral that reads back as the double of `bits`, finite and
+   not zero. */
+static void shortest(double x, uint64_t bits, numeral *n) {
+    memset(n, 0, sizeof *n);
+    for (int digits = 1; digits <= TRL_DOUBLE_DIGITS; ++digits) {
+        numeral_of(x, digits, n);
+        if (reads_back(n, bits)) {
+            return;
+        }
+    }
+}
+
+/* Appends `E` and the exponent `exponent`. */
+static void put_exponent(trl_buffer *buffer, long exponent) {
+    char power[TRL_NUMERAL_BYTES];
+    int written = snprintf(power, sizeof power, "E%ld", exponent);
+    trl_put_raw(buffer, (const uint8_t *)power, written > 0 ? (size_t)written : 0U);
+}
+
+void trl_put_approximate_text(trl_buffer *buffer, uint64_t bits) {
+    double x = 0.0;
+    memcpy(&x, &bits, sizeof x);
+    bool negative = (bits & TRL_DOUBLE_SIGN) != 0U;
+    if (isnan(x)) {
+        trl_put_raw(buffer, (const uint8_t *)"NaN", sizeof "NaN" - 1U);
+        return;
+    }
+    if (negative) {
+        trl_put_u8(buffer, (uint8_t)'-');
+    }
+    if (isinf(x)) {
+        trl_put_raw(buffer, (const uint8_t *)"inf", sizeof "inf" - 1U);
+        return;
+    }
+    if ((bits & ~TRL_DOUBLE_SIGN) == 0U) {
+        trl_put_raw(buffer, (const uint8_t *)"0E0", sizeof "0E0" - 1U);
+        return;
+    }
+    numeral n;
+    shortest(x, bits, &n);
+    trl_put_raw(buffer, (const uint8_t *)n.digits, 1U);
+    if (n.count > 1U) {
+        trl_put_u8(buffer, (uint8_t)'.');
+        trl_put_raw(buffer, (const uint8_t *)n.digits + 1, n.count - 1U);
+    }
+    put_exponent(buffer, n.exponent);
+}
+
+void trl_put_decfloat_text(trl_buffer *buffer, trl_decfloat value) {
+    char digits[TRL_U128_DIGITS];
+    size_t count = trl_uint128_to_digits(trl_int128_magnitude(value.coefficient), digits);
+    long adjusted = (long)value.exponent + (long)count - 1L;
+    bool zero = count == 1U && digits[0] == '0';
+    if (zero || (adjusted >= TRL_PLAIN_LEAST && adjusted < TRL_DECFLOAT_DIGITS)) {
+        trl_put_decfloat_numeral(buffer, value);
+        return;
+    }
+    if (trl_int128_negative(value.coefficient)) {
+        trl_put_u8(buffer, (uint8_t)'-');
+    }
+    trl_put_raw(buffer, (const uint8_t *)digits, 1U);
+    if (count > 1U) {
+        trl_put_u8(buffer, (uint8_t)'.');
+        trl_put_raw(buffer, (const uint8_t *)digits + 1, count - 1U);
+    }
+    put_exponent(buffer, adjusted);
 }

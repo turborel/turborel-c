@@ -62,6 +62,14 @@ add_library(
   src/auth/key_cache.c
   src/auth/mechanism.c
   src/auth/scram.c
+  src/bulk/assign.c
+  src/bulk/copy.c
+  src/bulk/delimited.c
+  src/bulk/export.c
+  src/bulk/import.c
+  src/bulk/import_copy.c
+  src/bulk/names.c
+  src/bulk/native.c
   src/conn/cancel.c
   src/conn/conn.c
   src/conn/control.c
@@ -72,11 +80,15 @@ add_library(
   src/conn/told.c
   src/data/copy.c
   src/data/params.c
+  src/data/text.c
   src/data/values.c
   src/data/xml_lex.c
   src/data/xml_parse.c
   src/data/xml_text.c
   src/data/xml_tree.c
+  src/lob/lob.c
+  src/lob/reader.c
+  src/lob/writer.c
   src/net/tls.c
   src/net/tls_settings.c
   src/net/transport.c

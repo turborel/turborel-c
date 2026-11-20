@@ -348,6 +348,29 @@ static void a_call_gives_its_output_parameters(trl_test *test) {
     trl_conn_free(conn);
 }
 
+/**
+ * Verifies: [PROTOCOL Execute 'E'] a string `?` longer than its column is
+ * cut to the column's length, its completion warning 01004.
+ */
+static void a_cut_parameter_warns(trl_test *test) {
+    trl_conn *conn = live_trusted(NULL);
+    TRL_CHECK(test, run(conn, "CREATE TABLE CUT (V VARCHAR(5))"));
+    trl_statement *insert = NULL;
+    trl_params *params = NULL;
+    trl_result *result = NULL;
+    TRL_CHECK(test, trl_prepare(conn, "INSERT INTO CUT VALUES (?)", &insert) == TRL_OK);
+    TRL_CHECK(test, trl_params_new(&params) == TRL_OK && trl_params_add_text(params, "abcdefgh", 8U) == TRL_OK);
+    TRL_CHECK(test, trl_execute(conn, insert, params, &result) == TRL_OK);
+    TRL_CHECK(test, strcmp(trl_result_sqlstate(result), "01004") == 0);
+    trl_result_free(result);
+    TRL_CHECK(test, trl_query(conn, "SELECT V FROM CUT", &result) == TRL_OK);
+    TRL_CHECK(test, text_is(trl_result_value(result, 0U, 0U), "abcde"));
+    trl_result_free(result);
+    trl_params_free(params);
+    trl_statement_free(insert);
+    trl_conn_free(conn);
+}
+
 int main(int argc, char **argv) {
     char cwd[PATH_BYTES];
     char dir[PATH_BYTES + sizeof "/live-statements"];
@@ -368,7 +391,7 @@ int main(int argc, char **argv) {
         TRL_TEST_CASE(rows_come_a_batch_at_a_time),       TRL_TEST_CASE(a_transaction_ends_as_asked),
         TRL_TEST_CASE(a_prepared_statement_runs_again),   TRL_TEST_CASE(a_cursor_is_read_in_parts),
         TRL_TEST_CASE(numbered_cursors_and_descriptions), TRL_TEST_CASE(a_call_gives_its_output_parameters),
-        TRL_TEST_CASE(an_open_cursors_statement_stays),
+        TRL_TEST_CASE(an_open_cursors_statement_stays),   TRL_TEST_CASE(a_cut_parameter_warns),
     };
     int result = ready ? trl_test_main(argc, argv, cases, TRL_TEST_COUNT(cases)) : EXIT_FAILURE;
     server_stop(&live_server);

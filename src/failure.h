@@ -59,6 +59,9 @@ void trl_failure_set(trl_failure *failure, int32_t sqlcode, const char *sqlstate
 void trl_failure_cite(trl_failure *failure, int32_t sqlcode, const char *sqlstate, const char *message,
                       const char *rule);
 
+/** @brief Has `failure` tell `data_type` as the data type it is about, its diagnostic of tag 14. */
+void trl_failure_of_type(trl_failure *failure, const char *data_type);
+
 /** @brief Sets a connection failure (SQLCODE -919, SQLSTATE 08006) of `message`. */
 void trl_failure_broken(trl_failure *failure, const char *message);
 

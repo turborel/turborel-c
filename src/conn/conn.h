@@ -101,6 +101,8 @@ struct trl_conn {
     /** @brief The arena a reply's body is kept and decoded in, of a result
         that outlives the reply; null for the connection's own. */
     trl_arena *keep;
+    /** @brief The last reply's body, inflated, valid until the next reply is read. */
+    trl_slice last_body;
     /** @brief The bytes read and not yet taken. */
     uint8_t *input;
     /** @brief Where those not taken begin. */
@@ -139,6 +141,8 @@ struct trl_conn {
     char warning[TRL_SQLSTATE_BYTES];
     /** @brief Whether a commit's log position was told. */
     bool has_position;
+    /** @brief Whether a copy is under way, so only its rows, its end and Ping are sent. */
+    bool copying;
 };
 
 /** @brief Loses the connection by `failure`, kept for every call after. */

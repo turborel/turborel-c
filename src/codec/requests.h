@@ -91,7 +91,7 @@ typedef struct trl_lob_request {
 } trl_lob_request;
 
 /** @brief A CopyIn's fields [PROTOCOL CopyIn 'I']. */
-typedef struct trl_copy_in {
+typedef struct trl_copy_in_request {
     /** @brief The table, as SQL names it. */
     trl_slice table;
     /** @brief Its columns the rows give, in order; none for every column. */
@@ -100,7 +100,7 @@ typedef struct trl_copy_in {
     size_t column_count;
     /** @brief Whether the transaction ends with the copy. */
     bool ends;
-} trl_copy_in;
+} trl_copy_in_request;
 
 /** @brief A row of a CopyData: its values. */
 typedef struct trl_row_values {
@@ -244,7 +244,7 @@ bool trl_encode_change_user(trl_buffer *buffer, trl_slice user, trl_slice mechan
  * @param error Where a field that cannot be sent is recorded.
  * @return Nonzero if encoded.
  */
-bool trl_encode_copy_in(trl_buffer *buffer, const trl_copy_in *copy, trl_codec_error *error);
+bool trl_encode_copy_in(trl_buffer *buffer, const trl_copy_in_request *copy, trl_codec_error *error);
 
 /**
  * @brief Encodes a CopyData [PROTOCOL CopyData 'J'].
@@ -255,6 +255,17 @@ bool trl_encode_copy_in(trl_buffer *buffer, const trl_copy_in *copy, trl_codec_e
  * @return Nonzero if encoded.
  */
 bool trl_encode_copy_data(trl_buffer *buffer, const trl_row_values *rows, size_t count, trl_codec_error *error);
+
+/**
+ * @brief Encodes a CopyData of `count` rows already written, each as
+ * trl_write_row() writes one [PROTOCOL CopyData 'J'].
+ * @param buffer The buffer.
+ * @param rows The rows' bytes.
+ * @param count How many rows they are.
+ * @param error Where a failure goes.
+ * @return Nonzero if encoded.
+ */
+bool trl_encode_copy_rows(trl_buffer *buffer, trl_slice rows, size_t count, trl_codec_error *error);
 
 /**
  * @brief Encodes a CopyEnd [PROTOCOL CopyEnd 'N'].

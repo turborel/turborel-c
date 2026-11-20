@@ -10,6 +10,7 @@
 #include "codec/tags.h"
 #include "codec/values.h"
 #include "failure.h"
+#include "faults.h"
 #include "harness.h"
 #include "memory.h"
 #include "scram_server.h"
@@ -32,40 +33,6 @@
 /* The directory the scenario's certificates are made in. */
 #define TLS_DIR "faults-test"
 #endif
-
-/* The most allocations a scenario is failed at. */
-#define MOST_FAULTS 4000L
-
-/* A scenario: whether what it came to is what memory not had allows. */
-typedef bool (*scenario)(void);
-
-/* Whether a status is success, or failure of memory or the connection. */
-static bool allowed(trl_status status, const trl_failure *failure) {
-    if (status == TRL_OK || status == TRL_NO_MEMORY) {
-        return true;
-    }
-    int32_t sqlcode = trl_failure_sqlcode(failure);
-    return status == TRL_FAILED && (sqlcode == -918 || sqlcode == -919);
-}
-
-/* Runs `run` with each allocation failing in turn until it runs whole;
-   whether every run came to what is allowed. */
-static bool every_fault(scenario run) {
-    for (long allowed_count = 0L; allowed_count < MOST_FAULTS; ++allowed_count) {
-        trl_faults_arm(allowed_count);
-        bool fine = run();
-        bool fired = trl_faults_fired();
-        trl_faults_arm(-1L);
-        if (!fine) {
-            (void)fprintf(stderr, "the run failing allocation %ld came to what is not allowed\n", allowed_count);
-            return false;
-        }
-        if (!fired) {
-            return true;
-        }
-    }
-    return false;
-}
 
 /* Answers a trusted login with Statuses and Ready, and Ping with a Status and Pong. */
 static void serving(script *s, uint8_t kind, trl_slice body) {
