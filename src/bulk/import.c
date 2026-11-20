@@ -127,6 +127,16 @@ static bool described(trl_import_run *run) {
     return prepared;
 }
 
+/* Stops the import as memory cannot be had; false. */
+static bool without_memory(trl_import_run *run) {
+    trl_failure no_memory;
+    trl_failure_init(&no_memory);
+    trl_failure_no_memory(&no_memory);
+    trl_imported_stop_sql(run->imported, NULL, &no_memory);
+    trl_failure_clear(&no_memory);
+    return false;
+}
+
 /* The columns the source's headings name, or else the table's. */
 static bool columns_of(trl_import_run *run) {
     trl_headings headings = {NULL, 0U};
@@ -142,6 +152,10 @@ static bool columns_of(trl_import_run *run) {
         trl_buffer name;
         trl_buffer_init(&name);
         trl_column_of_heading(headings.names[i], &name);
+        if (name.state != TRL_BUFFER_OK) {
+            trl_buffer_free(&name);
+            return without_memory(run);
+        }
         add_column(run, name.length == 0U ? "" : (const char *)name.data, name.length);
         trl_buffer_free(&name);
     }
@@ -162,12 +176,7 @@ static bool table_named(trl_import_run *run) {
     }
     trl_put_u8(&run->table, 0U);
     if (run->table.state != TRL_BUFFER_OK) {
-        trl_failure no_memory;
-        trl_failure_init(&no_memory);
-        trl_failure_no_memory(&no_memory);
-        trl_imported_stop_sql(run->imported, NULL, &no_memory);
-        trl_failure_clear(&no_memory);
-        return false;
+        return without_memory(run);
     }
     --run->table.length;
     return true;

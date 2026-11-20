@@ -6,6 +6,7 @@
  * at a time and passed as parameters. Opt-in: TRL_TEST_SERVER names the
  * server, else skipped.
  */
+#include "format.h"
 #include "harness.h"
 #include "live.h"
 #include "server.h"
@@ -276,7 +277,7 @@ int main(int argc, char **argv) {
     if (getcwd(cwd, sizeof cwd) == NULL) {
         return EXIT_FAILURE;
     }
-    (void)snprintf(dir, sizeof dir, "%s/live-lobs", cwd);
+    trl_format(dir, sizeof dir, "%s/live-lobs", cwd);
     const char *why = NULL;
     if (!server_start(&live_server, dir, false, &why)) {
         (void)fprintf(stderr, "%s\n", why);

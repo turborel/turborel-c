@@ -10,6 +10,7 @@
 #include "settings_common.h"
 
 #include "codec/buffer.h"
+#include "format.h"
 #include "harness.h"
 #include "settings/settings.h"
 #include "turborel/turborel.h"
@@ -40,7 +41,7 @@ const char *variable(void *context, const char *name) {
 /* A scratch file of `text`, named for `test`, in the build directory;
    its path into `path`. */
 bool scratch(const char *test, const char *text, char *path) {
-    (void)snprintf(path, PATH_BYTES, "settings-%s-%d", test, (int)getpid());
+    trl_format(path, PATH_BYTES, "settings-%s-%d", test, (int)getpid());
     return trl_test_write_file(path, text);
 }
 

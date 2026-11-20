@@ -10,6 +10,7 @@
 #include "codec/kinds.h"
 #include "codec/tags.h"
 #include "codec/values.h"
+#include "format.h"
 #include "harness.h"
 #include "script.h"
 #include "turborel/turborel.h"
@@ -186,7 +187,7 @@ static trl_status exported(bulk_plan *plan, trl_export_format format, written_ou
     trl_conn *conn = bulk_connect(&s, plan);
     trl_export_sink sink = {format, write_out, out};
     trl_status status = trl_export(conn, "Q", &sink, rows);
-    (void)snprintf(sqlstate, 8U, "%s", trl_failure_sqlstate(trl_conn_failure(conn)));
+    trl_format(sqlstate, 8U, "%s", trl_failure_sqlstate(trl_conn_failure(conn)));
     trl_conn_free(conn);
     script_free(&s);
     return status;

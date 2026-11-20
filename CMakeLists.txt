@@ -51,11 +51,15 @@ endif()
 
 add_library(
   turborel_objects OBJECT
+  src/sync.c
   src/version.c
   src/decimal.c
   src/failure.c
   src/format.c
   src/memory.c
+  src/agent/agent.c
+  src/agent/connections.c
+  src/agent/statement.c
   src/auth/base64.c
   src/auth/binding.c
   src/auth/crypto.c
@@ -83,6 +87,8 @@ add_library(
   src/data/params.c
   src/data/text.c
   src/data/type_text.c
+  src/pool/pool.c
+  src/pool/reset.c
   src/settings/access.c
   src/settings/connect.c
   src/settings/files.c
@@ -99,6 +105,7 @@ add_library(
   src/net/tls.c
   src/net/tls_settings.c
   src/net/transport.c
+  src/stmt/pipeline.c
   src/stmt/prepared.c
   src/stmt/query.c
   src/stmt/result.c

@@ -5,6 +5,7 @@
  * query attributes, several statements as one request, and UUID and XML
  * values. Opt-in: TRL_TEST_SERVER names the server, else skipped.
  */
+#include "format.h"
 #include "harness.h"
 #include "live.h"
 #include "server.h"
@@ -104,7 +105,7 @@ static void a_completion_tells_its_counts(trl_test *test) {
 /* Counts the notices it is given, keeping the last SQLSTATE. */
 static void heard(void *context, const trl_failure *notice) {
     char *last = context;
-    (void)snprintf(last, 6U, "%s", trl_failure_sqlstate(notice));
+    trl_format(last, 6U, "%s", trl_failure_sqlstate(notice));
 }
 
 /**
@@ -357,7 +358,7 @@ int main(int argc, char **argv) {
     if (getcwd(cwd, sizeof cwd) == NULL) {
         return EXIT_FAILURE;
     }
-    (void)snprintf(dir, sizeof dir, "%s/live-session", cwd);
+    trl_format(dir, sizeof dir, "%s/live-session", cwd);
     const char *why = NULL;
     if (!server_start(&live_server, dir, true, &why)) {
         (void)fprintf(stderr, "%s\n", why);

@@ -10,6 +10,7 @@
 #endif
 
 #include "failure.h"
+#include "format.h"
 #include "harness.h"
 #include "settings/settings.h"
 #include "settings_common.h"
@@ -194,7 +195,7 @@ static void a_service_file_is_read_by_section(trl_test *test) {
     TRL_CHECK(test, service_refused("[a]\nservice=b\n", "a", "line 2: a service cannot set service"));
     TRL_CHECK(test, service_refused("[a\n", "a", "line 1: a section's name ends with ]"));
     char missing[PATH_BYTES];
-    (void)snprintf(missing, sizeof missing, "settings-no-service-%d", (int)getpid());
+    trl_format(missing, sizeof missing, "settings-no-service-%d", (int)getpid());
     (void)trl_options_new(&options);
     TRL_CHECK(test, !trl_service_read(missing, "s", options, &failure) && unable(&failure, "cannot read"));
     trl_options_free(options);

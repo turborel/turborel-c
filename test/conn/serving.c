@@ -129,9 +129,36 @@ void serving_respond(script *s, uint8_t kind, trl_slice body) {
     answer(s, serving_plan->plan);
 }
 
+/* A server of Ready, then of a sequence's plans in turn. */
+static void sequence_respond(script *s, uint8_t kind, trl_slice body) {
+    serving_sequence *sequence = s->data;
+    if (kind == TRL_KIND_TERMINATE) {
+        return;
+    }
+    if (kind == TRL_KIND_HELLO) {
+        s->data = &sequence->then;
+        serving_respond(s, kind, body);
+        s->data = sequence;
+        return;
+    }
+    size_t at = sequence->answered++;
+    answer(s, at < sequence->first_count ? sequence->first[at] : sequence->then.plan);
+}
+
 /* A connection over a script serving as `plan` says. */
 trl_conn *serving_connect(script *s, serving *plan) {
     script_init(s, serving_respond, plan);
+    trl_mechanism *trust = NULL;
+    (void)trl_mechanism_trust(&trust);
+    trl_conn *conn = NULL;
+    (void)script_connect(s, trust, NULL, &conn);
+    trl_mechanism_free(trust);
+    return conn;
+}
+
+/* A connection over a script serving as `sequence` says. */
+trl_conn *serving_connect_sequence(script *s, serving_sequence *sequence) {
+    script_init(s, sequence_respond, sequence);
     trl_mechanism *trust = NULL;
     (void)trl_mechanism_trust(&trust);
     trl_conn *conn = NULL;

@@ -12,6 +12,7 @@
 #include "failure.h"
 #include "memory.h"
 #include "stmt/result.h"
+#include "stmt/stmt.h"
 #include "turborel/turborel.h"
 
 #include <stdbool.h>
@@ -117,6 +118,36 @@ static bool read_outcome(trl_conn *conn, trl_result *result, const batches *to, 
     bool read = to != NULL ? read_batches(conn, result, to) : trl_read_rows(conn, result);
     *more = read && result->followed;
     return read;
+}
+
+bool trl_query_encode(const trl_conn *conn, const char *sql, bool ends, bool attributed, trl_encoding to) {
+    trl_query_request query;
+    trl_query_of(conn, sql, false, &query);
+    query.ends = ends;
+    if (!attributed) {
+        query.attributes = NULL;
+        query.attribute_count = 0U;
+    }
+    return trl_encode_query(to.out, &query, to.error);
+}
+
+trl_status trl_query_read(trl_conn *conn, trl_result **out) {
+    *out = NULL;
+    trl_result *result = trl_result_make();
+    if (result == NULL) {
+        trl_failure_no_memory(&conn->failure);
+        return TRL_FAILED;
+    }
+    bool more = false;
+    conn->keep = &result->arena;
+    bool read = read_outcome(conn, result, NULL, &more);
+    conn->keep = NULL;
+    if (!read) {
+        trl_result_free(result);
+        return TRL_FAILED;
+    }
+    *out = result;
+    return TRL_OK;
 }
 
 /* Runs one statement by Query into a result of its own. */

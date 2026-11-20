@@ -511,6 +511,13 @@ Where it departs from turborel-client on its own:
 - The home directory of the default service file and password file is
   HOME, or on Windows USERPROFILE, where turborel-client asks the
   system's user database too when HOME is not set.
+- The SQL-agent's CONNECT fails with SQLSTATE 08001, the server not
+  reached, when the program's connector fails with 08001 as well as with
+  08006, where turborel-client takes 08006 alone so: a connector of
+  settings fails with 08001 when no server answers, which is the same
+  case. Its connection statements are read by the driver's own reader
+  of them, which places a failure as Turborel's parser does but words it
+  in its own way.
 
 ### This driver's own
 
@@ -604,14 +611,18 @@ connection's, valid until the next statement.
 
 The library keeps no global mutable state and needs no initialization
 call (R-SAFE-5). A handle is used by one thread at a time; different
-handles may be used on different threads at once. Two depart from that
+handles may be used on different threads at once. Some depart from that
 by design, as their doc comments say: a SCRAM key cache, which every
 thread may use at once, behind a lock of its own (POSIX threads'
 mutex, or a Windows SRW lock), its holds counted under it; a canceller,
 made of a connection on the connection's thread, then used on another
-to cancel its statement; and settings, which several threads may connect
+to cancel its statement; settings, which several threads may connect
 by at once, as each connection only reads them and shares their key
-cache. The library starts no thread
+cache; and a pool, which every thread may get connections of and give
+them back to at once, behind a lock of its own and a wait on it (POSIX
+threads' condition variable on the monotonic clock, or a Windows
+condition variable), its holds counted under it, each connection one
+thread's while it is handed out. The library starts no thread
 (R-SAFE-6), and a callback the program gives, as a stream's, runs on
 the thread that made the call. On Windows each socket starts and cleans
 up Winsock itself, which counts its users, so no call of the program's

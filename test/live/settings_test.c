@@ -13,6 +13,7 @@
 #define _POSIX_C_SOURCE 200809L
 #endif
 
+#include "format.h"
 #include "harness.h"
 #include "live.h"
 #include "server.h"
@@ -58,10 +59,10 @@ static trl_conn *by_uri(const char *uri, char *sqlstate, char *message) {
     }
     if (status != TRL_OK) {
         if (sqlstate != NULL) {
-            (void)snprintf(sqlstate, 8U, "%s", trl_failure_sqlstate(failure));
+            trl_format(sqlstate, 8U, "%s", trl_failure_sqlstate(failure));
         }
         if (message != NULL) {
-            (void)snprintf(message, PATH_BYTES, "%s", trl_failure_message(failure));
+            trl_format(message, PATH_BYTES, "%s", trl_failure_message(failure));
         }
         trl_conn_free(conn);
         conn = NULL;
@@ -98,7 +99,7 @@ static bool fails_as(const char *uri, const char *sqlstate, const char *part) {
 /* A URI of the server, `query` its settings after `?`. */
 static const char *uri_of(const char *hosts, const char *query) {
     static char uri[URI_BYTES];
-    (void)snprintf(uri, sizeof uri, "turborel://ann@%s/?%s", hosts, query);
+    trl_format(uri, sizeof uri, "turborel://ann@%s/?%s", hosts, query);
     return uri;
 }
 
@@ -154,19 +155,17 @@ static void several_servers_are_tried_in_turn(trl_test *test) {
 static void tls_by_mode(trl_test *test) {
     char query[URI_BYTES];
     TRL_CHECK(test, connects(uri_of("127.0.0.1:17438", "tls_mode=require")));
-    (void)snprintf(query, sizeof query, "tls_mode=verify-full&tls_roots=%s", live_path("ca.pem"));
+    trl_format(query, sizeof query, "tls_mode=verify-full&tls_roots=%s", live_path("ca.pem"));
     TRL_CHECK(test, connects(uri_of("localhost:17438", query)));
-    (void)snprintf(query, sizeof query, "tls_mode=verify-ca&tls_roots=%s&server_name=other.example",
-                   live_path("ca.pem"));
+    trl_format(query, sizeof query, "tls_mode=verify-ca&tls_roots=%s&server_name=other.example", live_path("ca.pem"));
     TRL_CHECK(test, connects(uri_of("127.0.0.1:17438", query)));
-    (void)snprintf(query, sizeof query, "tls_mode=verify-full&tls_roots=%s&server_name=other.example",
-                   live_path("ca.pem"));
+    trl_format(query, sizeof query, "tls_mode=verify-full&tls_roots=%s&server_name=other.example", live_path("ca.pem"));
     TRL_CHECK(test, fails_as(uri_of("127.0.0.1:17438", query), "08006", "certificate verify failed"));
-    (void)snprintf(query, sizeof query, "tls_mode=verify-full&tls_roots=%s", live_path("other-ca.pem"));
+    trl_format(query, sizeof query, "tls_mode=verify-full&tls_roots=%s", live_path("other-ca.pem"));
     TRL_CHECK(test, fails_as(uri_of("127.0.0.1:17438", query), "08006", "certificate verify failed"));
     TRL_CHECK(test, fails_as(uri_of("localhost:17438", "tls_mode=verify-ca"), "08006",
                              "no certificate authority is trusted"));
-    (void)snprintf(query, sizeof query, "tls_mode=verify-full&tls_roots=%s", live_path("none.pem"));
+    trl_format(query, sizeof query, "tls_mode=verify-full&tls_roots=%s", live_path("none.pem"));
     TRL_CHECK(test, fails_as(uri_of("127.0.0.1:17438", query), "08006", "cannot read"));
     TRL_CHECK(test, fails_as(uri_of("127.0.0.1:17438", "tls_mode=verify-ca&tls_system_roots=true"), "08006",
                              "certificate verify failed"));
@@ -182,10 +181,10 @@ static void tls_by_mode(trl_test *test) {
  */
 static void scram_by_password_file(trl_test *test) {
     char passfile[PATH_BYTES];
-    (void)snprintf(passfile, sizeof passfile, "%s", live_path("passfile"));
+    trl_format(passfile, sizeof passfile, "%s", live_path("passfile"));
     TRL_CHECK(test, trl_test_write_file(passfile, "127.0.0.1:17438:ann:" SERVER_PASSWORD "\n"));
     char query[URI_BYTES];
-    (void)snprintf(query, sizeof query, "tls_mode=require&passfile=%s", passfile);
+    trl_format(query, sizeof query, "tls_mode=require&passfile=%s", passfile);
     trl_settings *settings = NULL;
     TRL_CHECK(test, trl_settings_from_uri(uri_of("127.0.0.1:17438", query), &settings) == TRL_OK);
     trl_conn *conn = NULL;
@@ -198,20 +197,20 @@ static void scram_by_password_file(trl_test *test) {
     trl_key_cache_lookups(trl_settings_key_cache(settings), &hits, &misses);
     TRL_CHECK(test, hits == 1U && misses == 1U);
     trl_settings_free(settings);
-    (void)snprintf(query, sizeof query, "tls_mode=disable&passfile=%s", passfile);
+    trl_format(query, sizeof query, "tls_mode=disable&passfile=%s", passfile);
     TRL_CHECK(test, fails_as(uri_of("127.0.0.1:17438", query), "28000", "is sent only over TLS"));
-    (void)snprintf(query, sizeof query, "tls_mode=disable&channel_binding=require&passfile=%s", passfile);
+    trl_format(query, sizeof query, "tls_mode=disable&channel_binding=require&passfile=%s", passfile);
     TRL_CHECK(test, fails_as(uri_of("127.0.0.1:17438", query), "28000", "channel binding is required"));
-    (void)snprintf(query, sizeof query, "tls_mode=require&channel_binding=require&passfile=%s", passfile);
+    trl_format(query, sizeof query, "tls_mode=require&channel_binding=require&passfile=%s", passfile);
     TRL_CHECK(test, connects(uri_of("127.0.0.1:17438", query)));
     TRL_CHECK(test, fails_as(uri_of("127.0.0.1:17438", "tls_mode=require&channel_binding=require"), "28000",
                              "channel binding is required"));
-    (void)snprintf(query, sizeof query, "tls_mode=require&channel_binding=disable&passfile=%s", passfile);
+    trl_format(query, sizeof query, "tls_mode=require&channel_binding=disable&passfile=%s", passfile);
     TRL_CHECK(test, connects(uri_of("127.0.0.1:17438", query)));
     (void)remove(passfile);
     static const char wrong[] = "turborel://ann:wrong@127.0.0.1:17438,localhost:17438/?tls_mode=require";
     TRL_CHECK(test, fails_as(wrong, "28000", "no server was kept: 127.0.0.1 (127.0.0.1:17438): "));
-    (void)snprintf(query, sizeof query, "tls_mode=disable&passfile=%s", live_path(""));
+    trl_format(query, sizeof query, "tls_mode=disable&passfile=%s", live_path(""));
     TRL_CHECK(test, connects(uri_of("127.0.0.1:17438", query)));
 }
 
@@ -225,14 +224,14 @@ static void a_certificate_and_a_socket(trl_test *test) {
     char query[URI_BYTES];
     char roots[PATH_BYTES];
     char chain[PATH_BYTES];
-    (void)snprintf(roots, sizeof roots, "%s", live_path("ca.pem"));
-    (void)snprintf(chain, sizeof chain, "%s", live_path("client.pem"));
-    (void)snprintf(query, sizeof query, "tls_mode=verify-full&tls_roots=%s&tls_certificate=%s&tls_key=%s", roots, chain,
-                   live_path("client.key"));
+    trl_format(roots, sizeof roots, "%s", live_path("ca.pem"));
+    trl_format(chain, sizeof chain, "%s", live_path("client.pem"));
+    trl_format(query, sizeof query, "tls_mode=verify-full&tls_roots=%s&tls_certificate=%s&tls_key=%s", roots, chain,
+               live_path("client.key"));
     TRL_CHECK(test, connects(uri_of("localhost:17438", query)));
-    (void)snprintf(query, sizeof query, "tls_mode=require&tls_certificate=%s", live_path("client.pem"));
+    trl_format(query, sizeof query, "tls_mode=require&tls_certificate=%s", live_path("client.pem"));
     TRL_CHECK(test, fails_as(uri_of("localhost:17438", query), "08006", "presented with its key"));
-    (void)snprintf(query, sizeof query, "tls_mode=require&tls_certificate=%s&tls_key=%s", live_path("none.pem"), chain);
+    trl_format(query, sizeof query, "tls_mode=require&tls_certificate=%s&tls_key=%s", live_path("none.pem"), chain);
     TRL_CHECK(test, fails_as(uri_of("localhost:17438", query), "08006", "cannot read"));
     trl_options *options = NULL;
     (void)trl_options_new(&options);
@@ -336,7 +335,7 @@ static void prefer_falls_back_to_plain_tcp(trl_test *test) {
         return;
     }
     char hosts[64];
-    (void)snprintf(hosts, sizeof hosts, "127.0.0.1:%u", (unsigned int)p.port);
+    trl_format(hosts, sizeof hosts, "127.0.0.1:%u", (unsigned int)p.port);
     TRL_CHECK(test, connects(uri_of(hosts, "tls_mode=prefer")));
     (void)pthread_join(p.thread, NULL);
     (void)close(p.listener);
@@ -349,7 +348,7 @@ int main(int argc, char **argv) {
     if (getcwd(cwd, sizeof cwd) == NULL) {
         return EXIT_FAILURE;
     }
-    (void)snprintf(dir, sizeof dir, "%s/live-settings", cwd);
+    trl_format(dir, sizeof dir, "%s/live-settings", cwd);
     const char *why = NULL;
     if (!server_start(&live_server, dir, true, &why)) {
         (void)fprintf(stderr, "%s\n", why);

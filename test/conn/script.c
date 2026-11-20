@@ -9,6 +9,7 @@
 #include "codec/kinds.h"
 #include "codec/tags.h"
 #include "codec/tail.h"
+#include "format.h"
 #include "turborel/turborel.h"
 
 #include <stdbool.h>
@@ -166,7 +167,7 @@ void script_bare(script *s, uint8_t kind) {
 /* Puts a column of CHARACTER VARYING(20), named C<n>. */
 static void put_column(trl_buffer *body, uint32_t n) {
     char name[16];
-    (void)snprintf(name, sizeof name, "C%u", (unsigned int)n);
+    trl_format(name, sizeof name, "C%u", (unsigned int)n);
     trl_put_flag(body, true);
     script_put_string(body, name);
     trl_put_u8(body, TRL_TAG_VARYING);

@@ -18,6 +18,7 @@
 #include "failure.h"
 #include "memory.h"
 #include "stmt/result.h"
+#include "stmt/stmt.h"
 #include "turborel/turborel.h"
 
 #include <stdbool.h>
@@ -91,6 +92,30 @@ trl_status trl_prepare(trl_conn *conn, const char *sql, trl_statement **out) {
     return trl_conn_send(conn) && read_prepared(conn, out) ? TRL_OK : TRL_FAILED;
 }
 
+bool trl_execute_encode(const trl_conn *conn, const trl_statement *statement, const trl_params *params, bool ends,
+                        trl_encoding to) {
+    trl_execute_request execute;
+    memset(&execute, 0, sizeof execute);
+    execute.statement = statement->number;
+    execute.values = trl_params_values(params);
+    execute.value_count = trl_params_count(params);
+    execute.ends = ends;
+    execute.attribute_count = trl_conn_query_attributes(conn, &execute.attributes);
+    return trl_encode_execute(to.out, &execute, to.error);
+}
+
+uint32_t trl_statement_number(const trl_statement *statement) {
+    return statement->number;
+}
+
+uint32_t trl_statements_prepared(const trl_conn *conn) {
+    return conn->next_statement;
+}
+
+void trl_statements_gone(trl_conn *conn) {
+    conn->next_statement = 0U;
+}
+
 /* Sends Execute of `statement`'s cursor `number`, of `rows` at most (0
    for all), ending its transaction if `ends`. */
 static bool send_execute(trl_conn *conn, trl_cursor cursor, const trl_params *params, uint32_t rows, bool ends) {
@@ -160,6 +185,11 @@ static bool cursor_given(const trl_conn *conn, trl_cursor cursor, trl_result **o
         *out = NULL;
     }
     return conn != NULL && cursor.statement != NULL && out != NULL;
+}
+
+trl_status trl_execute_read(trl_conn *conn, const trl_statement *statement, trl_result **out) {
+    *out = NULL;
+    return read_result(conn, statement, false, out);
 }
 
 trl_status trl_execute(trl_conn *conn, const trl_statement *statement, const trl_params *params, trl_result **out) {

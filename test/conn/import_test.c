@@ -6,6 +6,7 @@
  * fails at a row.
  */
 #include "bulk_serving.h"
+#include "format.h"
 #include "harness.h"
 #include "script.h"
 #include "turborel/turborel.h"
@@ -94,8 +95,8 @@ static void on_rejected(void *context, const trl_rejected *row) {
     ++k->count;
     k->last_record = row->position.record;
     k->last_sql = row->cause.sql;
-    (void)snprintf(k->last_sqlstate, sizeof k->last_sqlstate, "%s",
-                   row->cause.failure == NULL ? "" : trl_failure_sqlstate(row->cause.failure));
+    trl_format(k->last_sqlstate, sizeof k->last_sqlstate, "%s",
+               row->cause.failure == NULL ? "" : trl_failure_sqlstate(row->cause.failure));
 }
 
 /* Imports `r` into T over a server planned as `plan`; the import's text

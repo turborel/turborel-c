@@ -12,6 +12,7 @@
 #include "auth/crypto.h"
 #include "auth/scram.h"
 #include "memory.h"
+#include "sync.h"
 #include "turborel/turborel.h"
 
 #include <stdbool.h>
@@ -19,52 +20,6 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-
-/* Each platform declares its locks in headers of its own, which the
-   include checker does not know (R-LINT-3). */
-// NOLINTBEGIN(misc-include-cleaner)
-#ifdef _WIN32
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-typedef SRWLOCK trl_lock;
-
-static bool lock_init(trl_lock *lock) {
-    InitializeSRWLock(lock);
-    return true;
-}
-
-static void lock_destroy(trl_lock *lock) {
-    (void)lock;
-}
-
-static void lock_take(trl_lock *lock) {
-    AcquireSRWLockExclusive(lock);
-}
-
-static void lock_give(trl_lock *lock) {
-    ReleaseSRWLockExclusive(lock);
-}
-#else
-#include <pthread.h>
-typedef pthread_mutex_t trl_lock;
-
-static bool lock_init(trl_lock *lock) {
-    return pthread_mutex_init(lock, NULL) == 0;
-}
-
-static void lock_destroy(trl_lock *lock) {
-    (void)pthread_mutex_destroy(lock);
-}
-
-static void lock_take(trl_lock *lock) {
-    (void)pthread_mutex_lock(lock);
-}
-
-static void lock_give(trl_lock *lock) {
-    (void)pthread_mutex_unlock(lock);
-}
-#endif
-// NOLINTEND(misc-include-cleaner)
 
 /* What finds an entry. */
 typedef struct entry_index {
@@ -102,7 +57,7 @@ trl_status trl_key_cache_new(trl_key_cache **out) {
     if (cache == NULL) {
         return TRL_NO_MEMORY;
     }
-    if (!lock_init(&cache->lock)) {
+    if (!trl_lock_init(&cache->lock)) {
         free(cache);
         return TRL_NO_MEMORY;
     }
@@ -113,9 +68,9 @@ trl_status trl_key_cache_new(trl_key_cache **out) {
 }
 
 void trl_key_cache_hold(trl_key_cache *cache) {
-    lock_take(&cache->lock);
+    trl_lock_take(&cache->lock);
     ++cache->holds;
-    lock_give(&cache->lock);
+    trl_lock_give(&cache->lock);
 }
 
 /* Drops the entry at `at`, the later ones moved up. */
@@ -137,14 +92,14 @@ void trl_key_cache_free(trl_key_cache *cache) {
     if (cache == NULL) {
         return;
     }
-    lock_take(&cache->lock);
+    trl_lock_take(&cache->lock);
     bool last = --cache->holds == 0U;
-    lock_give(&cache->lock);
+    trl_lock_give(&cache->lock);
     if (!last) {
         return;
     }
     drop_all(cache);
-    lock_destroy(&cache->lock);
+    trl_lock_destroy(&cache->lock);
     trl_cleanse(cache, sizeof *cache);
     free(cache);
 }
@@ -200,7 +155,7 @@ static void keep(trl_key_cache *cache, const entry_index *index, const trl_scram
 
 /* The keys of `index`, if kept, counted as a hit or a miss. */
 static bool found(trl_key_cache *cache, const entry_index *index, trl_scram_keys *out) {
-    lock_take(&cache->lock);
+    trl_lock_take(&cache->lock);
     size_t at = find(cache, index);
     bool kept = at != cache->count;
     if (kept) {
@@ -209,7 +164,7 @@ static bool found(trl_key_cache *cache, const entry_index *index, trl_scram_keys
     } else {
         ++cache->misses;
     }
-    lock_give(&cache->lock);
+    trl_lock_give(&cache->lock);
     return kept;
 }
 
@@ -224,9 +179,9 @@ bool trl_key_cache_derived(trl_key_cache *cache, const char *password, const trl
     if (!trl_scram_derive(password, salt, out)) {
         return false;
     }
-    lock_take(&cache->lock);
+    trl_lock_take(&cache->lock);
     keep(cache, &index, out);
-    lock_give(&cache->lock);
+    trl_lock_give(&cache->lock);
     return true;
 }
 
@@ -235,21 +190,21 @@ void trl_key_cache_forget(trl_key_cache *cache, const char *password, const trl_
     if (!index_of(cache, password, salt, &index)) {
         return;
     }
-    lock_take(&cache->lock);
+    trl_lock_take(&cache->lock);
     size_t at = find(cache, &index);
     if (at != cache->count) {
         drop(cache, at);
     }
-    lock_give(&cache->lock);
+    trl_lock_give(&cache->lock);
 }
 
 size_t trl_key_cache_size(trl_key_cache *cache) {
     if (cache == NULL) {
         return 0U;
     }
-    lock_take(&cache->lock);
+    trl_lock_take(&cache->lock);
     size_t count = cache->count;
-    lock_give(&cache->lock);
+    trl_lock_give(&cache->lock);
     return count;
 }
 
@@ -257,10 +212,10 @@ void trl_key_cache_lookups(trl_key_cache *cache, uint64_t *hits, uint64_t *misse
     uint64_t found = 0U;
     uint64_t derived = 0U;
     if (cache != NULL) {
-        lock_take(&cache->lock);
+        trl_lock_take(&cache->lock);
         found = cache->hits;
         derived = cache->misses;
-        lock_give(&cache->lock);
+        trl_lock_give(&cache->lock);
     }
     if (hits != NULL) {
         *hits = found;
@@ -274,7 +229,7 @@ void trl_key_cache_clear(trl_key_cache *cache) {
     if (cache == NULL) {
         return;
     }
-    lock_take(&cache->lock);
+    trl_lock_take(&cache->lock);
     drop_all(cache);
-    lock_give(&cache->lock);
+    trl_lock_give(&cache->lock);
 }

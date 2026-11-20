@@ -8,6 +8,7 @@
 #include "codec/kinds.h"
 #include "codec/tags.h"
 #include "codec/tail.h"
+#include "format.h"
 #include "script.h"
 #include "turborel/turborel.h"
 
@@ -182,7 +183,7 @@ static void copy(script *s, bulk_plan *plan, uint8_t kind, trl_slice body) {
     bool abandoned = body.length > 0U && body.bytes[0] == 1U;
     if (!abandoned && plan->copy_fail_row > 0U) {
         char detail[64];
-        (void)snprintf(detail, sizeof detail, "row %u of the copy", plan->copy_fail_row);
+        trl_format(detail, sizeof detail, "row %u of the copy", plan->copy_fail_row);
         bulk_error(s, "23505", false, detail);
     } else if (!abandoned && plan->copy_fail) {
         bulk_error(s, "42000", false, plan->copy_detail);

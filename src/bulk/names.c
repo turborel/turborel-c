@@ -293,15 +293,6 @@ static const char *const key_words[] = {
     "ZONE",
 };
 
-/* What a token is. */
-typedef enum kind {
-    TOKEN_END = 0,
-    TOKEN_IDENTIFIER,
-    TOKEN_KEY_WORD,
-    TOKEN_PERIOD,
-    TOKEN_OTHER,
-} kind;
-
 /* Decodes the code point at `at`, UTF-8 already checked; the bytes in `width`. */
 static uint32_t decode(const uint8_t *at, size_t *width) {
     uint32_t c = at[0];
@@ -384,9 +375,7 @@ static bool key_word(const char *word) {
                    sizeof key_words[0], compare_words) != NULL;
 }
 
-/* Passes over spaces, newlines and comments; false at text no separator
-   ends, as a comment not closed. */
-static bool separators(const char *text, size_t *at) {
+bool trl_separators(const char *text, size_t *at) {
     for (;;) {
         char c = text[*at];
         if (c == ' ' || c == '\n' || c == '\r') {
@@ -410,16 +399,16 @@ static bool separators(const char *text, size_t *at) {
 }
 
 /* Reads a <delimited identifier>'s body after its quote into `name`. */
-static kind delimited_token(const char *text, size_t *at, trl_buffer *name) {
+static trl_token delimited_token(const char *text, size_t *at, trl_buffer *name) {
     for (;;) {
         char c = text[*at];
         if (c == '\0' || c == '\n' || c == '\r') {
-            return TOKEN_OTHER;
+            return TRL_TOKEN_OTHER;
         }
         ++*at;
         if (c == '"') {
             if (text[*at] != '"') {
-                return name->length == 0U ? TOKEN_OTHER : TOKEN_IDENTIFIER;
+                return name->length == 0U ? TRL_TOKEN_OTHER : TRL_TOKEN_IDENTIFIER;
             }
             ++*at;
         }
@@ -428,7 +417,7 @@ static kind delimited_token(const char *text, size_t *at, trl_buffer *name) {
 }
 
 /* Reads a <regular identifier> or a <key word> into `name`, in upper case. */
-static kind regular_token(const char *text, size_t *at, trl_buffer *name) {
+static trl_token regular_token(const char *text, size_t *at, trl_buffer *name) {
     size_t letters = 0U;
     for (;;) {
         size_t width = 1U;
@@ -442,24 +431,25 @@ static kind regular_token(const char *text, size_t *at, trl_buffer *name) {
         *at += width;
     }
     trl_put_u8(name, 0U);
+    if (name->state != TRL_BUFFER_OK) {
+        return TRL_TOKEN_OTHER;
+    }
     --name->length;
     if (key_word((const char *)name->data)) {
-        return TOKEN_KEY_WORD;
+        return TRL_TOKEN_KEY_WORD;
     }
-    return letters <= TRL_MAX_IDENTIFIER ? TOKEN_IDENTIFIER : TOKEN_OTHER;
+    return letters <= TRL_MAX_IDENTIFIER ? TRL_TOKEN_IDENTIFIER : TRL_TOKEN_OTHER;
 }
 
-/* Reads the next token from `at`, an identifier's or key word's name into
-   `name`, emptied first. */
-static kind next_token(const char *text, size_t *at, trl_buffer *name) {
+trl_token trl_next_token(const char *text, size_t *at, trl_buffer *name) {
     name->length = 0U;
-    if (!separators(text, at)) {
-        return TOKEN_OTHER;
+    if (!trl_separators(text, at)) {
+        return TRL_TOKEN_OTHER;
     }
     size_t width = 1U;
     uint32_t c = text[*at] == '\0' ? 0U : decode((const uint8_t *)text + *at, &width);
     if (c == 0U) {
-        return TOKEN_END;
+        return TRL_TOKEN_END;
     }
     if (c == '"') {
         ++*at;
@@ -467,9 +457,9 @@ static kind next_token(const char *text, size_t *at, trl_buffer *name) {
     }
     if (c == '.') {
         ++*at;
-        return TOKEN_PERIOD;
+        return TRL_TOKEN_PERIOD;
     }
-    return letter(c) ? regular_token(text, at, name) : TOKEN_OTHER;
+    return letter(c) ? regular_token(text, at, name) : TRL_TOKEN_OTHER;
 }
 
 void trl_put_delimited(trl_buffer *out, const char *name, size_t length) {
@@ -489,16 +479,21 @@ bool trl_table_sql(const char *text, trl_buffer *out) {
     size_t at = 0U;
     bool named = true;
     for (unsigned int parts = 1U; named; ++parts) {
-        named = next_token(text, &at, &name) == TOKEN_IDENTIFIER;
+        named = trl_next_token(text, &at, &name) == TRL_TOKEN_IDENTIFIER;
         if (named) {
             trl_put_delimited(out, (const char *)name.data, name.length);
-            kind after = next_token(text, &at, &name);
-            if (after == TOKEN_END) {
+            trl_token after = trl_next_token(text, &at, &name);
+            if (after == TRL_TOKEN_END) {
                 break;
             }
-            named = after == TOKEN_PERIOD && parts < TRL_MAX_NAME_PARTS;
+            named = after == TRL_TOKEN_PERIOD && parts < TRL_MAX_NAME_PARTS;
             trl_put_u8(out, (uint8_t)'.');
         }
+    }
+    if (name.state != TRL_BUFFER_OK) {
+        /* Not a name not read, but memory not had: the caller's to tell. */
+        out->state = TRL_BUFFER_NO_MEMORY;
+        named = true;
     }
     trl_buffer_free(&name);
     return named;
@@ -508,16 +503,31 @@ void trl_column_of_heading(const char *heading, trl_buffer *out) {
     trl_buffer name;
     trl_buffer_init(&name);
     size_t at = 0U;
-    kind first = next_token(heading, &at, &name);
+    trl_token first = trl_next_token(heading, &at, &name);
     size_t length = name.length;
     trl_buffer rest;
     trl_buffer_init(&rest);
-    bool alone = (first == TOKEN_IDENTIFIER || first == TOKEN_KEY_WORD) && next_token(heading, &at, &rest) == TOKEN_END;
+    bool alone = (first == TRL_TOKEN_IDENTIFIER || first == TRL_TOKEN_KEY_WORD) &&
+                 trl_next_token(heading, &at, &rest) == TRL_TOKEN_END;
     if (alone) {
         trl_put_raw(out, name.data, length);
     } else {
         trl_put_raw(out, (const uint8_t *)heading, strlen(heading));
     }
+    if (name.state != TRL_BUFFER_OK || rest.state != TRL_BUFFER_OK) {
+        out->state = TRL_BUFFER_NO_MEMORY;
+    }
     trl_buffer_free(&rest);
     trl_buffer_free(&name);
+}
+
+bool trl_identifier_of(const char *text, trl_buffer *out) {
+    size_t at = 0U;
+    trl_buffer rest;
+    trl_buffer_init(&rest);
+    bool alone =
+        trl_next_token(text, &at, out) == TRL_TOKEN_IDENTIFIER && trl_next_token(text, &at, &rest) == TRL_TOKEN_END;
+    trl_buffer_free(&rest);
+    trl_put_u8(out, 0U);
+    return alone && out->state == TRL_BUFFER_OK;
 }

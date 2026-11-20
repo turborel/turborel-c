@@ -5,6 +5,7 @@
  * exported as CSV and as native rows read back. Opt-in: TRL_TEST_SERVER
  * names the server, else skipped.
  */
+#include "format.h"
 #include "harness.h"
 #include "live.h"
 #include "server.h"
@@ -38,7 +39,7 @@ static bool run(trl_conn *conn, const char *sql) {
 /* The count of rows of `table`, or -1. */
 static long long count_of(trl_conn *conn, const char *table) {
     char sql[PATH_BYTES];
-    (void)snprintf(sql, sizeof sql, "SELECT COUNT(*) FROM %s", table);
+    trl_format(sql, sizeof sql, "SELECT COUNT(*) FROM %s", table);
     trl_result *result = NULL;
     trl_decimal count;
     long long n = -1;
@@ -256,7 +257,7 @@ int main(int argc, char **argv) {
     if (getcwd(cwd, sizeof cwd) == NULL) {
         return EXIT_FAILURE;
     }
-    (void)snprintf(dir, sizeof dir, "%s/live-bulk", cwd);
+    trl_format(dir, sizeof dir, "%s/live-bulk", cwd);
     const char *why = NULL;
     if (!server_start(&live_server, dir, false, &why)) {
         (void)fprintf(stderr, "%s\n", why);

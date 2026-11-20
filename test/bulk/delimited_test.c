@@ -9,6 +9,7 @@
 #include "codec/tags.h"
 #include "codec/values.h"
 #include "data/params.h"
+#include "format.h"
 #include "harness.h"
 #include "turborel/turborel.h"
 
@@ -69,10 +70,10 @@ static void show_record(const trl_params *values, char *out, size_t capacity) {
     for (size_t i = 0U; i < trl_params_count(values); ++i) {
         size_t used = strlen(out);
         if (all[i].tag == TRL_TAG_NULL) {
-            (void)snprintf(out + used, capacity - used, "~");
+            trl_format(out + used, capacity - used, "~");
         } else {
-            (void)snprintf(out + used, capacity - used, "[%.*s]", (int)all[i].as.bytes.length,
-                           (const char *)all[i].as.bytes.bytes);
+            trl_format(out + used, capacity - used, "[%.*s]", (int)all[i].as.bytes.length,
+                       (const char *)all[i].as.bytes.bytes);
         }
     }
 }
@@ -100,13 +101,13 @@ static bool read_all(input *in, const trl_dialect *dialect, char *out, trl_sourc
             break;
         }
         size_t used = strlen(out);
-        (void)snprintf(out + used, SHOWN_BYTES - used, n == 0U ? "" : "/");
+        trl_format(out + used, SHOWN_BYTES - used, n == 0U ? "" : "/");
         show_record(values, out, SHOWN_BYTES);
     }
     all = all && read == TRL_READ_END;
     /* The message is the source's, which is freed: kept here. */
     static char kept[SHOWN_BYTES];
-    (void)snprintf(kept, sizeof kept, "%s", error->message == NULL ? "" : error->message);
+    trl_format(kept, sizeof kept, "%s", error->message == NULL ? "" : error->message);
     error->message = kept;
     trl_params_free(values);
     trl_delimited_free(delimited);
