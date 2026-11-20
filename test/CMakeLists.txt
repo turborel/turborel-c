@@ -13,9 +13,10 @@ add_library(trl_test_internal INTERFACE)
 target_include_directories(trl_test_internal INTERFACE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(trl_test_internal INTERFACE TRL_STATIC)
 
-# A test executable `name` of `source`, run by CTest as `name`.
+# A test executable `name` of `source` and any further sources, run by
+# CTest as `name`.
 function(trl_add_test name source)
-  add_executable(${name} ${source})
+  add_executable(${name} ${source} ${ARGN})
   target_link_libraries(${name} PRIVATE turborel_objects trl_test_harness trl_test_internal)
   trl_c_target(${name})
   add_test(NAME ${name} COMMAND ${name})
@@ -25,6 +26,18 @@ function(trl_add_test name source)
 endfunction()
 
 trl_add_test(codec.frame codec/frame_test.c)
+trl_add_test(codec.fields codec/fields_test.c codec/fixture.c)
+trl_add_test(codec.types codec/types_test.c codec/fixture.c)
+trl_add_test(codec.values codec/values_test.c codec/fixture.c)
+trl_add_test(codec.values_write codec/values_write_test.c codec/fixture.c)
+trl_add_test(codec.json codec/json_test.c codec/fixture.c)
+trl_add_test(codec.json_text codec/json_text_test.c codec/fixture.c)
+trl_add_test(codec.tail codec/tail_test.c codec/fixture.c)
+trl_add_test(codec.requests codec/requests_test.c codec/fixture.c)
+trl_add_test(codec.replies codec/replies_test.c codec/fixture.c)
+trl_add_test(codec.sweep codec/sweep_test.c codec/fixture.c codec/corpus.c)
+trl_add_test(codec.limits codec/limits_test.c codec/fixture.c codec/corpus.c)
+trl_add_test(api.decimal api/decimal_test.c)
 trl_add_test(api.version api/version_test.c)
 
 # The source rules a tool can check (R-PROC-1), with no tool but CMake.

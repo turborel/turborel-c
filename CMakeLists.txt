@@ -41,7 +41,32 @@ include(TrlDependencies)
 
 # One set of objects makes the library and is linked into the tests, which
 # reach the internal codec the library hides (RULES.md D13, D14).
-add_library(turborel_objects OBJECT src/version.c src/codec/frame.c)
+add_library(
+  turborel_objects OBJECT
+  src/version.c
+  src/decimal.c
+  src/codec/arena.c
+  src/codec/buffer.c
+  src/codec/decfloat.c
+  src/codec/error.c
+  src/codec/fields.c
+  src/codec/frame.c
+  src/codec/int128.c
+  src/codec/json_check.c
+  src/codec/json_nodes.c
+  src/codec/json_parse.c
+  src/codec/json_text.c
+  src/codec/json_write.c
+  src/codec/numerals.c
+  src/codec/reader.c
+  src/codec/replies.c
+  src/codec/requests.c
+  src/codec/strtod.c
+  src/codec/tail.c
+  src/codec/types.c
+  src/codec/utf8.c
+  src/codec/values.c
+  src/codec/values_write.c)
 target_include_directories(
   turborel_objects
   PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"

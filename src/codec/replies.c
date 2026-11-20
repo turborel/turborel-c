@@ -1,0 +1,198 @@
+/**
+ * @file replies.c
+ * @brief Replies decoded as turborel-protocol's `reply.rs` decodes them
+ * [PROTOCOL Replies]: each body read whole, its tail in order, nothing
+ * left after it.
+ */
+#include "codec/replies.h"
+
+#include "codec/arena.h"
+#include "codec/buffer.h"
+#include "codec/error.h"
+#include "codec/fields.h"
+#include "codec/int128.h"
+#include "codec/kinds.h"
+#include "codec/reader.h"
+#include "codec/tail.h"
+#include "codec/values.h"
+
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <string.h>
+
+/* The fewest bytes a row takes: its count; a condition: its bytes' count. */
+#define TRL_ROW_LEAST_BYTES 4U
+#define TRL_CONDITION_LEAST_BYTES 4U
+
+/* Reads Ready: authorization, key, capabilities, server [PROTOCOL Ready 'R']. */
+static bool read_ready(trl_reader *reader, trl_reply *out) {
+    return trl_read_string(reader, &out->as.ready.authorization) &&
+           trl_read_raw(reader, TRL_KEY_BYTES, &out->as.ready.key) &&
+           trl_read_strings(reader, &out->as.ready.capabilities) && trl_read_string(reader, &out->as.ready.server);
+}
+
+/* Reads Prepared: statement, parameters, columns [PROTOCOL Prepared 'P']. */
+static bool read_prepared(trl_reader *reader, trl_reply *out) {
+    return trl_read_u32(reader, &out->as.prepared.statement) &&
+           trl_read_parameters(reader, &out->as.prepared.parameters, &out->as.prepared.parameter_count) &&
+           trl_read_columns(reader, &out->as.prepared.columns, &out->as.prepared.column_count);
+}
+
+/* Reads Rows: a list of rows [PROTOCOL Rows 'B']. */
+static bool read_rows(trl_reader *reader, trl_reply *out) {
+    uint32_t count = 0U;
+    if (!trl_read_count(reader, TRL_ROW_LEAST_BYTES, &count)) {
+        return false;
+    }
+    out->as.rows.rows = trl_reader_alloc(reader, count, sizeof(trl_row));
+    if (out->as.rows.rows == NULL) {
+        return false;
+    }
+    out->as.rows.count = count;
+    for (uint32_t i = 0U; i < count; ++i) {
+        trl_row *row = &out->as.rows.rows[i];
+        if (!trl_read_row(reader, &row->values, &row->count)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/* Reads one condition: a failure written as bytes, its tail ending where
+   they do [PROTOCOL Complete 'K']. */
+static bool read_condition(trl_reader *reader, trl_wire_failure *out) {
+    trl_slice bytes = {NULL, 0U};
+    if (!trl_read_bytes(reader, &bytes)) {
+        return false;
+    }
+    trl_reader inner;
+    trl_reader_init(&inner, bytes.bytes, bytes.length, reader->arena, reader->error);
+    inner.what = "condition";
+    bool read = trl_read_failure(&inner, out) && trl_reader_finish(&inner);
+    reader->failed = reader->failed || inner.failed;
+    return read;
+}
+
+/* Reads tag 17, the conditions. */
+static bool read_conditions(trl_reader *reader, trl_completed *out) {
+    if (!trl_read_count(reader, TRL_CONDITION_LEAST_BYTES, &out->condition_count)) {
+        return false;
+    }
+    out->conditions = trl_reader_alloc(reader, out->condition_count, sizeof(trl_wire_failure));
+    if (out->conditions == NULL) {
+        return false;
+    }
+    for (uint32_t i = 0U; i < out->condition_count; ++i) {
+        if (!read_condition(reader, &out->conditions[i])) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/* Reads one field of a Complete's tail, of tag `tag`. */
+static bool read_complete_field(trl_reader *reader, uint8_t tag, trl_completed *out) {
+    switch (tag) {
+    case TRL_TAIL_POSITION:
+        out->has_position = true;
+        return trl_read_u64(reader, &out->position);
+    case TRL_TAIL_MORE:
+        out->more = true;
+        return true;
+    case TRL_TAIL_ROWS:
+        out->has_rows = true;
+        return trl_read_u64(reader, &out->rows);
+    case TRL_TAIL_GENERATED:
+        return trl_read_strings(reader, &out->generated);
+    case TRL_TAIL_CONDITIONS:
+        return read_conditions(reader, out);
+    default:
+        out->has_time = true;
+        return trl_read_u64(reader, &out->time[TRL_TIME_TOTAL]) && trl_read_u64(reader, &out->time[TRL_TIME_QUEUED]) &&
+               trl_read_u64(reader, &out->time[TRL_TIME_LOCKS]);
+    }
+}
+
+/* Reads Complete: SQLCODE, SQLSTATE, active, then its tail. */
+static bool read_complete(trl_reader *reader, trl_completed *out) {
+    uint32_t sqlcode = 0U;
+    if (!trl_read_u32(reader, &sqlcode) || !trl_read_string(reader, &out->sqlstate) ||
+        !trl_read_flag(reader, &out->active)) {
+        return false;
+    }
+    out->sqlcode = trl_bits_i32(sqlcode);
+    const uint32_t taken = TRL_TAG_BIT(TRL_TAIL_POSITION) | TRL_TAG_BIT(TRL_TAIL_MORE) | TRL_TAG_BIT(TRL_TAIL_ROWS) |
+                           TRL_TAG_BIT(TRL_TAIL_GENERATED) | TRL_TAG_BIT(TRL_TAIL_CONDITIONS) |
+                           TRL_TAG_BIT(TRL_TAIL_TIME);
+    trl_tail tail = {0U};
+    uint8_t tag = 0U;
+    while (trl_tail_next(reader, &tail, taken, &tag) && tag != 0U) {
+        if (!read_complete_field(reader, tag, out)) {
+            return false;
+        }
+    }
+    return !reader->failed;
+}
+
+/* Reads a Lob reply: data or a locator [PROTOCOL Lob 'L']. */
+static bool read_lob(trl_reader *reader, trl_reply *out) {
+    if (!trl_read_u8(reader, &out->as.lob.what)) {
+        return false;
+    }
+    if (out->as.lob.what == TRL_LOB_DATA) {
+        return trl_read_bytes(reader, &out->as.lob.data);
+    }
+    if (out->as.lob.what == TRL_LOB_LOCATOR) {
+        return trl_read_u32(reader, &out->as.lob.locator);
+    }
+    return trl_reader_fail(reader, "no Lob reply is of this kind");
+}
+
+/* Reads the replies of the protocol's later form and those of no body. */
+static bool read_other(trl_reader *reader, trl_reply *out) {
+    switch (out->kind) {
+    case TRL_KIND_LOB_REPLY:
+        return read_lob(reader, out);
+    case TRL_KIND_NOTICE:
+        return trl_read_string(reader, &out->as.notice.sqlstate) && trl_read_string(reader, &out->as.notice.message) &&
+               trl_read_diagnostics(reader, &out->as.notice.diagnostics);
+    case TRL_KIND_STATUS:
+        return trl_read_string(reader, &out->as.status.name) && trl_read_string(reader, &out->as.status.value);
+    case TRL_KIND_SUSPENDED:
+    case TRL_KIND_PONG:
+        return true;
+    default:
+        return trl_reader_fail(reader, "no reply is of this kind");
+    }
+}
+
+/* Reads the body of a reply of the protocol's first form. */
+static bool read_body(trl_reader *reader, trl_reply *out) {
+    switch (out->kind) {
+    case TRL_KIND_CHALLENGE:
+        return trl_read_bytes(reader, &out->as.challenge);
+    case TRL_KIND_READY:
+        return read_ready(reader, out);
+    case TRL_KIND_PREPARED:
+        return read_prepared(reader, out);
+    case TRL_KIND_DESCRIPTION:
+        return trl_read_columns(reader, &out->as.description.columns, &out->as.description.count);
+    case TRL_KIND_ROWS:
+        return read_rows(reader, out);
+    case TRL_KIND_COMPLETE:
+        return read_complete(reader, &out->as.complete);
+    case TRL_KIND_ERROR:
+        return trl_read_failure(reader, &out->as.error);
+    default:
+        return read_other(reader, out);
+    }
+}
+
+bool trl_decode_reply(uint8_t kind, trl_slice body, trl_arena *arena, trl_reply *out, trl_codec_error *error) {
+    memset(out, 0, sizeof *out);
+    out->kind = kind;
+    trl_reader reader;
+    trl_reader_init(&reader, body.bytes, body.length, arena, error);
+    return read_body(&reader, out) && trl_reader_finish(&reader);
+}

@@ -1,0 +1,8 @@
+# clang-tidy for the tests: the library's checks (../.clang-tidy), but for
+# readability-magic-numbers, as a test may use literal fixtures, the bytes
+# the spec prints among them (RULES.md R-CONST-5, R-TEST-4).
+---
+InheritParentConfig: true
+Checks: >
+  -readability-magic-numbers
+...

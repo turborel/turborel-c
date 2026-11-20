@@ -14,7 +14,9 @@ Checks: >
   readability-*,
   -bugprone-easily-swappable-parameters,
   -readability-identifier-length,
-  -clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling
+  -clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling,
+  -misc-no-recursion,
+  -readability-implicit-bool-conversion
 # Left out:
 #   bugprone-easily-swappable-parameters: a codec's (bytes, count, bound)
 #     are all sizes by nature; the types and names say which is which.
@@ -23,6 +25,11 @@ Checks: >
 #   clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling:
 #     it asks for C11 Annex K's `_s` functions, which only MSVC's C library
 #     has (D3); R-MEM-1 bans the unbounded calls instead.
+#   misc-no-recursion: the codec reads nested values, types and JSON by
+#     recursion, each bounded by a named depth (R-CF-4), as the spec's
+#     nesting is recursive.
+#   readability-implicit-bool-conversion: C's comparison and logical
+#     operators give an int, so every bool made of one would be flagged.
 WarningsAsErrors: '*'
 HeaderFilterRegex: '.*/(include|src|test|fuzz)/.*'
 CheckOptions:
