@@ -1,9 +1,9 @@
 /**
  * @file simple.c
- * @brief The standard API's shortest paths, in the manner of libpq
- * (RULES.md D2): a connection made of a URI, a statement run with its
- * parameters given as text, and a value read as text by its row and
- * column, the text kept by its result.
+ * @brief The standard API's shortest paths (RULES.md D2): a connection
+ * made of a URI, a statement run with its parameters given as text, and
+ * a value read as text by its row and column, the text kept by its
+ * result.
  */
 #include "codec/arena.h"
 #include "conn/conn.h"

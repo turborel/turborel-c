@@ -190,7 +190,7 @@ static void connections_are_made_each_way(trl_test *test) {
     TRL_CHECK(test, SQLDriverConnectW(dbc, NULL, wide_text(string), SQL_NTS, out, ODBC_TEXT_BYTES, &out_length,
                                       SQL_DRIVER_NOPROMPT) == SQL_SUCCESS);
     TRL_CHECK(test, SQLDisconnect(dbc) == SQL_SUCCESS);
-    TRL_CHECK(test, connected_by(dbc, "URI=postgres://x") == SQL_ERROR);
+    TRL_CHECK(test, connected_by(dbc, "URI=http://x") == SQL_ERROR);
     TRL_CHECK(test, SQL_SUCCEEDED(connected_by(dbc, "DSN=uri")));
     TRL_CHECK(test, SQLDisconnect(dbc) == SQL_SUCCESS);
     TRL_CHECK(test, connected_by(dbc, "A_KEY_LONGER_THAN_ANY_KEY_OF_THE_DRIVER_S_OWN_SETTINGS_OR_OF_ODBC_S_OWN_EITHER="

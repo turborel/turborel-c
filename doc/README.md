@@ -3,7 +3,7 @@
 turborel-c is the C driver for Turborel, a relational database
 system. It connects a C program to a Turborel server,
 `turboreld`, over Turborel's native protocol, version 1, which it speaks
-itself, in C17, with no Rust code of Turborel's linked in. Its standard interface is a libpq-style C API, and an ODBC 3.x driver over it, over a
+itself, in C17, with no Rust code of Turborel's linked in. Its standard interface is a C API of connections, statements and results, and an ODBC 3.x driver over it, over a
 low-level client built to do all that Turborel's own client library
 does. This set of manuals describes it for those who write programs with
 it. The SQL a program sends, and the server, are described in Turborel's

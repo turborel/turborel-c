@@ -271,8 +271,7 @@ standing alone, fails the query with SQLSTATE 2200W.
 ## Parameters given as text
 
 A statement's `?` parameters may be given as text, each value a string
-the server assigns to the parameter's type, as libpq's PQexecParams
-takes them. `trl_query_params` prepares the statement, executes it with
+the server assigns to the parameter's type. `trl_query_params` prepares the statement, executes it with
 the values, and destroys it; a null pointer is the null value.
 `trl_result_text` gives any value as text, kept by the result until it
 is freed, and null for the null value:

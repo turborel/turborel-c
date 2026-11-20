@@ -33,7 +33,7 @@ static void a_connection_is_made_of_a_uri(trl_test *test) {
     trl_conn *conn = NULL;
     TRL_CHECK(test, trl_connect_uri(uri, &conn) == TRL_OK && strcmp(trl_conn_authorization(conn), "ANN") == 0);
     trl_conn_free(conn);
-    TRL_CHECK(test, trl_connect_uri("postgres://ann@127.0.0.1", &conn) == TRL_FAILED);
+    TRL_CHECK(test, trl_connect_uri("http://ann@127.0.0.1", &conn) == TRL_FAILED);
     TRL_CHECK(test, strcmp(trl_failure_sqlstate(trl_conn_failure(conn)), "08001") == 0);
     trl_conn_free(conn);
     TRL_CHECK(test, trl_connect_uri("turborel://ann@127.0.0.1:1/?tls_mode=disable", &conn) == TRL_FAILED);

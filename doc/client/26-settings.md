@@ -199,8 +199,7 @@ a connection not over TLS or a password not proved by SCRAM.
 Settings may connect from several threads at once; their connections
 share their key cache, which takes every thread (RULES.md D11).
 
-`trl_connect_uri` is the standard API's way to a connection, as libpq's
-PQconnectdb: the URI laid with the rest of the settings, as
+`trl_connect_uri` is the standard API's way to a connection: the URI laid with the rest of the settings, as
 `trl_settings_from_uri` lays it, then connected by
 `trl_settings_connect`. Its connection is made on `TRL_FAILED` too,
 holding why, a URI that cannot be read among the reasons.

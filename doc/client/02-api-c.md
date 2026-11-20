@@ -4,7 +4,7 @@
 
 ## NAME
 
-`libturborel`'s standard interface: a libpq-style C API of handles,
+`libturborel`'s standard interface: a C API of handles,
 statuses and results, and the three calls that make its shortest path,
 `trl_connect_uri`, `trl_query_params` and `trl_result_text`.
 
@@ -40,24 +40,24 @@ function, and a borrowed pointer is valid while its handle is
 (RULES.md D10). A failure gives its SQLCODE, SQLSTATE, message and
 diagnostics, as [Errors](30-errors.md) describes.
 
-A program written against libpq finds each of its calls here:
+The calls a program makes most, by what each does:
 
-| libpq | The C API |
+| To | Call |
 |---|---|
-| `PQconnectdb` | `trl_connect_uri` |
-| `PQconnectdbParams` | `trl_options_set`, then `trl_settings_resolve` and `trl_settings_connect` ([Settings](26-settings.md)) |
-| `PQstatus`, `PQerrorMessage` | `trl_conn_failure`, `trl_failure_sqlstate`, `trl_failure_message` |
-| `PQfinish` | `trl_conn_terminate`, then `trl_conn_free` |
-| `PQexec` | `trl_query` |
-| `PQexecParams` | `trl_query_params` |
-| `PQprepare`, `PQexecPrepared` | `trl_prepare`, `trl_execute` ([Statements and Cursors](22-statements.md)) |
-| `PQntuples`, `PQnfields`, `PQfname` | `trl_result_row_count`, `trl_result_column_count`, `trl_result_column_name` |
-| `PQgetvalue` | `trl_result_text`, or `trl_result_value` for the typed value ([Values](23-values.md)) |
-| `PQgetisnull` | `trl_result_text` giving null, or `trl_value_is_null` |
-| `PQcmdTuples` | `trl_conn_rows_affected` |
-| `PQclear` | `trl_result_free` |
-| `PQcancel` | `trl_cancel` ([Connections](21-connections.md)) |
-| `lo_*` | the large object calls ([Large Objects](24-large-objects.md)) |
+| Connect by a URI | `trl_connect_uri` |
+| Connect by settings given one by one | `trl_options_set`, then `trl_settings_resolve` and `trl_settings_connect` ([Settings](26-settings.md)) |
+| Read why a call failed | `trl_conn_failure`, `trl_failure_sqlstate`, `trl_failure_message` |
+| End a connection | `trl_conn_terminate`, then `trl_conn_free` |
+| Run a statement | `trl_query` |
+| Run a statement with parameters given as text | `trl_query_params` |
+| Prepare a statement and execute it | `trl_prepare`, `trl_execute` ([Statements and Cursors](22-statements.md)) |
+| Count a result's rows and columns, and name its columns | `trl_result_row_count`, `trl_result_column_count`, `trl_result_column_name` |
+| Read a value | `trl_result_text`, or `trl_result_value` for the typed value ([Values](23-values.md)) |
+| Tell the null value | `trl_result_text` giving null, or `trl_value_is_null` |
+| Count the rows a statement changed | `trl_conn_rows_affected` |
+| Free a result | `trl_result_free` |
+| Cancel a statement running | `trl_cancel` ([Connections](21-connections.md)) |
+| Read and write large objects | the large object calls ([Large Objects](24-large-objects.md)) |
 | `PQputCopyData`, `PQgetCopyData` | the copy calls ([Copy, Import and Export](25-copy.md)) |
 | `PQsetNoticeProcessor` | `trl_conn_set_notice_handler` |
 | pipeline mode | the pipeline calls ([Pipelines](27-pipelines.md)) |
@@ -172,7 +172,7 @@ int main(void) {
 
 ## STANDARD
 
-The standard API is the driver's own, after libpq's shape (RULES.md D2).
+The standard API is the driver's own (RULES.md D2).
 Beneath it are [CLIENT Connecting], [CLIENT Connecting by settings],
 [CLIENT The connection URI], [CLIENT Running statements] and
 [CLIENT Prepared statements]. It fulfils rows S-API-1 to S-API-8 of

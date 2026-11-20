@@ -21,7 +21,7 @@ system. It connects a C program to a Turborel server,
 protocol](https://github.com/turborel/turborel/blob/main/doc/client/05-protocol.md),
 version 1, which it speaks itself, in C17, with no Rust code of Turborel's linked in.
 
-Its standard interface is a libpq-style C API, and an ODBC 3.x driver over it. Beneath it is a low-level
+Its standard interface is a C API of connections, statements and results, and an ODBC 3.x driver over it. Beneath it is a low-level
 client built to do all that Turborel's own client library,
 turborel-client, does: TCP, Unix sockets and Windows named pipes, TLS,
 SCRAM-SHA-256 and SCRAM-SHA-256-PLUS, prepared statements and cursors,
@@ -72,7 +72,8 @@ or with pkg-config, `pkg-config --cflags --libs turborel`.
 
 ## A first query
 
-This is the standard API, as libpq's users will know it.
+This is the standard API: a connection made of a URI, a statement run,
+and its values read as text.
 
 ```c
 #include <turborel/turborel.h>

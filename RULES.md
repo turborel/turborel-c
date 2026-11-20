@@ -309,7 +309,7 @@ no protocol of its own.
 
 #### D2. The language's standard API, over a low-level client of turborel-client's features
 
-The driver's standard interface is a libpq-style C API, and an ODBC 3.x driver over it, so a program, and the
+The driver's standard interface is a C API of connections, statements and results, and an ODBC 3.x driver over it, so a program, and the
 tools built for C's database interface, use it as they use
 any other driver. It sits over a low-level client that has every feature
 of turborel-client. What the standard interface has no place for, such
@@ -321,10 +321,9 @@ Every failure is the driver's error, carrying its SQLCODE and SQLSTATE
 (R-ERR). The standard interface was built at milestone M7 and checked in
 M8's audit.
 
-The C API is in the manner of PostgreSQL's libpq, the C interface most
-database programmers know: a connection handle made from settings or a
-URI, results read row by row and column by column, a value as text or by
-a typed accessor, and every call answered by a status (D9). Its names
+The C API is one of handles and statuses: a connection handle made from
+settings or a URI, results read row by row and column by column, a value
+as text or by a typed accessor, and every call answered by a status (D9). Its names
 are its own, `trl_`. An exact number is a `trl_decimal`, its units a
 `trl_int128` of two 64-bit halves and its scale a `uint32_t`, with
 `trl_decimal_text` and `trl_decimal_parse` between it and its text.
@@ -466,8 +465,8 @@ rule here, the rule is kept:
 - A C library commonly uses `assert`; this one never does, nor anything
   else that ends the process (R-ERR-1), since a library's caller decides
   what a failure means.
-- libpq answers some calls with a pointer or an integer whose meaning
-  varies; every call here that can fail returns a `trl_status` (D9).
+- Every call that can fail returns a `trl_status` (D9), never a pointer
+  or an integer whose meaning varies from call to call.
 - C has no namespaces, so every name the library gives the linker begins
   with `trl_`, the hidden ones too, so a static library clashes with
   nothing; and a type ends in no `_t`, which POSIX reserves.
@@ -559,10 +558,13 @@ the driver's own reasons, as the parity audit of M8 found:
 - A password file is read as C reads a string: a NUL in it ends its
   text there.
 
-Where the standard API departs from its models, libpq and ODBC 3.x:
+The C API's own design choices:
 
 - A connection by a URI is `trl_connect_uri`, as `trl_connect` is the
   low-level client's connection by a target and a mechanism.
+
+Where the ODBC driver departs from ODBC 3.x:
+
 - The ODBC driver's functions without `W` take and give UTF-8, whatever
   the process's code page or locale; a `W` function's SQLWCHAR is UTF-16
   or UTF-32 by its size.
@@ -590,8 +592,8 @@ SQLSTATE, its message, the rule it cites, its position in the statement,
 whether a transaction is still active, and the diagnostics of tags 7 to
 15, as turborel-client's `Failure` has them. It is valid until the next
 call on the same handle. A function that makes a handle gives it even
-when it fails, holding the failure, as libpq's `PQconnectdb` gives a
-connection; only memory not had for the handle itself is
+when it fails, holding the failure, so the caller can read the reason
+from it; only memory not had for the handle itself is
 `TRL_NO_MEMORY`, with nothing made. A bad argument is
 `TRL_INVALID_ARGUMENT`, and changes nothing.
 

@@ -365,8 +365,8 @@ TRL_API trl_status trl_settings_connect(const trl_settings *settings, trl_conn *
 
 /**
  * @brief Connects as a `turborel://` URI says, the standard API's way to
- * a connection, as libpq's PQconnectdb: the URI laid with the rest of
- * the settings, as trl_settings_from_uri() lays it, then connected by
+ * a connection: the URI laid with the rest of the settings, as
+ * trl_settings_from_uri() lays it, then connected by
  * trl_settings_connect().
  *
  * @param uri The URI.

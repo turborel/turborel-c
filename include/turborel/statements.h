@@ -49,10 +49,10 @@ typedef struct trl_result trl_result;
 TRL_API trl_status trl_query(trl_conn *conn, const char *sql, trl_result **out);
 
 /**
- * @brief Runs one statement with its `?` parameters given as text, as
- * libpq's PQexecParams does: prepared, executed with each value as a
- * character string, which the server assigns to the parameter's type,
- * then destroyed; with no parameter, by Query, as trl_query().
+ * @brief Runs one statement with its `?` parameters given as text:
+ * prepared, executed with each value as a character string, which the
+ * server assigns to the parameter's type, then destroyed; with no
+ * parameter, by Query, as trl_query().
  *
  * @param conn The connection.
  * @param sql The statement, UTF-8.
@@ -208,8 +208,8 @@ TRL_API const char *trl_result_sqlstate(const trl_result *result);
 TRL_API void trl_result_free(trl_result *result);
 
 /**
- * @brief A value's text, as libpq's PQgetvalue gives it: as
- * trl_value_to_text() writes it, made once and kept by the result.
+ * @brief A value's text, as trl_value_to_text() writes it, made once and
+ * kept by the result.
  *
  * @param result The result.
  * @param row The row, from 0.

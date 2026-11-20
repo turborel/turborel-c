@@ -64,7 +64,7 @@ caller's, and lasts until `trl_result_free`, its values with it, whatever
 the connection does after.
 
 `trl_query_params` runs a statement with its `?` parameters given as
-text, as libpq's PQexecParams does: each value a null-ended UTF-8
+text: each value a null-ended UTF-8
 string, or a null pointer for the null value. The statement is
 prepared, executed with each value as a character string, which the
 server assigns to the parameter's type, and destroyed; its result is as
