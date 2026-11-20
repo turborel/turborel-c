@@ -5,7 +5,7 @@
 
 # The headings a citation may name, as [PROTOCOL <heading>] or [CLIENT <heading>]:
 # those of doc/client/05-protocol.md, and of doc/client/02-library.md and
-# 02-library-connections.md, in turborel's main at e4f08f77.
+# 02-library-connections.md, in turborel's main at 1c4187e4.
 set(TRL_PROTOCOL_HEADINGS
     "The Native Protocol" "Frames" "Compressed frames" "Values and fields" "Data types" "Values"
     "Composite fields" "The tail" "Opening a connection" "Mechanisms" "Capabilities" "Requests" "Hello 'H'"

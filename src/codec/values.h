@@ -26,7 +26,10 @@ typedef struct trl_datetime {
     uint8_t precision;
     /** @brief The zone's displacement from UTC, in minutes. */
     int16_t zone;
-    /** @brief The instant, microseconds since 1970-01-01 in UTC. */
+    /**
+     * @brief The instant, microseconds in UTC from 0001-01-01 00:00:00: of a
+     * date, its midnight's; of a time, from midnight, within a day.
+     */
     int64_t utc;
 } trl_datetime;
 
