@@ -172,6 +172,73 @@ static void statuses_come_in_the_tables_order(trl_test *test) {
     trl_conn_free(conn);
 }
 
+/* A stream over TCP that records every byte the server sends. */
+typedef struct recorder {
+    trl_transport transport;
+    trl_buffer heard;
+} recorder;
+
+static int64_t recorder_read(void *context, uint8_t *into, size_t capacity) {
+    recorder *r = context;
+    int64_t got = r->transport.ops->read(&r->transport, into, capacity);
+    if (got > 0) {
+        trl_put_raw(&r->heard, into, (size_t)got);
+    }
+    return got;
+}
+
+static int64_t recorder_write(void *context, const uint8_t *bytes, size_t length) {
+    recorder *r = context;
+    return r->transport.ops->write(&r->transport, bytes, length);
+}
+
+static void recorder_close(void *context) {
+    recorder *r = context;
+    trl_transport_close(&r->transport);
+}
+
+/* How many frames of `kind` the bytes from `from` hold. */
+static size_t frames_of(const trl_buffer *heard, size_t from, uint8_t kind) {
+    size_t count = 0U;
+    for (size_t at = from; heard->length - at >= TRL_FRAME_HEADER_BYTES;) {
+        trl_frame_header header = {0U, 0U};
+        (void)trl_frame_header_decode(heard->data + at, TRL_FRAME_HEADER_BYTES, UINT32_MAX, &header);
+        count += header.kind == kind ? 1U : 0U;
+        at += TRL_FRAME_HEADER_BYTES + header.length;
+    }
+    return count;
+}
+
+/**
+ * Verifies: [PROTOCOL Status 'T'] after a statement, a Status only of what
+ * it changed, none of the first statement after login that changed
+ * nothing, and one of a setting a statement changed.
+ */
+static void a_statement_tells_only_its_changes(trl_test *test) {
+    recorder r;
+    memset(&r, 0, sizeof r);
+    trl_buffer_init(&r.heard);
+    TRL_CHECK(test, trl_tcp_open("127.0.0.1", SERVER_PORT, TRL_CONNECT_WITHIN_MS, &r.transport));
+    trl_stream stream = {&r, recorder_read, recorder_write, recorder_close};
+    trl_mechanism *trust = NULL;
+    (void)trl_mechanism_trust(&trust);
+    trl_conn *conn = NULL;
+    TRL_CHECK(test, trl_connect_stream(&stream, "ann", trust, NULL, &conn) == TRL_OK);
+    size_t logged_in = r.heard.length;
+    TRL_CHECK(test, frames_of(&r.heard, 0U, TRL_KIND_STATUS) > 7U);
+    trl_result *result = NULL;
+    TRL_CHECK(test, trl_query(conn, "VALUES (1)", &result) == TRL_OK);
+    trl_result_free(result);
+    TRL_CHECK(test, frames_of(&r.heard, logged_in, TRL_KIND_STATUS) == 0U);
+    size_t first = r.heard.length;
+    TRL_CHECK(test, trl_query(conn, "SET TIME ZONE INTERVAL '+03:00' HOUR TO MINUTE", &result) == TRL_OK);
+    trl_result_free(result);
+    TRL_CHECK(test, frames_of(&r.heard, first, TRL_KIND_STATUS) == 1U);
+    trl_conn_free(conn);
+    trl_mechanism_free(trust);
+    trl_buffer_free(&r.heard);
+}
+
 /**
  * Verifies: [PROTOCOL Status 'T'] after a statement, a Status of each
  * setting it changed, kept at once with no round trip
@@ -454,7 +521,7 @@ int main(int argc, char **argv) {
     }
     trl_format(dir, sizeof dir, "%s/live-server", cwd);
     const char *why = NULL;
-    if (!server_start(&live_server, dir, &why)) {
+    if (!server_start(&live_server, dir, false, &why)) {
         (void)fprintf(stderr, "%s\n", why);
         return getenv("TRL_TEST_SERVER") == NULL ? SKIPPED : EXIT_FAILURE; // NOLINT(concurrency-mt-unsafe)
     }
@@ -463,6 +530,7 @@ int main(int argc, char **argv) {
         TRL_TEST_CASE(a_statement_tells_what_it_changed),
         TRL_TEST_CASE(a_hello_out_of_bounds_is_refused),
         TRL_TEST_CASE(statuses_come_in_the_tables_order),
+        TRL_TEST_CASE(a_statement_tells_only_its_changes),
         TRL_TEST_CASE(what_a_connection_asks_for_is_granted),
         TRL_TEST_CASE(a_unix_socket_takes_a_password),
         TRL_TEST_CASE(tls13_binds_scram_by_the_exporter),

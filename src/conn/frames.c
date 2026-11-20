@@ -153,8 +153,25 @@ static bool codec_failed(trl_conn *conn, const trl_codec_error *error) {
     return false;
 }
 
-/* Reads one reply, of any kind, inflating a compressed one if granted. */
-static bool next_reply(trl_conn *conn, trl_reply *out) {
+/* Copies a reply's body into the arena of the result it outlives the next
+   reply for, so what it decodes to is kept with it. */
+static bool kept(trl_conn *conn, trl_slice *body) {
+    if (body->length == 0U) {
+        body->bytes = NULL;
+        return true;
+    }
+    uint8_t *copy = trl_arena_alloc(conn->keep, body->length, 1U);
+    if (copy == NULL) {
+        trl_failure_no_memory(&conn->failure);
+        return false;
+    }
+    memcpy(copy, body->bytes, body->length);
+    body->bytes = copy;
+    return true;
+}
+
+/* Reads a reply's header, losing the connection if it is longer than taken. */
+static bool read_header(trl_conn *conn, trl_frame_header *header) {
     uint8_t head[TRL_FRAME_HEADER_BYTES];
     taken got = take(conn, head, sizeof head);
     if (got != TAKEN) {
@@ -164,14 +181,22 @@ static bool next_reply(trl_conn *conn, trl_reply *out) {
         }
         return io_lost(conn, "receive");
     }
-    trl_frame_header header = {0U, 0U};
-    if (trl_frame_header_decode(head, sizeof head, conn->max_body, &header) != TRL_FRAME_OK) {
+    if (trl_frame_header_decode(head, sizeof head, conn->max_body, header) != TRL_FRAME_OK) {
         char message[TRL_FAILURE_MESSAGE_BYTES];
         /* Read again with no bound, for its length alone. */
-        (void)trl_frame_header_decode(head, sizeof head, UINT32_MAX, &header);
+        (void)trl_frame_header_decode(head, sizeof head, UINT32_MAX, header);
         trl_format(message, sizeof message, "a message of %lu bytes is longer than the %lu taken",
-                   (unsigned long)header.length, (unsigned long)conn->max_body);
+                   (unsigned long)header->length, (unsigned long)conn->max_body);
         trl_conn_lose_by(conn, message);
+        return false;
+    }
+    return true;
+}
+
+/* Reads one reply, of any kind, inflating a compressed one if granted. */
+static bool next_reply(trl_conn *conn, trl_reply *out) {
+    trl_frame_header header = {0U, 0U};
+    if (!read_header(conn, &header)) {
         return false;
     }
     if (!take_body(conn, header.length)) {
@@ -188,8 +213,15 @@ static bool next_reply(trl_conn *conn, trl_reply *out) {
         body.bytes = conn->inflated.data;
         body.length = conn->inflated.length;
     }
-    trl_arena_free(&conn->arena);
-    return trl_decode_reply(kind, body, &conn->arena, out, &error) || codec_failed(conn, &error);
+    trl_arena *arena = &conn->arena;
+    if (conn->keep == NULL) {
+        trl_arena_free(&conn->arena);
+    } else if (!kept(conn, &body)) {
+        return false;
+    } else {
+        arena = conn->keep;
+    }
+    return trl_decode_reply(kind, body, arena, out, &error) || codec_failed(conn, &error);
 }
 
 /* A copy of `text`, null-ended, or null if memory cannot be had. */
@@ -236,15 +268,27 @@ static void noted(trl_conn *conn, const trl_reply *reply) {
     switch (reply->kind) {
     case TRL_KIND_COMPLETE:
         conn->active = reply->as.complete.active;
+        trl_conn_completed(conn, &reply->as.complete);
         break;
     case TRL_KIND_ERROR:
         conn->active = reply->as.error.active;
+        conn->warning[0] = '\0';
         break;
     case TRL_KIND_DESCRIPTION:
+        conn->active = true;
+        conn->warning[0] = '\0';
+        break;
     case TRL_KIND_ROWS:
     case TRL_KIND_SUSPENDED:
     case TRL_KIND_LOB_REPLY:
+        /* A locator is valid within a transaction alone. */
         conn->active = true;
+        break;
+    case TRL_KIND_READY:
+        /* Ready ends a login or a ChangeUser, which renews the session as
+           Reset does, its transaction rolled back. */
+        conn->active = false;
+        conn->warning[0] = '\0';
         break;
     default:
         break;
@@ -268,6 +312,7 @@ bool trl_conn_receive(trl_conn *conn, trl_reply *out) {
             continue;
         }
         if (out->kind == TRL_KIND_NOTICE) {
+            trl_conn_notice(conn, out);
             continue;
         }
         noted(conn, out);

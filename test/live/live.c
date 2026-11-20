@@ -68,7 +68,7 @@ trl_conn *live_trusted(const trl_conn_options *options) {
 }
 
 trl_status live_run(trl_conn *conn, const char *sql, uint64_t *rows) {
-    trl_query query;
+    trl_query_request query;
     memset(&query, 0, sizeof query);
     query.sql.bytes = (const uint8_t *)sql;
     query.sql.length = strlen(sql);

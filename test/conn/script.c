@@ -7,17 +7,21 @@
 #include "codec/buffer.h"
 #include "codec/frame.h"
 #include "codec/kinds.h"
+#include "codec/tags.h"
+#include "codec/tail.h"
 #include "turborel/turborel.h"
 
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 
 /* The server's product, as a script tells it. */
 #define SCRIPT_SERVER "turborel 0.0.0 (alpha)"
 #define KEY_BYTES 16U
 #define KEY_BYTE 7U
+#define VARYING_LENGTH 20U
 
 void script_init(script *s, script_respond respond, void *data) {
     memset(s, 0, sizeof *s);
@@ -152,7 +156,122 @@ void script_bare(script *s, uint8_t kind) {
     trl_buffer_free(&body);
 }
 
+/* Puts a column of CHARACTER VARYING(20), named C<n>. */
+static void put_column(trl_buffer *body, uint32_t n) {
+    char name[16];
+    (void)snprintf(name, sizeof name, "C%u", (unsigned int)n);
+    trl_put_flag(body, true);
+    script_put_string(body, name);
+    trl_put_u8(body, TRL_TAG_VARYING);
+    trl_put_u32(body, VARYING_LENGTH);
+    trl_put_u8(body, 0U);
+    trl_put_flag(body, false);
+}
+
+void script_description(script *s, uint32_t count) {
+    trl_buffer body;
+    trl_buffer_init(&body);
+    trl_put_u32(&body, count);
+    for (uint32_t i = 0U; i < count; ++i) {
+        put_column(&body, i);
+    }
+    script_reply(s, TRL_KIND_DESCRIPTION, &body);
+    trl_buffer_free(&body);
+}
+
+void script_rows(script *s, uint32_t rows, uint32_t count) {
+    trl_buffer body;
+    trl_buffer_init(&body);
+    trl_put_u32(&body, rows);
+    for (uint32_t r = 0U; r < rows; ++r) {
+        trl_put_u32(&body, count);
+        for (uint32_t i = 0U; i < count; ++i) {
+            trl_put_u8(&body, TRL_TAG_CHARACTER);
+            script_put_string(&body, "v");
+        }
+    }
+    script_reply(s, TRL_KIND_ROWS, &body);
+    trl_buffer_free(&body);
+}
+
+void script_complete(script *s, int32_t sqlcode, const char *sqlstate, bool active, bool more) {
+    trl_buffer body;
+    trl_buffer_init(&body);
+    trl_put_u32(&body, (uint32_t)sqlcode);
+    script_put_string(&body, sqlstate);
+    trl_put_flag(&body, active);
+    if (more) {
+        trl_put_u8(&body, TRL_TAIL_MORE);
+    }
+    script_reply(s, TRL_KIND_COMPLETE, &body);
+    trl_buffer_free(&body);
+}
+
+void script_prepared(script *s, uint32_t number, uint32_t parameters, uint32_t columns) {
+    trl_buffer body;
+    trl_buffer_init(&body);
+    trl_put_u32(&body, number);
+    trl_put_u32(&body, parameters);
+    for (uint32_t i = 0U; i < parameters; ++i) {
+        trl_put_flag(&body, false);
+        trl_put_u8(&body, TRL_TAG_VARYING);
+        trl_put_u32(&body, VARYING_LENGTH);
+        trl_put_u8(&body, 0U);
+    }
+    trl_put_u32(&body, columns);
+    for (uint32_t i = 0U; i < columns; ++i) {
+        put_column(&body, i);
+    }
+    script_reply(s, TRL_KIND_PREPARED, &body);
+    trl_buffer_free(&body);
+}
+
+void script_notice(script *s, const char *sqlstate, const char *message) {
+    trl_buffer body;
+    trl_buffer_init(&body);
+    script_put_string(&body, sqlstate);
+    script_put_string(&body, message);
+    script_reply(s, TRL_KIND_NOTICE, &body);
+    trl_buffer_free(&body);
+}
+
 trl_status script_connect(script *s, trl_mechanism *mechanism, const trl_conn_options *options, trl_conn **out) {
     trl_stream stream = script_stream(s);
     return trl_connect_stream(&stream, "ann", mechanism, options, out);
+}
+
+/* Writes a Complete of every tail a completion may carry. */
+void script_complete_tails(script *s) {
+    trl_buffer body;
+    trl_buffer_init(&body);
+    trl_put_u32(&body, 0U);
+    script_put_string(&body, "01003");
+    trl_put_flag(&body, true);
+    trl_put_u8(&body, TRL_TAIL_POSITION);
+    trl_put_u64(&body, 42U);
+    trl_put_u8(&body, TRL_TAIL_ROWS);
+    trl_put_u64(&body, 2U);
+    trl_put_u8(&body, TRL_TAIL_GENERATED);
+    trl_put_u32(&body, 2U);
+    script_put_string(&body, "7");
+    script_put_string(&body, "8");
+    trl_put_u8(&body, TRL_TAIL_CONDITIONS);
+    trl_buffer failure;
+    trl_buffer_init(&failure);
+    trl_put_u32(&failure, 0U);
+    script_put_string(&failure, "01003");
+    script_put_string(&failure, "null eliminated");
+    trl_put_flag(&failure, false);
+    trl_put_flag(&failure, false);
+    trl_put_flag(&failure, true);
+    trl_put_u32(&body, 1U);
+    trl_slice bytes = {failure.data, failure.length};
+    trl_put_bytes(&body, bytes);
+    trl_buffer_free(&failure);
+    trl_put_u8(&body, TRL_TAIL_TIME);
+    trl_put_u64(&body, 30U);
+    trl_put_u64(&body, 2U);
+    trl_put_u64(&body, 1U);
+    script_reply(s, TRL_KIND_COMPLETE, &body);
+    trl_buffer_free(&body);
 }

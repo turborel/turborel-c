@@ -27,15 +27,18 @@ typedef struct server {
     char dir[SERVER_PATH_BYTES];
     /** @brief Its Unix socket. */
     char socket[SERVER_PATH_BYTES];
+    /** @brief Its database's directory, of a database kept; else empty. */
+    char database[SERVER_PATH_BYTES];
 } server;
 
 /**
  * @brief Starts the server TRL_TEST_SERVER names in `dir`: a path of
  * turboreld, or a command that runs it, as `docker run ... IMAGE`, the
- * options appended. False if the variable is not set, or it did not
- * start; `why` then says which.
+ * options appended; of a database kept in a directory of its own, its
+ * owner added first, if `kept`, else of one kept nowhere. False if the
+ * variable is not set, or it did not start; `why` then says which.
  */
-bool server_start(server *s, const char *dir, const char **why);
+bool server_start(server *s, const char *dir, bool kept, const char **why);
 
 /** @brief Stops the server, waiting on its own process ID. */
 void server_stop(server *s);

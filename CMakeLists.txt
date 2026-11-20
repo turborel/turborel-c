@@ -64,10 +64,12 @@ add_library(
   src/auth/scram.c
   src/conn/cancel.c
   src/conn/conn.c
+  src/conn/control.c
   src/conn/frames.c
   src/conn/options.c
   src/conn/session.c
   src/conn/target.c
+  src/conn/told.c
   src/data/copy.c
   src/data/params.c
   src/data/values.c
@@ -78,6 +80,9 @@ add_library(
   src/net/tls.c
   src/net/tls_settings.c
   src/net/transport.c
+  src/stmt/prepared.c
+  src/stmt/query.c
+  src/stmt/result.c
   ${trl_platform_sources}
   src/codec/arena.c
   src/codec/buffer.c

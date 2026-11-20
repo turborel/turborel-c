@@ -26,10 +26,10 @@ static uint32_t u32_at(const uint8_t *at) {
     return (uint32_t)at[0] | ((uint32_t)at[1] << 8U) | ((uint32_t)at[2] << 16U) | ((uint32_t)at[3] << 24U);
 }
 
-/* The bytes field after Hello's version, user and mechanism: the
-   mechanism's first bytes, into `out`, null-ended. */
-static void hello_initial(trl_slice body, char *out, size_t capacity) {
-    size_t at = U32_BYTES;
+/* The bytes field after Hello's version, or from ChangeUser's start, and
+   the user and mechanism: the mechanism's first bytes, into `out`,
+   null-ended. */
+static void hello_initial(trl_slice body, size_t at, char *out, size_t capacity) {
     for (int field = 0; field < 2; ++field) {
         at += U32_BYTES + u32_at(body.bytes + at);
     }
@@ -80,18 +80,18 @@ static void check_proof(script *s, scram_server *server, const char *final) {
         server->proof_right = (uint8_t)(proof[i] ^ signature[i]) == keys.client[i];
     }
     if (server->ending == ENDING_UNPROVED) {
-        script_ready(s, "ANN", NULL, 0U);
+        script_ready(s, "ANN", server->granted, server->granted_count);
         return;
     }
     sign(s, server, &keys, auth);
 }
 
-/* Answers a SCRAM login step by step. */
+/* Answers a SCRAM login, or ChangeUser, step by step. */
 void scram_serving(script *s, uint8_t kind, trl_slice body) {
     scram_server *server = s->data;
     char text[TEXT_BYTES];
-    if (kind == TRL_KIND_HELLO) {
-        hello_initial(body, text, sizeof text);
+    if (kind == TRL_KIND_HELLO || kind == TRL_KIND_CHANGE_USER) {
+        hello_initial(body, kind == TRL_KIND_HELLO ? U32_BYTES : 0U, text, sizeof text);
         const char *bare = strstr(text, "n=");
         trl_format(server->bare, sizeof server->bare, "%s", bare);
         trl_format(server->first, sizeof server->first, "r=%sSERVER,s=" SALT ",i=%u", strstr(bare, "r=") + 2,
@@ -101,7 +101,7 @@ void scram_serving(script *s, uint8_t kind, trl_slice body) {
     }
     answer_of(body, text, sizeof text);
     if (text[0] == '\0') {
-        script_ready(s, "ANN", NULL, 0U);
+        script_ready(s, "ANN", server->granted, server->granted_count);
         return;
     }
     check_proof(s, server, text);

@@ -39,7 +39,7 @@ typedef struct trl_hello {
 } trl_hello;
 
 /** @brief A Query's fields [PROTOCOL Query 'Q']. */
-typedef struct trl_query {
+typedef struct trl_query_request {
     /** @brief The statement, or with `multi` several. */
     trl_slice sql;
     /** @brief Whether the transaction ends with the statement. */
@@ -50,10 +50,10 @@ typedef struct trl_query {
     size_t attribute_count;
     /** @brief Whether the text is several statements, tail tag 2. */
     bool multi;
-} trl_query;
+} trl_query_request;
 
 /** @brief An Execute's fields [PROTOCOL Execute 'E']. */
-typedef struct trl_execute {
+typedef struct trl_execute_request {
     /** @brief The statement's number. */
     uint32_t statement;
     /** @brief A value for each parameter. */
@@ -70,7 +70,7 @@ typedef struct trl_execute {
     size_t attribute_count;
     /** @brief The cursor's number, tail tag 3; 0 is written as nothing. */
     uint32_t cursor;
-} trl_execute;
+} trl_execute_request;
 
 /** @brief A Lob request's fields, by its op [PROTOCOL Lob 'L']. */
 typedef struct trl_lob_request {
@@ -135,7 +135,7 @@ bool trl_encode_answer(trl_buffer *buffer, trl_slice answer, trl_codec_error *er
  * @param error Where a field that cannot be sent is recorded.
  * @return Nonzero if encoded.
  */
-bool trl_encode_query(trl_buffer *buffer, const trl_query *query, trl_codec_error *error);
+bool trl_encode_query(trl_buffer *buffer, const trl_query_request *query, trl_codec_error *error);
 
 /**
  * @brief Encodes a Prepare [PROTOCOL Prepare 'P'].
@@ -154,7 +154,7 @@ bool trl_encode_prepare(trl_buffer *buffer, uint32_t statement, trl_slice sql, t
  * @param error Where a field that cannot be sent is recorded.
  * @return Nonzero if encoded.
  */
-bool trl_encode_execute(trl_buffer *buffer, const trl_execute *execute, trl_codec_error *error);
+bool trl_encode_execute(trl_buffer *buffer, const trl_execute_request *execute, trl_codec_error *error);
 
 /**
  * @brief Encodes a Fetch [PROTOCOL Fetch 'F'].

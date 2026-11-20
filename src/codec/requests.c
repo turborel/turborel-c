@@ -61,7 +61,7 @@ bool trl_encode_answer(trl_buffer *buffer, trl_slice answer, trl_codec_error *er
     return finish(buffer, start, true, error);
 }
 
-bool trl_encode_query(trl_buffer *buffer, const trl_query *query, trl_codec_error *error) {
+bool trl_encode_query(trl_buffer *buffer, const trl_query_request *query, trl_codec_error *error) {
     size_t start = trl_frame_start(buffer, TRL_KIND_QUERY);
     bool written = trl_write_string(buffer, query->sql, error);
     if (written) {
@@ -80,7 +80,7 @@ bool trl_encode_prepare(trl_buffer *buffer, uint32_t statement, trl_slice sql, t
     return finish(buffer, start, trl_write_string(buffer, sql, error), error);
 }
 
-bool trl_encode_execute(trl_buffer *buffer, const trl_execute *execute, trl_codec_error *error) {
+bool trl_encode_execute(trl_buffer *buffer, const trl_execute_request *execute, trl_codec_error *error) {
     size_t start = trl_frame_start(buffer, TRL_KIND_EXECUTE);
     trl_put_u32(buffer, execute->statement);
     bool written = trl_write_row(buffer, execute->values, execute->value_count, error);

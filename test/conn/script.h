@@ -75,6 +75,28 @@ void script_status(script *s, const char *name, const char *value);
 /** @brief Writes a reply of `kind` and no body. */
 void script_bare(script *s, uint8_t kind);
 
+/** @brief Writes a Description of `count` columns, each named C<n>, CHARACTER VARYING(20). */
+void script_description(script *s, uint32_t count);
+
+/** @brief Writes Rows of `rows` rows, each of `count` character values "v". */
+void script_rows(script *s, uint32_t rows, uint32_t count);
+
+/** @brief Writes a Complete of `sqlcode` and `sqlstate`, active or not, tag 5 if `more`. */
+void script_complete(script *s, int32_t sqlcode, const char *sqlstate, bool active, bool more);
+
+/** @brief Writes Prepared of `number`, `parameters` parameters and `columns` columns. */
+void script_prepared(script *s, uint32_t number, uint32_t parameters, uint32_t columns);
+
+/**
+ * @brief Writes a Complete of every tail: a warning 01003, a commit's
+ * position of 42, 2 rows, identity values 7 and 8, a condition, and the
+ * server's time of 30, 2 and 1.
+ */
+void script_complete_tails(script *s);
+
+/** @brief Writes a Notice of `sqlstate` and `message`. */
+void script_notice(script *s, const char *sqlstate, const char *message);
+
 /** @brief Puts a string, a u32 count and its bytes. */
 void script_put_string(trl_buffer *body, const char *text);
 

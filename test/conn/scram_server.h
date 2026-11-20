@@ -11,6 +11,7 @@
 #include "script.h"
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 /** @brief The password the server knows. */
@@ -38,9 +39,13 @@ typedef struct scram_server {
     char first[TEXT_BYTES];
     /** @brief Whether the client's proof was right. */
     bool proof_right;
+    /** @brief The capabilities its Ready grants. */
+    const char *const *granted;
+    /** @brief How many. */
+    size_t granted_count;
 } scram_server;
 
-/** @brief Answers a SCRAM login step by step; the script's data is a scram_server. */
+/** @brief Answers a SCRAM login, or ChangeUser, step by step; the script's data is a scram_server. */
 void scram_serving(script *s, uint8_t kind, trl_slice body);
 
 #endif

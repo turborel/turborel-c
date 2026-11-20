@@ -50,6 +50,8 @@
 #include "turborel/connection.h" // IWYU pragma: export
 #include "turborel/failure.h"    // IWYU pragma: export
 #include "turborel/numbers.h"    // IWYU pragma: export
+#include "turborel/session.h"    // IWYU pragma: export
+#include "turborel/statements.h" // IWYU pragma: export
 #include "turborel/values.h"     // IWYU pragma: export
 #include "turborel/xml.h"        // IWYU pragma: export
 

@@ -58,9 +58,9 @@ static bool encode_every_request(fixture *f) {
     const trl_slice capabilities[] = {text_of("ping"), text_of("status")};
     const trl_attribute attribute = {text_of("application"), text_of("report")};
     trl_hello hello = {1U, text_of("ANN"), text_of("trust"), text_of("x"), capabilities, 2U, &attribute, 1U};
-    trl_query query = {text_of("VALUES 1"), true, &attribute, 1U, true};
+    trl_query_request query = {text_of("VALUES 1"), true, &attribute, 1U, true};
     trl_value values[2] = {{TRL_TAG_CHARACTER, {text_of("abc")}}, {TRL_TAG_NULL, {{NULL, 0U}}}};
-    trl_execute execute = {1U, values, 2U, 0U, false, &attribute, 1U, 2U};
+    trl_execute_request execute = {1U, values, 2U, 0U, false, &attribute, 1U, 2U};
     trl_lob_request append = {TRL_LOB_APPEND, 1U, 0U, 0U, false, 0U, text_of("data")};
     const trl_slice columns[] = {text_of("ID")};
     trl_copy_in copy = {text_of("T"), columns, 1U, false};

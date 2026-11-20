@@ -61,7 +61,7 @@ static void hello_carries_attributes(trl_test *test) {
 static void the_worked_query(trl_test *test) {
     fixture f;
     fixture_init(&f);
-    trl_query query = {text_of("VALUES 1"), true, NULL, 0U, false};
+    trl_query_request query = {text_of("VALUES 1"), true, NULL, 0U, false};
     TRL_CHECK(test, trl_encode_query(&f.buffer, &query, &f.error));
     const uint8_t expected[] = {
         0x51, 0x0D, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00, 0x56, 0x41, 0x4C, 0x55, 0x45, 0x53, 0x20, 0x31, 0x01,
@@ -78,7 +78,7 @@ static void query_tail_in_order(trl_test *test) {
     fixture f;
     fixture_init(&f);
     const trl_attribute attribute = {text_of("traceparent"), text_of("00-1")};
-    trl_query query = {text_of("X"), false, &attribute, 1U, true};
+    trl_query_request query = {text_of("X"), false, &attribute, 1U, true};
     TRL_CHECK(test, trl_encode_query(&f.buffer, &query, &f.error));
     const uint8_t start[] = {'Q', 35, 0, 0, 0, 1, 0, 0, 0, 'X', 0, 1, 1, 0, 0, 0};
     TRL_CHECK(test, memcmp(f.buffer.data, start, sizeof start) == 0);
@@ -96,7 +96,7 @@ static void execute_is_encoded(trl_test *test) {
     fixture_init(&f);
     trl_value values[2] = {{TRL_TAG_NULL, {{NULL, 0U}}}, {TRL_TAG_BOOLEAN, {{NULL, 0U}}}};
     values[1].as.truth = true;
-    trl_execute execute = {7U, values, 2U, 100U, false, NULL, 0U, 0U};
+    trl_execute_request execute = {7U, values, 2U, 100U, false, NULL, 0U, 0U};
     TRL_CHECK(test, trl_encode_execute(&f.buffer, &execute, &f.error));
     const uint8_t first[] = {'E', 16, 0, 0, 0, 7, 0, 0, 0, 2, 0, 0, 0, 0, 14, 1, 100, 0, 0, 0, 0};
     TRL_CHECK(test, buffer_is(&f.buffer, first, sizeof first));
@@ -257,7 +257,7 @@ static void attributes_out_of_bounds_are_refused(trl_test *test) {
         many[i].name = text_of("n");
         many[i].value = text_of("v");
     }
-    trl_query query = {text_of("X"), false, many, 33U, false};
+    trl_query_request query = {text_of("X"), false, many, 33U, false};
     TRL_CHECK(test, !trl_encode_query(&f.buffer, &query, &f.error) && f.buffer.length == 0U);
     query.attribute_count = 32U;
     TRL_CHECK(test, trl_encode_query(&f.buffer, &query, &f.error));
@@ -266,7 +266,7 @@ static void attributes_out_of_bounds_are_refused(trl_test *test) {
     name[65] = '\0';
     trl_attribute long_name = {text_of(name), text_of("v")};
     trl_attribute no_name = {text_of(""), text_of("v")};
-    trl_query bad = {text_of("X"), false, &long_name, 1U, false};
+    trl_query_request bad = {text_of("X"), false, &long_name, 1U, false};
     fixture_reset(&f);
     TRL_CHECK(test, !trl_encode_query(&f.buffer, &bad, &f.error));
     bad.attributes = &no_name;
@@ -287,7 +287,7 @@ static void fields_that_cannot_be_sent_are_refused(trl_test *test) {
     const uint8_t bad[] = {0xFF};
     const trl_slice not_utf8 = {bad, sizeof bad};
     trl_hello hello = {1U, not_utf8, text_of("trust"), {NULL, 0U}, NULL, 0U, NULL, 0U};
-    trl_query query = {not_utf8, false, NULL, 0U, false};
+    trl_query_request query = {not_utf8, false, NULL, 0U, false};
     trl_copy_in copy = {not_utf8, NULL, 0U, false};
     trl_lob_request create = {TRL_LOB_CREATE, 0U, 0U, 0U, false, 2U, {NULL, 0U}};
     TRL_CHECK(test, !trl_encode_hello(&f.buffer, &hello, &f.error));
@@ -298,7 +298,7 @@ static void fields_that_cannot_be_sent_are_refused(trl_test *test) {
     TRL_CHECK(test, !trl_encode_lob(&f.buffer, &create, &f.error));
     TRL_CHECK(test, !trl_encode_copy_data(&f.buffer, NULL, 1U, &f.error));
     trl_value value = {TRL_TAG_CHARACTER, {not_utf8}};
-    trl_execute execute = {1U, &value, 1U, 0U, false, NULL, 0U, 0U};
+    trl_execute_request execute = {1U, &value, 1U, 0U, false, NULL, 0U, 0U};
     TRL_CHECK(test, !trl_encode_execute(&f.buffer, &execute, &f.error));
     TRL_CHECK(test, f.buffer.length == 0U && failed_with(&f, TRL_SQLCODE_DATA, TRL_SQLSTATE_NOT_UTF8));
     fixture_free(&f);

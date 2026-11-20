@@ -107,8 +107,8 @@ static void add_setting(const server *s, words *w, const char *setting) {
     add_word(w, text);
 }
 
-/* The command's words, split at spaces, then the server's options. */
-static void command(const server *s, const char *named, words *w) {
+/* The command's words, split at spaces. */
+static void command_words(const char *named, words *w) {
     w->count = 0U;
     w->used = 0U;
     size_t length = strlen(named);
@@ -124,6 +124,11 @@ static void command(const server *s, const char *named, words *w) {
             begun = i + 1U;
         }
     }
+}
+
+/* The command's words, then the server's options. */
+static void command(const server *s, const char *named, words *w) {
+    command_words(named, w);
     static const char *const settings[] = {
         "SERVER.HOST=127.0.0.1",
         "SERVER.PORT=17438",
@@ -136,9 +141,14 @@ static void command(const server *s, const char *named, words *w) {
         "SERVER.LOGIN_DELAY_MS=0",
         "SERVER.SCRAM_WITHOUT_TLS=ON",
     };
-    add_word(w, "--memory");
-    add_word(w, "--owner");
-    add_word(w, "ann");
+    if (s->database[0] != '\0') {
+        add_word(w, "--dir");
+        add_word(w, s->database);
+    } else {
+        add_word(w, "--memory");
+        add_word(w, "--owner");
+        add_word(w, "ann");
+    }
     for (size_t i = 0U; i < sizeof settings / sizeof settings[0]; ++i) {
         add_setting(s, w, settings[i]);
     }
@@ -192,7 +202,38 @@ static bool wait_listening(server *s, const char **why) {
     return false;
 }
 
-bool server_start(server *s, const char *dir, const char **why) {
+/* Gives the owner's password on `input`, then closes it. */
+static bool give_password(int input) {
+    static const char password[] = SERVER_PASSWORD "\n";
+    bool told = write(input, password, sizeof password - 1U) == (ssize_t)(sizeof password - 1U);
+    (void)close(input);
+    return told;
+}
+
+/* Adds the owner to a database kept, as `turboreld --dir D user add ann
+   --owner` does, waiting for it to end. */
+static bool add_owner(server *s, const char *named) {
+    static words w;
+    command_words(named, &w);
+    add_word(&w, "--dir");
+    add_word(&w, s->database);
+    add_word(&w, "user");
+    add_word(&w, "add");
+    add_word(&w, "ann");
+    add_word(&w, "--owner");
+    w.of[w.count] = NULL;
+    int input = -1;
+    if (!spawn(s, w.of, &input)) {
+        return false;
+    }
+    bool told = give_password(input);
+    int status = 0;
+    bool ended = waitpid((pid_t)s->pid, &status, 0) == (pid_t)s->pid;
+    s->pid = 0;
+    return told && ended && WIFEXITED(status) && WEXITSTATUS(status) == 0;
+}
+
+bool server_start(server *s, const char *dir, bool kept, const char **why) {
     memset(s, 0, sizeof *s);
     const char *named = getenv("TRL_TEST_SERVER"); // NOLINT(concurrency-mt-unsafe)
     if (named == NULL || named[0] == '\0') {
@@ -209,6 +250,13 @@ bool server_start(server *s, const char *dir, const char **why) {
         *why = "the test certificates cannot be made";
         return false;
     }
+    if (kept) {
+        trl_format(s->database, sizeof s->database, "%s/db-%ld", s->dir, (long)getpid());
+        if (!add_owner(s, named)) {
+            *why = "the database's owner cannot be added";
+            return false;
+        }
+    }
     static words w;
     command(s, named, &w);
     int input = -1;
@@ -216,10 +264,7 @@ bool server_start(server *s, const char *dir, const char **why) {
         *why = "the server cannot be started";
         return false;
     }
-    static const char password[] = SERVER_PASSWORD "\n";
-    bool told = write(input, password, sizeof password - 1U) == (ssize_t)(sizeof password - 1U);
-    (void)close(input);
-    if (!told) {
+    if (!give_password(input)) {
         *why = "the owner's password cannot be given";
         server_stop(s);
         return false;

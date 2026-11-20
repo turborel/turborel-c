@@ -124,17 +124,6 @@ trl_status trl_conn_set_max_body(trl_conn *conn, uint32_t bytes) {
     return TRL_OK;
 }
 
-/* Fails, sending nothing, unless the server granted `capability`. */
-static bool needs(trl_conn *conn, const char *capability) {
-    if (trl_conn_granted(conn, capability)) {
-        return true;
-    }
-    char message[TRL_FAILURE_MESSAGE_BYTES];
-    trl_format(message, sizeof message, "the server did not grant %s", capability);
-    trl_failure_broken(&conn->failure, message);
-    return false;
-}
-
 /* Fails as the codec failed. */
 static trl_status codec_failed(trl_conn *conn, const trl_codec_error *error) {
     trl_failure_from_codec(&conn->failure, error);
@@ -145,7 +134,7 @@ trl_status trl_conn_ping(trl_conn *conn) {
     if (conn == NULL) {
         return TRL_INVALID_ARGUMENT;
     }
-    if (!needs(conn, TRL_CAPABILITY_PING)) {
+    if (!trl_conn_needs(conn, false, TRL_CAPABILITY_PING)) {
         return TRL_FAILED;
     }
     trl_codec_error error = {0, "", ""};
@@ -160,11 +149,7 @@ trl_status trl_conn_ping(trl_conn *conn) {
         return TRL_OK;
     }
     if (reply.kind == TRL_KIND_ERROR) {
-        trl_failure failure;
-        trl_failure_init(&failure);
-        trl_failure_from_wire(&failure, &reply.as.error);
-        trl_conn_failed(conn, &failure);
-        trl_failure_clear(&failure);
+        trl_conn_failed_by(conn, &reply.as.error);
         return TRL_FAILED;
     }
     trl_conn_lose_by(conn, "the server sent no Pong");
@@ -293,6 +278,7 @@ void trl_conn_free(trl_conn *conn) {
     trl_arena_free(&conn->arena);
     trl_failure_clear(&conn->failure);
     trl_failure_clear(&conn->lost_by);
+    trl_conn_free_told(conn);
     trl_cleanse(conn->key, sizeof conn->key);
     free(conn);
 }

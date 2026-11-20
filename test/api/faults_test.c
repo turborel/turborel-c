@@ -7,6 +7,8 @@
  * TRL_FAULTS alone.
  */
 #include "codec/buffer.h"
+#include "codec/tags.h"
+#include "codec/values.h"
 #include "failure.h"
 #include "harness.h"
 #include "memory.h"
@@ -17,6 +19,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -54,6 +57,7 @@ static bool every_fault(scenario run) {
         bool fired = trl_faults_fired();
         trl_faults_arm(-1L);
         if (!fine) {
+            (void)fprintf(stderr, "the run failing allocation %ld came to what is not allowed\n", allowed_count);
             return false;
         }
         if (!fired) {
@@ -158,6 +162,176 @@ static bool handles(void) {
     return fine;
 }
 
+/* Answers a login granting every capability a statement method needs, and
+   each statement with notices, rows and a completion of every tail. */
+static void statement_serving(script *s, uint8_t kind, trl_slice body) {
+    (void)body;
+    static const char *const granted[] = {
+        TRL_CAPABILITY_NOTICES,         TRL_CAPABILITY_DESCRIBE,    TRL_CAPABILITY_CURSORS,
+        TRL_CAPABILITY_RESET,           TRL_CAPABILITY_CHANGE_USER, TRL_CAPABILITY_QUERY_ATTRIBUTES,
+        TRL_CAPABILITY_MULTI_STATEMENT, TRL_CAPABILITY_FETCH_ENDS,  TRL_CAPABILITY_CONDITIONS,
+    };
+    switch (kind) {
+    case 'H':
+    case 'U':
+        script_status(s, "AUTHORIZATION", "ANN");
+        script_ready(s, "ANN", granted, sizeof granted / sizeof granted[0]);
+        break;
+    case 'Q':
+    case 'E':
+        script_notice(s, "01000", "a warning");
+        script_description(s, 2U);
+        script_rows(s, 2U, 2U);
+        script_complete_tails(s);
+        break;
+    case 'P':
+        script_prepared(s, 0U, 1U, 2U);
+        break;
+    case 'Y':
+        script_description(s, 2U);
+        break;
+    default:
+        script_complete(s, 0, "00000", false, false);
+        break;
+    }
+}
+
+/* Parameters of every kind, each copied into the list. */
+static bool parameters(trl_params *params) {
+    trl_decimal decimal;
+    memset(&decimal, 0, sizeof decimal);
+    trl_datetime datetime;
+    memset(&datetime, 0, sizeof datetime);
+    trl_interval interval;
+    memset(&interval, 0, sizeof interval);
+    trl_decfloat decfloat;
+    memset(&decfloat, 0, sizeof decfloat);
+    static const uint8_t octets[TRL_UUID_BYTES] = {1};
+    trl_status added[] = {
+        trl_params_add_null(params),
+        trl_params_add_text(params, "Ada", 3U),
+        trl_params_add_bytes(params, octets, sizeof octets),
+        trl_params_add_decimal(params, decimal),
+        trl_params_add_double(params, 0.5),
+        trl_params_add_boolean(params, true),
+        trl_params_add_datetime(params, TRL_KIND_DATE, datetime),
+        trl_params_add_interval(params, interval),
+        trl_params_add_decfloat(params, decfloat),
+        trl_params_add_uuid(params, octets),
+        trl_params_add_json(params, "{\"a\": [1, 2.5, \"x\"]}", 20U),
+        trl_params_add_xml(params, "<a>b</a>", 8U),
+    };
+    /* A row of an array of two texts, copied deep. */
+    trl_value texts[2];
+    memset(texts, 0, sizeof texts);
+    for (size_t i = 0U; i < 2U; ++i) {
+        texts[i].tag = TRL_TAG_VARYING;
+        texts[i].as.bytes.bytes = (const uint8_t *)"text";
+        texts[i].as.bytes.length = 4U;
+    }
+    trl_value array;
+    memset(&array, 0, sizeof array);
+    array.tag = TRL_TAG_ARRAY;
+    array.as.list.items = texts;
+    array.as.list.count = 2U;
+    trl_value row = array;
+    row.tag = TRL_TAG_ROW;
+    row.as.list.items = &array;
+    row.as.list.count = 1U;
+    trl_status copied = trl_params_add_value(params, &row);
+    bool fine = copied == TRL_OK || copied == TRL_NO_MEMORY;
+    for (size_t i = 0U; i < sizeof added / sizeof added[0]; ++i) {
+        fine = fine && (added[i] == TRL_OK || added[i] == TRL_NO_MEMORY);
+    }
+    return fine;
+}
+
+/* The statement methods, each allowed to fail as memory not had. */
+static bool statement_calls(trl_conn *conn, trl_params *params) {
+    trl_result *result = NULL;
+    bool fine = allowed(trl_query(conn, "Q", &result), trl_conn_failure(conn));
+    if (result != NULL) {
+        fine = fine && (trl_result_row_count(result) == 0U || trl_result_value(result, 0U, 0U) != NULL);
+    }
+    trl_result_free(result);
+    trl_ran *ran = NULL;
+    fine = fine && allowed(trl_query_many(conn, "A; B", &ran), trl_conn_failure(conn));
+    trl_ran_free(ran);
+    trl_statement *statement = NULL;
+    fine = fine && allowed(trl_prepare(conn, "S", &statement), trl_conn_failure(conn));
+    if (statement != NULL) {
+        result = NULL;
+        fine = fine && allowed(trl_execute(conn, statement, params, &result), trl_conn_failure(conn));
+        trl_result_free(result);
+        trl_cursor cursor = {statement, 1U};
+        result = NULL;
+        fine = fine && allowed(trl_cursor_open(conn, cursor, params, 1U, &result), trl_conn_failure(conn));
+        trl_result_free(result);
+        result = NULL;
+        fine = fine && allowed(trl_describe_cursor(conn, cursor, &result), trl_conn_failure(conn));
+        trl_result_free(result);
+        trl_statement *described = NULL;
+        fine = fine && allowed(trl_describe(conn, statement, &described), trl_conn_failure(conn));
+        trl_statement_free(described);
+        fine = fine && allowed(trl_deallocate(conn, statement), trl_conn_failure(conn));
+    }
+    trl_statement_free(statement);
+    return fine;
+}
+
+/* The session's control: attributes, ChangeUser and Reset. */
+static bool control_calls(trl_conn *conn) {
+    static const char *const names[] = {"k"};
+    static const char *const values[] = {"v"};
+    trl_status set = trl_conn_set_query_attributes(conn, names, values, 1U);
+    bool fine = set == TRL_OK || set == TRL_NO_MEMORY;
+    trl_mechanism *trust = NULL;
+    if (trl_mechanism_trust(&trust) == TRL_OK) {
+        fine = fine && allowed(trl_conn_change_user(conn, "ann", trust), trl_conn_failure(conn));
+    }
+    trl_mechanism_free(trust);
+    return fine && allowed(trl_conn_reset(conn), trl_conn_failure(conn));
+}
+
+/* A session of statements over a script, and an XML value parsed. */
+static bool statements_session(void) {
+    script s;
+    script_init(&s, statement_serving, NULL);
+    trl_mechanism *trust = NULL;
+    trl_params *params = NULL;
+    bool fine = true;
+    if (trl_mechanism_trust(&trust) == TRL_OK && trl_params_new(&params) == TRL_OK) {
+        fine = parameters(params);
+        trl_conn *conn = NULL;
+        trl_status made = script_connect(&s, trust, NULL, &conn);
+        fine = fine && allowed(made, trl_conn_failure(conn));
+        if (made == TRL_OK) {
+            fine = fine && statement_calls(conn, params) && control_calls(conn);
+        }
+        trl_conn_free(conn);
+    }
+    trl_xml *xml = NULL;
+    static const char text[] = "<a xmlns:p='u' p:b='1'>t<!--c--><?p i?></a>";
+    trl_status parsed = trl_xml_parse(text, strlen(text), &xml);
+    fine = fine && (parsed == TRL_OK || parsed == TRL_NO_MEMORY ||
+                    (parsed == TRL_FAILED && trl_failure_sqlcode(trl_xml_failure(xml)) == -918));
+    trl_xml_free(xml);
+    trl_params_free(params);
+    trl_mechanism_free(trust);
+    script_free(&s);
+    return fine;
+}
+
+/**
+ * Verifies: [TOOL] R-MEM-2 every allocation of a session of statements,
+ * prepared statements, cursors, results kept, parameters of every kind
+ * and the session's control failing in turn fails the call as memory not
+ * had, or the connection lost, and leaks nothing.
+ */
+static void statements_survive_each_fault(trl_test *test) {
+    TRL_CHECK(test, every_fault(statements_session));
+}
+
 #ifdef FAULTS_TLS
 /* The TLS library's allocations, failing as the fault armed says. */
 static void *tls_malloc(size_t size, const char *file, int line) {
@@ -259,9 +433,8 @@ int main(int argc, char **argv) {
     }
 #endif
     static const trl_test_case cases[] = {
-        TRL_TEST_CASE(a_session_survives_each_fault),
-        TRL_TEST_CASE(a_scram_login_survives_each_fault),
-        TRL_TEST_CASE(handles_survive_each_fault),
+        TRL_TEST_CASE(a_session_survives_each_fault),     TRL_TEST_CASE(a_scram_login_survives_each_fault),
+        TRL_TEST_CASE(handles_survive_each_fault),        TRL_TEST_CASE(statements_survive_each_fault),
 #ifdef FAULTS_TLS
         TRL_TEST_CASE(a_tls_session_survives_each_fault),
 #endif
