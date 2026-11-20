@@ -17,6 +17,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
 
 #ifdef TRL_HAVE_ZLIB
 /* zlib's input pointers are const, as nothing here is written through them. */
@@ -28,6 +29,8 @@
 /* The bytes of a compressed frame's body before its stream: the kind held
    and its length. */
 #define TRL_COMPRESS_PREFIX 5U
+/* The most bytes inflated at a time, the output grown by each. */
+#define TRL_INFLATE_PART 65536U
 
 bool trl_compression_built(void) {
 #ifdef TRL_HAVE_ZLIB
@@ -78,32 +81,67 @@ bool trl_compress_frames(trl_buffer *out, trl_slice frames, size_t threshold, tr
     return trl_buffer_ok(out, error);
 }
 
+/* Inflates the next part of `z`'s stream into `out`, at most `room`
+   bytes, or into a spare byte once `room` is 0, so a stream that goes on
+   is seen to; `*made` the bytes it made, `*past` whether it went past. */
+static int inflate_part(z_stream *z, trl_buffer *out, size_t room, size_t *made, bool *past) {
+    uint8_t spare = 0U;
+    size_t at = out->length;
+    if (room > 0U) {
+        uint8_t *into = trl_put_space(out, room);
+        if (into == NULL) {
+            return Z_MEM_ERROR;
+        }
+        z->next_out = into;
+        z->avail_out = (uInt)room;
+    } else {
+        z->next_out = &spare;
+        z->avail_out = 1U;
+    }
+    int result = inflate(z, Z_NO_FLUSH);
+    *made = room > 0U ? room - z->avail_out : 0U;
+    *past = room == 0U && z->avail_out == 0U;
+    out->length = at + *made;
+    return result;
+}
+
 /* Inflates `stream` into `out`, exactly `length` bytes, the stream ending
-   there with nothing after it. */
+   there with nothing after it. The output grows as the stream inflates, a
+   part at a time, as turborel-protocol's does, so a length declared holds
+   nothing before data comes. */
 static bool inflate_exactly(trl_slice stream, size_t length, trl_buffer *out, trl_reader *reader) {
     size_t at = out->length;
-    if (trl_put_space(out, length) == NULL && length > 0U) {
-        reader->failed = true;
-        return trl_buffer_ok(out, reader->error);
-    }
     z_stream z;
-    z.zalloc = Z_NULL;
-    z.zfree = Z_NULL;
-    z.opaque = Z_NULL;
+    memset(&z, 0, sizeof z);
     z.next_in = stream.bytes;
     z.avail_in = (uInt)stream.length;
     if (inflateInit(&z) != Z_OK) {
         trl_codec_no_memory(reader->error);
         return false;
     }
-    z.next_out = out->data == NULL ? NULL : out->data + at;
-    z.avail_out = (uInt)length;
-    int result = inflate(&z, Z_FINISH);
-    bool whole = result == Z_STREAM_END && z.avail_in == 0U && z.avail_out == 0U;
+    size_t done = 0U;
+    bool past = false;
+    int result = Z_OK;
+    while (result == Z_OK && !past) {
+        size_t room = length - done < TRL_INFLATE_PART ? length - done : TRL_INFLATE_PART;
+        size_t made = 0U;
+        result = inflate_part(&z, out, room, &made, &past);
+        done += made;
+        /* No progress with input left, or no input left short of the end: cut short. */
+        if (result == Z_OK && made == 0U && !past && z.avail_in == 0U) {
+            result = Z_BUF_ERROR;
+        }
+    }
     (void)inflateEnd(&z);
-    if (!whole) {
+    if (result == Z_MEM_ERROR) {
         out->length = at;
-        return trl_reader_fail(reader, result == Z_STREAM_END
+        trl_codec_no_memory(reader->error);
+        reader->failed = true;
+        return false;
+    }
+    if (result != Z_STREAM_END || past || z.avail_in != 0U || done != length) {
+        out->length = at;
+        return trl_reader_fail(reader, result == Z_STREAM_END && !past
                                            ? "a compressed frame inflates to another length than it declares"
                                            : "a compressed frame's stream is malformed, or inflates past its length");
     }

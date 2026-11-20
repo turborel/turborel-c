@@ -88,6 +88,10 @@
 #define TRL_FIELD_MINUTE 4U
 /** @brief The interval field SECOND, the last. */
 #define TRL_FIELD_SECOND 5U
+/** @brief An interval's leading precision taken at most, as turborel's qualifier takes it. */
+#define TRL_MAX_LEADING_PRECISION 9U
+/** @brief An interval's fractional seconds' precision taken at most, as a time's. */
+#define TRL_MAX_FRACTION_PRECISION 6U
 
 /** @brief XML's primary modifier DOCUMENT [PROTOCOL Data types]. */
 #define TRL_XML_DOCUMENT 0U

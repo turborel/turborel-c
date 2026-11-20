@@ -9,6 +9,7 @@
 #include "codec/error.h"
 #include "codec/json.h"
 #include "codec/kinds.h"
+#include "codec/reader.h"
 #include "codec/replies.h"
 #include "codec/requests.h"
 #include "codec/tags.h"
@@ -18,6 +19,7 @@
 #include "fixture.h"
 #include "harness.h"
 
+#include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
 
@@ -141,12 +143,74 @@ static void the_first_failure_is_kept(trl_test *test) {
     trl_buffer_free(NULL);
 }
 
+/* Reads one value from the fixture's buffer, all of it. */
+static bool read_one(fixture *f, trl_value *out) {
+    trl_reader r;
+    trl_reader_init(&r, f->buffer.data, f->buffer.length, &f->arena, &f->error);
+    return trl_read_value(&r, out) && trl_reader_finish(&r);
+}
+
+/**
+ * Verifies: [PROTOCOL Values] a structured value nests as an array does,
+ * one level for itself and its attributes, so one 16 deep is read as
+ * turborel-protocol reads it, and 17 deep refused.
+ */
+static void structured_values_nest_one_level(trl_test *test) {
+    fixture f;
+    fixture_init(&f);
+    trl_value back;
+    memset(&back, 0, sizeof back);
+    for (unsigned int depth = 16U; depth <= 17U; ++depth) {
+        fixture_reset(&f);
+        for (unsigned int i = 0U; i < depth; ++i) {
+            trl_put_u8(&f.buffer, TRL_TAG_STRUCTURED);
+            trl_put_bytes(&f.buffer, text_of("S"));
+            trl_put_bytes(&f.buffer, text_of("T"));
+            trl_put_u32(&f.buffer, 1U);
+        }
+        trl_put_u8(&f.buffer, TRL_TAG_NULL);
+        bool read = read_one(&f, &back);
+        TRL_CHECK(test, depth == 16U ? read : (!read && failed_connection(&f)));
+    }
+    fixture_free(&f);
+}
+
+/**
+ * Verifies: [PROTOCOL Composite fields] a list is read whole however many
+ * items it has, its room grown as they are read; a count past the items
+ * sent fails the connection without holding room for every item it says.
+ */
+static void lists_grow_as_they_are_read(trl_test *test) {
+    fixture f;
+    fixture_init(&f);
+    trl_put_u8(&f.buffer, TRL_TAG_ARRAY);
+    trl_put_u32(&f.buffer, 1000U);
+    for (unsigned int i = 0U; i < 1000U; ++i) {
+        trl_put_u8(&f.buffer, TRL_TAG_BOOLEAN);
+        trl_put_u8(&f.buffer, (uint8_t)(i % 2U));
+    }
+    trl_value back;
+    memset(&back, 0, sizeof back);
+    TRL_CHECK(test, read_one(&f, &back) && back.as.list.count == 1000U);
+    TRL_CHECK(test, back.as.list.items[999].as.truth && !back.as.list.items[998].as.truth);
+    fixture_reset(&f);
+    trl_put_u8(&f.buffer, TRL_TAG_ARRAY);
+    trl_put_u32(&f.buffer, 64U);
+    for (unsigned int i = 0U; i < 64U; ++i) {
+        trl_put_u8(&f.buffer, TRL_TAG_ARRAY);
+    }
+    TRL_CHECK(test, !read_one(&f, &back) && failed_connection(&f));
+    fixture_free(&f);
+}
+
 int main(int argc, char **argv) {
     static const trl_test_case cases[] = {
         TRL_TEST_CASE(replies_within_any_arena),
         TRL_TEST_CASE(requests_within_any_buffer),
         TRL_TEST_CASE(json_within_any_bound),
         TRL_TEST_CASE(the_first_failure_is_kept),
+        TRL_TEST_CASE(structured_values_nest_one_level),
+        TRL_TEST_CASE(lists_grow_as_they_are_read),
     };
     return trl_test_main(argc, argv, cases, TRL_TEST_COUNT(cases));
 }

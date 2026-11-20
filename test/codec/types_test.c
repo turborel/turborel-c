@@ -140,7 +140,8 @@ static void interval_types(trl_test *test) {
 /**
  * Verifies: [PROTOCOL Data types] a plug-in's type carries its name and at
  * most two parameters, read by its name whether or not the client has it;
- * more parameters fail.
+ * more parameters fail, and so does one of u32's most, which turborel's
+ * parameters take as none.
  */
 static void plugin_types(trl_test *test) {
     fixture f;
@@ -160,6 +161,12 @@ static void plugin_types(trl_test *test) {
     trl_put_u32(&f.buffer, 1U);
     trl_put_u32(&f.buffer, 2U);
     trl_put_u32(&f.buffer, 3U);
+    TRL_CHECK(test, !read_type(&f, &t) && failed_connection(&f));
+    fixture_reset(&f);
+    trl_put_u8(&f.buffer, TRL_TAG_PLUGIN);
+    trl_put_bytes(&f.buffer, text_of("X"));
+    trl_put_u32(&f.buffer, 1U);
+    trl_put_u32(&f.buffer, UINT32_MAX);
     TRL_CHECK(test, !read_type(&f, &t) && failed_connection(&f));
     fixture_free(&f);
 }

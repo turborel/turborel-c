@@ -30,7 +30,8 @@ static void put_failure(trl_buffer *b, int32_t sqlcode, const char *sqlstate, co
 
 /**
  * Verifies: [PROTOCOL A worked example] the Rows reply of the exact number
- * 1, units 1 and scale 0, is read from the bytes the spec prints.
+ * 1, units 1 and scale 0, is read from the bytes the spec prints, its row
+ * a list of values, as [PROTOCOL Composite fields] lays one out.
  */
 static void the_worked_rows(trl_test *test) {
     fixture f;
@@ -113,9 +114,10 @@ static void complete_tail(trl_test *test) {
 }
 
 /**
- * Verifies: [PROTOCOL Error 'E'] an Error is a failure: SQLCODE i32 as
- * u32, SQLSTATE, message, the rule cited, the position, the active flag,
- * then diagnostics, tags 7 to 15, in order.
+ * Verifies: [PROTOCOL Error 'E'] an Error is a failure, as
+ * [PROTOCOL Composite fields] lays one out: SQLCODE i32 as u32, SQLSTATE,
+ * message, the rule cited, the position, the active flag, then
+ * diagnostics, tags 7 to 15, in order.
  */
 static void error_carries_its_failure(trl_test *test) {
     fixture f;
@@ -170,7 +172,8 @@ static void ready_and_challenge(trl_test *test) {
  * Verifies: [PROTOCOL Prepared 'P'] Prepared is the statement, its
  * parameters, each varying flag and type, and its columns; [PROTOCOL
  * Description 'D'] Description its columns, each named flag, name, type
- * and not null flag.
+ * and not null flag; a parameter and a column as
+ * [PROTOCOL Composite fields] lays them out.
  */
 static void prepared_and_description(trl_test *test) {
     fixture f;

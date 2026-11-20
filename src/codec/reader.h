@@ -178,6 +178,37 @@ bool trl_read_count(trl_reader *reader, size_t least, uint32_t *out);
  */
 void *trl_reader_alloc(trl_reader *reader, size_t count, size_t size);
 
+/** @brief The items a count reserves before any is read. */
+#define TRL_FIRST_ITEMS 16U
+/** @brief How many times as large a list's room grows when it is full. */
+#define TRL_ITEMS_GROWTH 2U
+
+/**
+ * @brief The first room for `count` items of `size` bytes: at most
+ * TRL_FIRST_ITEMS of them, so a count the reader is sent reserves memory
+ * only as items are read, as turborel-protocol reads a list
+ * [PROTOCOL Composite fields]; trl_reader_room() grows it.
+ * @param reader The reader.
+ * @param count How many items the count says.
+ * @param size The bytes of each.
+ * @param room Where the items the memory holds go.
+ * @return The memory, zeroed; null on failure.
+ */
+void *trl_reader_items(trl_reader *reader, uint32_t count, size_t size, uint32_t *room);
+
+/**
+ * @brief `items`, with room for item `used`, grown TRL_ITEMS_GROWTH times
+ * as large, its first `used` items copied, if it is full; so the room a
+ * list holds is at most twice the items read, and TRL_FIRST_ITEMS.
+ * @param reader The reader.
+ * @param items The items so far, of trl_reader_items() or this.
+ * @param room The items they have room for; updated.
+ * @param used The items read.
+ * @param size The bytes of each.
+ * @return The items, moved if grown; null on failure.
+ */
+void *trl_reader_room(trl_reader *reader, void *items, uint32_t *room, uint32_t used, size_t size);
+
 /**
  * @brief Enters a nested part; fails past TRL_MAX_NESTING.
  * @param reader The reader.

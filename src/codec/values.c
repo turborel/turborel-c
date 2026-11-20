@@ -104,7 +104,8 @@ static bool read_list(trl_reader *reader, trl_value **items, uint32_t *count) {
     return read;
 }
 
-/* Reads a structured value: its type's schema and name, then attributes. */
+/* Reads a structured value: its type's schema and name, then attributes,
+   a list within the depth as turborel-protocol reads it. */
 static bool read_structured(trl_reader *reader, trl_value *out) {
     if (!trl_read_string(reader, &out->as.structured.type.schema) ||
         !trl_read_string(reader, &out->as.structured.type.name)) {
@@ -166,14 +167,9 @@ static bool read_constructed(trl_reader *reader, trl_value *out) {
         }
         return out->as.list.count <= TRL_MAX_MULTISET_CARDINALITY ||
                trl_reader_fail(reader, "a multiset has more elements than its maximum cardinality");
-    case TRL_TAG_STRUCTURED: {
-        if (!trl_reader_enter(reader)) {
-            return false;
-        }
-        bool read = read_structured(reader, out);
-        trl_reader_leave(reader);
-        return read;
-    }
+    case TRL_TAG_STRUCTURED:
+        /* One level, as an array's or a row's, its attributes' list within it. */
+        return read_structured(reader, out);
     default:
         return trl_reader_fail(reader, "no value has this tag");
     }
@@ -261,14 +257,13 @@ bool trl_read_row(trl_reader *reader, trl_value **values, uint32_t *count) {
     if (!trl_read_count(reader, TRL_VALUE_LEAST_BYTES, count)) {
         return false;
     }
-    *values = trl_reader_alloc(reader, *count, sizeof(trl_value));
-    if (*values == NULL) {
-        return false;
-    }
-    for (uint32_t i = 0U; i < *count; ++i) {
-        if (!trl_read_value(reader, &(*values)[i])) {
+    uint32_t room = 0U;
+    *values = trl_reader_items(reader, *count, sizeof(trl_value), &room);
+    for (uint32_t i = 0U; *values != NULL && i < *count; ++i) {
+        *values = trl_reader_room(reader, *values, &room, i, sizeof(trl_value));
+        if (*values == NULL || !trl_read_value(reader, &(*values)[i])) {
             return false;
         }
     }
-    return true;
+    return *values != NULL;
 }

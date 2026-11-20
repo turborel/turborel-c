@@ -275,8 +275,8 @@ mechanism's name and first bytes, the capabilities asked for and the
 connection's attributes; then each Challenge answered, until Ready, or
 an Error that refuses the login. Ready gives the session's authorization
 identifier, the key that cancels its statements, which the connection
-keeps secret, the capabilities granted, in the protocol's order, and the
-server's product. Ready is never compressed; once compression is
+keeps secret, the capabilities granted, in the protocol's order, a name
+the protocol does not have passed over, and the server's product. Ready is never compressed; once compression is
 granted, frames are compressed both ways, and a compressed frame
 received when it was not loses the connection
 [PROTOCOL Compressed frames].

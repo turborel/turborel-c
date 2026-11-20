@@ -212,7 +212,7 @@ static void intervals(trl_test *test) {
             value.as.interval.qualifier.start = start;
             value.as.interval.qualifier.end = end;
             value.as.interval.qualifier.leading = 9U;
-            value.as.interval.qualifier.fraction = 6U;
+            value.as.interval.qualifier.fraction = end == TRL_FIELD_SECOND ? 6U : 0U;
             value.as.interval.units.low = UINT64_MAX;
             value.as.interval.units.high = -1;
             trl_value back;
@@ -517,6 +517,31 @@ static void type_tags_malformed_fail(trl_test *test) {
     fixture_free(&f);
 }
 
+/**
+ * Verifies: [PROTOCOL Values] an interval's qualifier is taken as
+ * turborel's takes it: a leading precision past 9 as 9, a fractional one
+ * past 6 as 6, and none of a qualifier not ending in SECOND.
+ */
+static void interval_precisions_are_bounded(trl_test *test) {
+    fixture f;
+    fixture_init(&f);
+    static const uint32_t qualifiers[][4] = {{2U, 3U, 12U, 4U}, {2U, 5U, 1U, 9U}};
+    static const uint32_t taken[][2] = {{9U, 0U}, {1U, 6U}};
+    for (size_t i = 0U; i < 2U; ++i) {
+        fixture_reset(&f);
+        trl_put_u8(&f.buffer, TRL_TAG_INTERVAL);
+        for (size_t k = 0U; k < 4U; ++k) {
+            trl_put_u32(&f.buffer, qualifiers[i][k]);
+        }
+        trl_int128 units = {1U, 0};
+        trl_put_i128(&f.buffer, units);
+        trl_value back;
+        TRL_CHECK(test, read_one(&f, &back) && back.as.interval.qualifier.leading == taken[i][0] &&
+                            back.as.interval.qualifier.fraction == taken[i][1]);
+    }
+    fixture_free(&f);
+}
+
 int main(int argc, char **argv) {
     static const trl_test_case cases[] = {
         TRL_TEST_CASE(null_and_strings),
@@ -526,6 +551,7 @@ int main(int argc, char **argv) {
         TRL_TEST_CASE(bytes_values),
         TRL_TEST_CASE(datetimes),
         TRL_TEST_CASE(intervals),
+        TRL_TEST_CASE(interval_precisions_are_bounded),
         TRL_TEST_CASE(truth_values),
         TRL_TEST_CASE(decfloats),
         TRL_TEST_CASE(decfloats_round_half_even),

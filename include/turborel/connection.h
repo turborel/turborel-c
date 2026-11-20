@@ -145,7 +145,8 @@ TRL_API const char *trl_conn_authorization(const trl_conn *conn);
 TRL_API bool trl_conn_granted(const trl_conn *conn, const char *capability);
 
 /**
- * @brief How many capabilities the server granted.
+ * @brief How many capabilities the server granted: those of the protocol's
+ * it named, once each, a name the protocol does not have passed over.
  *
  * @param conn The connection; null gives 0.
  * @return The count.
@@ -153,7 +154,8 @@ TRL_API bool trl_conn_granted(const trl_conn *conn, const char *capability);
 TRL_API size_t trl_conn_granted_count(const trl_conn *conn);
 
 /**
- * @brief A capability granted, in the order Ready gave them.
+ * @brief A capability granted, in the order of the protocol's table of
+ * them, as TRL_CAPABILITY_NOTICES to TRL_CAPABILITY_DECLARED_TYPES list them.
  *
  * @param conn The connection.
  * @param index Which, from 0.

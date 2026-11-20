@@ -34,6 +34,12 @@ struct trl_conn_options {
     uint32_t read_ms;
 };
 
+/** @brief How many capabilities the protocol has [PROTOCOL Capabilities]. */
+#define TRL_CAPABILITIES_KNOWN 19U
+
+/** @brief Every capability of the protocol's, in its table's order [PROTOCOL Capabilities]. */
+extern const char *const trl_capabilities_known[TRL_CAPABILITIES_KNOWN];
+
 /**
  * @brief The options' capabilities, as Hello carries them, into `out`, of
  * their count; compression left out unless `compressing`, as a library

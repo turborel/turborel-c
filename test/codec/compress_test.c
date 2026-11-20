@@ -143,6 +143,32 @@ static void malformed_z_frames_fail(trl_test *test) {
 }
 
 /**
+ * Verifies: [PROTOCOL Compressed frames] a z frame holding a frame of no
+ * body, as Pong, inflates to it, as turborel-protocol inflates one; a
+ * stream cut short of what it declares fails, its output grown only as
+ * far as it inflated.
+ */
+static void an_empty_frame_inflates(trl_test *test) {
+    if (!trl_compression_built()) {
+        return;
+    }
+    fixture f;
+    fixture_init(&f);
+    static const uint8_t empty[] = {'G', 0U, 0U, 0U, 0U, 0x78U, 0x9CU, 0x03U, 0x00U, 0x00U, 0x00U, 0x00U, 0x01U};
+    trl_buffer body;
+    trl_buffer_init(&body);
+    uint8_t kind = 0U;
+    TRL_CHECK(test, trl_decompress_frame(bytes_of(empty, sizeof empty), TRL_FRAME_MAX_BODY, &kind, &body, &f.error));
+    TRL_CHECK(test, kind == 'G' && body.length == 0U);
+    trl_buffer_free(&body);
+    uint8_t cut[sizeof empty];
+    memcpy(cut, empty, sizeof empty);
+    cut[3] = 0xFFU;
+    TRL_CHECK(test, inflate_fails(&f, cut, sizeof cut, TRL_FRAME_MAX_BODY));
+    fixture_free(&f);
+}
+
+/**
  * Verifies: [DESIGN] D12 a library built without zlib refuses compressed
  * frames, saying so; one built with it reads them.
  */
@@ -199,8 +225,11 @@ static void compression_within_any_buffer(trl_test *test) {
 
 int main(int argc, char **argv) {
     static const trl_test_case cases[] = {
-        TRL_TEST_CASE(frames_compress_and_read_back), TRL_TEST_CASE(the_threshold_is_the_clients),
-        TRL_TEST_CASE(malformed_z_frames_fail),       TRL_TEST_CASE(zlib_is_needed),
+        TRL_TEST_CASE(frames_compress_and_read_back),
+        TRL_TEST_CASE(the_threshold_is_the_clients),
+        TRL_TEST_CASE(malformed_z_frames_fail),
+        TRL_TEST_CASE(an_empty_frame_inflates),
+        TRL_TEST_CASE(zlib_is_needed),
         TRL_TEST_CASE(compression_within_any_buffer),
     };
     return trl_test_main(argc, argv, cases, TRL_TEST_COUNT(cases));

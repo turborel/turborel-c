@@ -15,6 +15,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
 
 /* The bits of one byte. */
 #define TRL_BYTE_BITS 8U
@@ -151,6 +152,27 @@ void *trl_reader_alloc(trl_reader *reader, size_t count, size_t size) {
         trl_codec_no_memory(reader->error);
     }
     return memory;
+}
+
+void *trl_reader_items(trl_reader *reader, uint32_t count, size_t size, uint32_t *room) {
+    *room = count < TRL_FIRST_ITEMS ? count : TRL_FIRST_ITEMS;
+    return trl_reader_alloc(reader, *room, size);
+}
+
+void *trl_reader_room(trl_reader *reader, void *items, uint32_t *room, uint32_t used, size_t size) {
+    if (used < *room) {
+        return items;
+    }
+    uint32_t grown = *room > UINT32_MAX / TRL_ITEMS_GROWTH ? UINT32_MAX : *room * TRL_ITEMS_GROWTH;
+    uint8_t *more = trl_reader_alloc(reader, grown, size);
+    if (more == NULL) {
+        return NULL;
+    }
+    if (used > 0U) {
+        memcpy(more, items, (size_t)used * size);
+    }
+    *room = grown;
+    return more;
 }
 
 bool trl_reader_enter(trl_reader *reader) {

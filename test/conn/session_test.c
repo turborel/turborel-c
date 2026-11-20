@@ -36,6 +36,7 @@ typedef enum after {
     AFTER_TERMINATE_ERROR,
     AFTER_TERMINATE_NOTICE_ERROR,
     AFTER_TERMINATE_NOTICE,
+    AFTER_TERMINATE_COMPRESSED_ERROR,
 } after;
 
 /* The capabilities a test's server grants. */
@@ -63,6 +64,23 @@ static void compressed_pong(script *s) {
     script_bare(s, TRL_KIND_PONG);
 }
 
+/* Writes a failing commit's long Error compressed, as a server may send it. */
+static void compressed_error(script *s) {
+    char message[LONG_STATUS];
+    memset(message, 'x', sizeof message - 1U);
+    message[sizeof message - 1U] = '\0';
+    size_t before = s->to_client.length;
+    script_error(s, -320, "40002", message, NULL);
+    trl_buffer frame;
+    trl_buffer_init(&frame);
+    trl_put_raw(&frame, s->to_client.data + before, s->to_client.length - before);
+    s->to_client.length = before;
+    trl_codec_error error = {0, "", ""};
+    trl_slice frames = {frame.data, frame.length};
+    (void)trl_compress_frames(&s->to_client, frames, 0U, &error);
+    trl_buffer_free(&frame);
+}
+
 /* Answers each request after Ready as the test asks. */
 static void after_ready(script *s, const serving *plan, uint8_t kind) {
     static const uint8_t long_header[] = {TRL_KIND_PONG, 100U, 0U, 0U, 0U};
@@ -75,6 +93,9 @@ static void after_ready(script *s, const serving *plan, uint8_t kind) {
         }
         if (plan->after == AFTER_TERMINATE_ERROR || plan->after == AFTER_TERMINATE_NOTICE_ERROR) {
             script_error(s, -320, "40002", "a deferred constraint is not satisfied", NULL);
+        }
+        if (plan->after == AFTER_TERMINATE_COMPRESSED_ERROR) {
+            compressed_error(s);
         }
         return;
     }
@@ -102,6 +123,7 @@ static void after_ready(script *s, const serving *plan, uint8_t kind) {
     case AFTER_TERMINATE_ERROR:
     case AFTER_TERMINATE_NOTICE_ERROR:
     case AFTER_TERMINATE_NOTICE:
+    case AFTER_TERMINATE_COMPRESSED_ERROR:
     default:
         script_bare(s, TRL_KIND_PONG);
         break;
@@ -164,7 +186,8 @@ static void ping_is_answered_by_pong(trl_test *test) {
 /**
  * Verifies: [CLIENT What a connection asks for] a method needing a
  * capability not granted fails before it sends anything, the connection
- * kept.
+ * kept, so no request or tail field of a capability not granted is sent
+ * [PROTOCOL Capabilities].
  */
 static void a_capability_not_granted_sends_nothing(trl_test *test) {
     serving plan = {AFTER_PONG, false};
@@ -309,7 +332,8 @@ static void terminate_gives_a_failing_commit(trl_test *test) {
 /**
  * Verifies: [CLIENT Connecting] a Notice and a Status before the Error
  * that ends Terminate are read past, and the Error reported; a Notice
- * before the close ends it well.
+ * before the close ends it well; an Error sent compressed, once
+ * `compression` is granted, inflated and reported [PROTOCOL Compressed frames].
  */
 static void terminate_reads_past_a_notice_to_its_error(trl_test *test) {
     serving plan = {AFTER_TERMINATE_NOTICE_ERROR, false};
@@ -324,6 +348,15 @@ static void terminate_reads_past_a_notice_to_its_error(trl_test *test) {
     TRL_CHECK(test, trl_conn_terminate(conn) == TRL_OK);
     trl_conn_free(conn);
     script_free(&s);
+    if (trl_compression_built()) {
+        plan.after = AFTER_TERMINATE_COMPRESSED_ERROR;
+        plan.compression = true;
+        conn = connected(&s, &plan, NULL);
+        TRL_CHECK(test, trl_conn_terminate(conn) == TRL_FAILED);
+        TRL_CHECK(test, strcmp(trl_failure_sqlstate(trl_conn_failure(conn)), "40002") == 0);
+        trl_conn_free(conn);
+        script_free(&s);
+    }
 }
 
 /**

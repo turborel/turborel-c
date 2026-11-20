@@ -124,25 +124,48 @@ static bool answer(trl_conn *conn, trl_mechanism *mechanism, trl_slice challenge
     return encoded ? trl_conn_send(conn) : codec_failed(conn, &error);
 }
 
+/* Whether Ready granted the capability `name`. */
+static bool granted_by(const trl_strings *granted, const char *name) {
+    for (uint32_t i = 0U; i < granted->count; ++i) {
+        if (granted->items[i].length == strlen(name) && memcmp(granted->items[i].bytes, name, strlen(name)) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/* Keeps the capabilities Ready granted that the protocol has, once each,
+   in its table's order, as turborel-client keeps them; a name it does not
+   know is passed over [PROTOCOL Capabilities]. */
+static bool granted_kept(trl_conn *conn, const trl_strings *granted) {
+    conn->granted = (char **)trl_calloc(TRL_CAPABILITIES_KNOWN + 1U, sizeof(char *));
+    if (conn->granted == NULL) {
+        return false;
+    }
+    for (size_t i = 0U; i < TRL_CAPABILITIES_KNOWN; ++i) {
+        const char *name = trl_capabilities_known[i];
+        if (!granted_by(granted, name)) {
+            continue;
+        }
+        trl_slice known = {(const uint8_t *)name, strlen(name)};
+        conn->granted[conn->granted_count] = copy_of(known);
+        if (conn->granted[conn->granted_count] == NULL) {
+            return false;
+        }
+        conn->granted_count += 1U;
+        conn->compressed = conn->compressed || strcmp(name, TRL_CAPABILITY_COMPRESSION) == 0;
+    }
+    return true;
+}
+
 /* Keeps what Ready told: the authorization identifier, the cancel key,
    the capabilities granted, and the server's product. */
 static bool ready(trl_conn *conn, const trl_reply *reply, size_t compress_from) {
     conn->authorization = copy_of(reply->as.ready.authorization);
     conn->server = copy_of(reply->as.ready.server);
-    const trl_strings *granted = &reply->as.ready.capabilities;
-    conn->granted = (char **)trl_calloc((size_t)granted->count + 1U, sizeof(char *));
-    if (conn->authorization == NULL || conn->server == NULL || conn->granted == NULL) {
+    if (conn->authorization == NULL || conn->server == NULL || !granted_kept(conn, &reply->as.ready.capabilities)) {
         trl_failure_no_memory(&conn->failure);
         return false;
-    }
-    for (uint32_t i = 0U; i < granted->count; ++i) {
-        conn->granted[i] = copy_of(granted->items[i]);
-        if (conn->granted[i] == NULL) {
-            trl_failure_no_memory(&conn->failure);
-            return false;
-        }
-        conn->granted_count = (size_t)i + 1U;
-        conn->compressed = conn->compressed || strcmp(conn->granted[i], TRL_CAPABILITY_COMPRESSION) == 0;
     }
     if (reply->as.ready.key.length == sizeof conn->key) {
         memcpy(conn->key, reply->as.ready.key.bytes, sizeof conn->key);

@@ -29,16 +29,15 @@ bool trl_read_strings(trl_reader *reader, trl_strings *out) {
     if (!trl_read_count(reader, TRL_STRING_LEAST_BYTES, &out->count)) {
         return false;
     }
-    out->items = trl_reader_alloc(reader, out->count, sizeof(trl_slice));
-    if (out->items == NULL) {
-        return false;
-    }
-    for (uint32_t i = 0U; i < out->count; ++i) {
-        if (!trl_read_string(reader, &out->items[i])) {
+    uint32_t room = 0U;
+    out->items = trl_reader_items(reader, out->count, sizeof(trl_slice), &room);
+    for (uint32_t i = 0U; out->items != NULL && i < out->count; ++i) {
+        out->items = trl_reader_room(reader, out->items, &room, i, sizeof(trl_slice));
+        if (out->items == NULL || !trl_read_string(reader, &out->items[i])) {
             return false;
         }
     }
-    return true;
+    return out->items != NULL;
 }
 
 bool trl_write_string(trl_buffer *buffer, trl_slice text, trl_codec_error *error) {
@@ -76,33 +75,34 @@ bool trl_read_columns(trl_reader *reader, trl_column **out, uint32_t *count) {
     if (!trl_read_count(reader, TRL_COLUMN_LEAST_BYTES, count)) {
         return false;
     }
-    *out = trl_reader_alloc(reader, *count, sizeof(trl_column));
-    if (*out == NULL) {
-        return false;
-    }
-    for (uint32_t i = 0U; i < *count; ++i) {
-        if (!read_column(reader, &(*out)[i])) {
+    uint32_t room = 0U;
+    *out = trl_reader_items(reader, *count, sizeof(trl_column), &room);
+    for (uint32_t i = 0U; *out != NULL && i < *count; ++i) {
+        *out = trl_reader_room(reader, *out, &room, i, sizeof(trl_column));
+        if (*out == NULL || !read_column(reader, &(*out)[i])) {
             return false;
         }
     }
-    return true;
+    return *out != NULL;
 }
 
 bool trl_read_parameters(trl_reader *reader, trl_parameter **out, uint32_t *count) {
     if (!trl_read_count(reader, TRL_PARAMETER_LEAST_BYTES, count)) {
         return false;
     }
-    *out = trl_reader_alloc(reader, *count, sizeof(trl_parameter));
-    if (*out == NULL) {
-        return false;
-    }
-    for (uint32_t i = 0U; i < *count; ++i) {
+    uint32_t room = 0U;
+    *out = trl_reader_items(reader, *count, sizeof(trl_parameter), &room);
+    for (uint32_t i = 0U; *out != NULL && i < *count; ++i) {
+        *out = trl_reader_room(reader, *out, &room, i, sizeof(trl_parameter));
+        if (*out == NULL) {
+            return false;
+        }
         trl_parameter *parameter = &(*out)[i];
         if (!trl_read_flag(reader, &parameter->varying) || !trl_read_data_type(reader, &parameter->type)) {
             return false;
         }
     }
-    return true;
+    return *out != NULL;
 }
 
 bool trl_read_diagnostics(trl_reader *reader, trl_diagnostics *out) {

@@ -73,12 +73,14 @@ static bool read_rows(trl_reader *reader, trl_reply *out) {
     if (!trl_read_count(reader, TRL_ROW_LEAST_BYTES, &count)) {
         return false;
     }
-    out->as.rows.rows = trl_reader_alloc(reader, count, sizeof(trl_row));
-    if (out->as.rows.rows == NULL) {
-        return false;
-    }
+    uint32_t room = 0U;
+    out->as.rows.rows = trl_reader_items(reader, count, sizeof(trl_row), &room);
     out->as.rows.count = count;
     for (uint32_t i = 0U; i < count; ++i) {
+        out->as.rows.rows = trl_reader_room(reader, out->as.rows.rows, &room, i, sizeof(trl_row));
+        if (out->as.rows.rows == NULL) {
+            return false;
+        }
         trl_row *row = &out->as.rows.rows[i];
         if (!trl_read_row(reader, &row->values, &row->count)) {
             return false;
@@ -116,16 +118,15 @@ static bool read_conditions(trl_reader *reader, trl_completed *out) {
     if (!trl_read_count(reader, TRL_CONDITION_LEAST_BYTES, &out->condition_count)) {
         return false;
     }
-    out->conditions = trl_reader_alloc(reader, out->condition_count, sizeof(trl_wire_failure));
-    if (out->conditions == NULL) {
-        return false;
-    }
-    for (uint32_t i = 0U; i < out->condition_count; ++i) {
-        if (!read_condition(reader, &out->conditions[i])) {
+    uint32_t room = 0U;
+    out->conditions = trl_reader_items(reader, out->condition_count, sizeof(trl_wire_failure), &room);
+    for (uint32_t i = 0U; out->conditions != NULL && i < out->condition_count; ++i) {
+        out->conditions = trl_reader_room(reader, out->conditions, &room, i, sizeof(trl_wire_failure));
+        if (out->conditions == NULL || !read_condition(reader, &out->conditions[i])) {
             return false;
         }
     }
-    return true;
+    return out->conditions != NULL;
 }
 
 /* Reads one field of a Complete's tail, of tag `tag`. */

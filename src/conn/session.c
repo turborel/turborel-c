@@ -8,6 +8,7 @@
 #include "auth/crypto.h"
 #include "codec/arena.h"
 #include "codec/buffer.h"
+#include "codec/compress.h"
 #include "codec/error.h"
 #include "codec/frame.h"
 #include "codec/kinds.h"
@@ -200,7 +201,18 @@ static int closing_frame(trl_conn *conn, const uint8_t *at, size_t left, size_t 
     trl_codec_error error = {0, "", ""};
     trl_reply reply;
     trl_arena_free(&conn->arena);
-    if (!trl_decode_reply(header.kind, body, &conn->arena, &reply, &error)) {
+    uint8_t kind = header.kind;
+    /* A failing commit's long Error may come compressed, as any reply. */
+    if (kind == TRL_KIND_COMPRESSED && conn->compressed) {
+        trl_buffer_free(&conn->inflated);
+        if (!trl_decompress_frame(body, conn->max_body, &kind, &conn->inflated, &error)) {
+            trl_failure_from_codec(&conn->failure, &error);
+            return 0;
+        }
+        body.bytes = conn->inflated.data;
+        body.length = conn->inflated.length;
+    }
+    if (!trl_decode_reply(kind, body, &conn->arena, &reply, &error)) {
         trl_failure_from_codec(&conn->failure, &error);
         return 0;
     }

@@ -41,17 +41,16 @@ static bool read_type_names(trl_reader *reader, trl_type_names *out) {
     if (!read_name(reader, &out->name) || !trl_read_count(reader, TRL_NAME_LEAST_BYTES, &count)) {
         return false;
     }
-    out->supertypes = trl_reader_alloc(reader, count, sizeof(trl_name));
-    if (out->supertypes == NULL) {
-        return false;
-    }
+    uint32_t room = 0U;
+    out->supertypes = trl_reader_items(reader, count, sizeof(trl_name), &room);
     out->supertype_count = count;
-    for (uint32_t i = 0U; i < count; ++i) {
-        if (!read_name(reader, &out->supertypes[i])) {
+    for (uint32_t i = 0U; out->supertypes != NULL && i < count; ++i) {
+        out->supertypes = trl_reader_room(reader, out->supertypes, &room, i, sizeof(trl_name));
+        if (out->supertypes == NULL || !read_name(reader, &out->supertypes[i])) {
             return false;
         }
     }
-    return true;
+    return out->supertypes != NULL;
 }
 
 /* Reads an optional part of an XML schema's name: 0 none, 1 a string. */
@@ -85,14 +84,23 @@ static bool read_xml(trl_reader *reader, trl_xml_type *out) {
            read_optional(reader, &out->has_element, &out->element);
 }
 
-/* Reads an interval's qualifier; its fields are 0 to 5. */
+/* Reads an interval's qualifier; its fields are 0 to 5. Its precisions
+   are taken as turborel's qualifier takes them: the leading at most 9,
+   the fraction at most 6, and none of a qualifier not ending in SECOND. */
 static bool read_qualifier(trl_reader *reader, trl_interval_qualifier *out) {
     if (!trl_read_u32(reader, &out->start) || !trl_read_u32(reader, &out->end) ||
         !trl_read_u32(reader, &out->leading) || !trl_read_u32(reader, &out->fraction)) {
         return false;
     }
-    return (out->start <= TRL_FIELD_SECOND && out->end <= TRL_FIELD_SECOND) ||
-           trl_reader_fail(reader, "an interval's field is out of range");
+    if (out->start > TRL_FIELD_SECOND || out->end > TRL_FIELD_SECOND) {
+        return trl_reader_fail(reader, "an interval's field is out of range");
+    }
+    out->leading = out->leading < TRL_MAX_LEADING_PRECISION ? out->leading : TRL_MAX_LEADING_PRECISION;
+    out->fraction = out->fraction < TRL_MAX_FRACTION_PRECISION ? out->fraction : TRL_MAX_FRACTION_PRECISION;
+    if (out->end != TRL_FIELD_SECOND) {
+        out->fraction = 0U;
+    }
+    return true;
 }
 
 /* Reads a plug-in's type: its name and at most two parameters. */
@@ -108,6 +116,10 @@ static bool read_plugin(trl_reader *reader, trl_data_type *out) {
     for (uint32_t i = 0U; i < count; ++i) {
         if (!trl_read_u32(reader, &out->as.plugin.params[i])) {
             return false;
+        }
+        /* u32's most marks a parameter absent, so none is one. */
+        if (out->as.plugin.params[i] == UINT32_MAX) {
+            return trl_reader_fail(reader, "a type's parameter is u32's most, which marks none");
         }
     }
     return true;
@@ -131,12 +143,14 @@ static bool read_row(trl_reader *reader, trl_data_type *out) {
     if (count == 0U) {
         return trl_reader_fail(reader, "a row type has no fields");
     }
-    out->as.row.fields = trl_reader_alloc(reader, count, sizeof(trl_row_field));
-    if (out->as.row.fields == NULL) {
-        return false;
-    }
+    uint32_t room = 0U;
+    out->as.row.fields = trl_reader_items(reader, count, sizeof(trl_row_field), &room);
     out->as.row.count = count;
     for (uint32_t i = 0U; i < count; ++i) {
+        out->as.row.fields = trl_reader_room(reader, out->as.row.fields, &room, i, sizeof(trl_row_field));
+        if (out->as.row.fields == NULL) {
+            return false;
+        }
         trl_row_field *field = &out->as.row.fields[i];
         if (!trl_read_string(reader, &field->name)) {
             return false;

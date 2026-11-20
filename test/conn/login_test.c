@@ -29,11 +29,47 @@ static void trusting(script *s, uint8_t kind, trl_slice body) {
     }
 }
 
+/* A server trusting the user and granting a name the protocol does not
+   have, and others twice and out of order. */
+static void granting_oddly(script *s, uint8_t kind, trl_slice body) {
+    (void)body;
+    static const char *const granted[] = {
+        TRL_CAPABILITY_PING,
+        "teleport",
+        TRL_CAPABILITY_STATUS,
+        TRL_CAPABILITY_PING,
+    };
+    if (kind == TRL_KIND_HELLO) {
+        script_ready(s, "ANN", granted, 4U);
+    }
+}
+
+/**
+ * Verifies: [PROTOCOL Capabilities] what Ready grants is kept as
+ * turborel-client keeps it: each capability of the protocol's once, in
+ * its table's order, a name it does not have passed over.
+ */
+static void granted_capabilities_are_the_known(trl_test *test) {
+    script s;
+    script_init(&s, granting_oddly, NULL);
+    trl_mechanism *trust = NULL;
+    (void)trl_mechanism_trust(&trust);
+    trl_conn *conn = NULL;
+    TRL_CHECK(test, script_connect(&s, trust, NULL, &conn) == TRL_OK);
+    TRL_CHECK(test, trl_conn_granted_count(conn) == 2U && !trl_conn_granted(conn, "teleport"));
+    TRL_CHECK(test, strcmp(trl_conn_granted_at(conn, 0U), TRL_CAPABILITY_STATUS) == 0);
+    TRL_CHECK(test, strcmp(trl_conn_granted_at(conn, 1U), TRL_CAPABILITY_PING) == 0);
+    trl_conn_free(conn);
+    trl_mechanism_free(trust);
+    script_free(&s);
+}
+
 /**
  * Verifies: [PROTOCOL Opening a connection] Hello is the first message,
  * of version 1, the user, the mechanism and every capability but
- * compression; each Status before Ready is kept, and Ready gives the
- * authorization identifier, the server's product and what was granted.
+ * compression, by the names [PROTOCOL Capabilities] gives them; each
+ * Status before Ready is kept, and Ready gives the authorization
+ * identifier, the server's product and what was granted.
  */
 static void a_trusted_login_keeps_what_ready_told(trl_test *test) {
     script s;
@@ -246,11 +282,9 @@ static void null_arguments_are_refused(trl_test *test) {
 
 int main(int argc, char **argv) {
     static const trl_test_case cases[] = {
-        TRL_TEST_CASE(a_trusted_login_keeps_what_ready_told),
-        TRL_TEST_CASE(a_refusal_or_a_reply_out_of_turn_fails),
-        TRL_TEST_CASE(scram_logs_in_and_keeps_its_keys),
-        TRL_TEST_CASE(scram_is_refused_unless_the_server_proves),
-        TRL_TEST_CASE(null_arguments_are_refused),
+        TRL_TEST_CASE(a_trusted_login_keeps_what_ready_told),     TRL_TEST_CASE(granted_capabilities_are_the_known),
+        TRL_TEST_CASE(a_refusal_or_a_reply_out_of_turn_fails),    TRL_TEST_CASE(scram_logs_in_and_keeps_its_keys),
+        TRL_TEST_CASE(scram_is_refused_unless_the_server_proves), TRL_TEST_CASE(null_arguments_are_refused),
     };
     return trl_test_main(argc, argv, cases, TRL_TEST_COUNT(cases));
 }
