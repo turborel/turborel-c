@@ -204,7 +204,7 @@ static void an_offer_of_the_programs_own(trl_test *test) {
     serving plan = {AFTER_PONG, false};
     script s;
     trl_conn *conn = connected(&s, &plan, options);
-    TRL_CHECK(test, asked_count(&s) == 17U);
+    TRL_CHECK(test, asked_count(&s) == 18U);
     trl_conn_free(conn);
     script_free(&s);
     TRL_CHECK(test, trl_conn_options_ask_none(options) == TRL_OK);

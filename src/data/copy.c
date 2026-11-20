@@ -175,7 +175,9 @@ trl_column *trl_columns_copy(trl_arena *arena, const trl_column *from, uint32_t 
     trl_column *copies = trl_arena_alloc(arena, count == 0U ? 1U : count, sizeof *copies);
     for (uint32_t i = 0U; copies != NULL && i < count; ++i) {
         copies[i] = from[i];
-        if (!copy_slice(arena, &copies[i].name) || !trl_type_copy(arena, &from[i].type, &copies[i].type, 0U)) {
+        if (!copy_slice(arena, &copies[i].name) || !copy_slice(arena, &copies[i].declared_name) ||
+            !copy_slice(arena, &copies[i].declared_written) ||
+            !trl_type_copy(arena, &from[i].type, &copies[i].type, 0U)) {
             return NULL;
         }
     }

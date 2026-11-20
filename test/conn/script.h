@@ -100,6 +100,13 @@ void script_prepared(script *s, uint32_t number, uint32_t parameters, uint32_t c
  */
 void script_complete_tails(script *s);
 
+/**
+ * @brief Writes a Description, or a Prepared of no parameter if `kind` is
+ * 'P', of two columns of tag 2, their declared types in tail 19: INTEGER,
+ * and S.MONEY, a distinct type.
+ */
+void script_declared(script *s, uint8_t kind);
+
 /** @brief Writes a Lob reply of `length` bytes of data. */
 void script_lob_data(script *s, const uint8_t *bytes, size_t length);
 

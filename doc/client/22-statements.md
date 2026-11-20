@@ -19,7 +19,8 @@ change-user and query attributes. The User's Guide's
 
 `trl_query`, `trl_query_batches`, `trl_result_has_rows`,
 `trl_result_column_count`, `trl_result_column_name`,
-`trl_result_column_type`, `trl_result_row_count`, `trl_result_value`,
+`trl_result_column_type`, `trl_result_column_type_name`,
+`trl_result_column_type_written`, `trl_result_row_count`, `trl_result_value`,
 `trl_result_more`, `trl_result_sqlcode`, `trl_result_sqlstate`,
 `trl_result_free`: a statement run, and what it gave.
 
@@ -37,6 +38,8 @@ bool trl_result_has_rows(const trl_result *result);
 size_t trl_result_column_count(const trl_result *result);
 const char *trl_result_column_name(const trl_result *result, size_t column);
 const trl_data_type *trl_result_column_type(const trl_result *result, size_t column);
+const char *trl_result_column_type_name(const trl_result *result, size_t column);
+const char *trl_result_column_type_written(const trl_result *result, size_t column);
 size_t trl_result_row_count(const trl_result *result);
 const trl_value *trl_result_value(const trl_result *result, size_t row, size_t column);
 bool trl_result_more(const trl_result *result);
@@ -62,8 +65,17 @@ no rows [CLIENT Running statements].
 
 `trl_result_has_rows` says whether the statement was a query.
 `trl_result_column_name` gives a column's name, or null of one the query
-did not name. Rows and columns are counted from 0; a place past the last
-gives null. `trl_result_more` says whether a cursor's batch left rows to
+did not name. `trl_result_column_type` gives a column's type, by which
+its values are read. With `declared-types` granted, which a connection
+asks for, the server tells the type each column was declared with
+[PROTOCOL Declared types]: `trl_result_column_type_name` gives its name
+as the Information Schema's DATA_TYPE gives it, as INTEGER, FLOAT or
+USER-DEFINED, null where the server did not tell it;
+`trl_result_column_type_written` gives the type as SQL writes it, as
+declared where told, as INTEGER or ANN.MONEY, else as the type's tag and
+sizes say, as `trl_type_to_text` writes it, so INTEGER is NUMERIC(10,0)
+[CLIENT Prepared statements]. Rows and columns are counted from 0; a
+place past the last gives null. `trl_result_more` says whether a cursor's batch left rows to
 fetch.
 
 ### ERRORS
@@ -85,6 +97,7 @@ sent no result", "the server broke off its rows") or a malformed one.
 `trl_prepare`, `trl_statement_parameter_count`,
 `trl_statement_parameter_type`, `trl_statement_column_count`,
 `trl_statement_column_name`, `trl_statement_column_type`,
+`trl_statement_column_type_name`, `trl_statement_column_type_written`,
 `trl_execute`, `trl_describe`, `trl_deallocate`, `trl_statement_free`:
 a statement prepared once and run many times.
 
@@ -97,6 +110,8 @@ const trl_data_type *trl_statement_parameter_type(const trl_statement *statement
 size_t trl_statement_column_count(const trl_statement *statement);
 const char *trl_statement_column_name(const trl_statement *statement, size_t column);
 const trl_data_type *trl_statement_column_type(const trl_statement *statement, size_t column);
+const char *trl_statement_column_type_name(const trl_statement *statement, size_t column);
+const char *trl_statement_column_type_written(const trl_statement *statement, size_t column);
 trl_status trl_execute(trl_conn *conn, const trl_statement *statement, const trl_params *params,
                        trl_result **out);
 trl_status trl_describe(trl_conn *conn, const trl_statement *statement, trl_statement **out);
@@ -113,7 +128,9 @@ a statement's inputs alone, and its columns
 [PROTOCOL Prepare 'P'] [PROTOCOL Prepared 'P']. A CALL's columns are one
 for each `?` of an OUT or INOUT parameter, in the procedure's parameter
 order, named and typed as each; an INOUT `?` is both a parameter and a
-column.
+column. `trl_statement_column_type_name` and
+`trl_statement_column_type_written` give a column's declared type as
+their `trl_result_` likes do.
 
 `trl_execute` sends Execute, cursor 0, with `params`, null for none, its
 `ends` set under autocommit, and reads its replies as `trl_query` does,

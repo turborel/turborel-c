@@ -13,6 +13,7 @@
 #include "codec/requests.h"
 #include "conn/conn.h"
 #include "data/params.h"
+#include "data/text.h"
 #include "failure.h"
 #include "format.h"
 #include "memory.h"
@@ -38,27 +39,66 @@ trl_result *trl_result_make(void) {
     return result;
 }
 
+/* `text` ended by a null, in the result's arena; null if memory cannot be had. */
+static char *ended(trl_result *result, const uint8_t *text, size_t length) {
+    char *copy = trl_arena_alloc(&result->arena, length + 1U, 1U);
+    if (copy != NULL && length > 0U) {
+        memcpy(copy, text, length);
+    }
+    if (copy != NULL) {
+        copy[length] = '\0';
+    }
+    return copy;
+}
+
+/* A list of `count` strings, each null, in the result's arena. */
+static char **strings(trl_result *result, uint32_t count) {
+    char **list = (char **)trl_arena_alloc(&result->arena, count == 0U ? 1U : count, sizeof(char *));
+    for (uint32_t i = 0U; list != NULL && i < count; ++i) {
+        list[i] = NULL;
+    }
+    return list;
+}
+
+/* Keeps column `i`'s declared type, its name and as it is written, or,
+   not told, its type as its tag writes it. */
+static bool declared(trl_result *result, const trl_column *column, uint32_t i) {
+    if (column->declared) {
+        result->type_names[i] = ended(result, column->declared_name.bytes, column->declared_name.length);
+        result->written[i] = ended(result, column->declared_written.bytes, column->declared_written.length);
+        return result->type_names[i] != NULL && result->written[i] != NULL;
+    }
+    trl_buffer text;
+    trl_buffer_init(&text);
+    trl_type_put_text(&text, &column->type);
+    result->written[i] = text.state == TRL_BUFFER_OK ? ended(result, text.data, text.length) : NULL;
+    trl_buffer_free(&text);
+    return result->written[i] != NULL;
+}
+
 bool trl_result_take_columns(trl_result *result, const trl_column *columns, uint32_t count) {
     result->has_rows = true;
     result->columns = columns;
     result->column_count = count;
-    result->names = (char **)trl_arena_alloc(&result->arena, count == 0U ? 1U : count, sizeof(char *));
-    for (uint32_t i = 0U; result->names != NULL && i < count; ++i) {
-        result->names[i] = NULL;
-        if (!columns[i].named) {
-            continue;
+    result->names = strings(result, count);
+    result->type_names = strings(result, count);
+    result->written = strings(result, count);
+    if (result->names == NULL || result->type_names == NULL || result->written == NULL) {
+        return false;
+    }
+    for (uint32_t i = 0U; i < count; ++i) {
+        const trl_column *column = &columns[i];
+        if (column->named) {
+            result->names[i] = ended(result, column->name.bytes, column->name.length);
+            if (result->names[i] == NULL) {
+                return false;
+            }
         }
-        char *name = trl_arena_alloc(&result->arena, columns[i].name.length + 1U, 1U);
-        if (name == NULL) {
+        if (!declared(result, column, i)) {
             return false;
         }
-        if (columns[i].name.length > 0U) {
-            memcpy(name, columns[i].name.bytes, columns[i].name.length);
-        }
-        name[columns[i].name.length] = '\0';
-        result->names[i] = name;
     }
-    return result->names != NULL;
+    return true;
 }
 
 bool trl_result_set_columns(trl_result *result, const trl_column *columns, uint32_t count) {
@@ -145,6 +185,14 @@ const char *trl_result_column_name(const trl_result *result, size_t column) {
 
 const trl_data_type *trl_result_column_type(const trl_result *result, size_t column) {
     return result == NULL || column >= result->column_count ? NULL : &result->columns[column].type;
+}
+
+const char *trl_result_column_type_name(const trl_result *result, size_t column) {
+    return result == NULL || column >= result->column_count ? NULL : result->type_names[column];
+}
+
+const char *trl_result_column_type_written(const trl_result *result, size_t column) {
+    return result == NULL || column >= result->column_count ? NULL : result->written[column];
 }
 
 size_t trl_result_row_count(const trl_result *result) {

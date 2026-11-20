@@ -346,6 +346,24 @@ TRL_API uint32_t trl_type_precision(const trl_data_type *type);
  */
 TRL_API uint32_t trl_type_scale(const trl_data_type *type);
 
+/**
+ * @brief Writes a data type as SQL writes it, as turborel's own client
+ * displays a type read from the protocol: by its tag and what follows,
+ * so an exact numeric type is NUMERIC(10,0) however it was declared, an
+ * approximate one FLOAT(53), a distinct type its source type
+ * [PROTOCOL Data types]. A column's declared type, where the server tells
+ * it, is trl_result_column_type_written()'s.
+ *
+ * @param type The type.
+ * @param out Where the text goes, ended by a null, cut short to fit; may
+ * be null if `capacity` is 0.
+ * @param capacity The bytes `out` holds.
+ * @param length Where the bytes of the whole text go, its null not
+ * counted; may be null.
+ * @return TRL_OK; TRL_INVALID_ARGUMENT of a null type; TRL_NO_MEMORY.
+ */
+TRL_API trl_status trl_type_to_text(const trl_data_type *type, char *out, size_t capacity, size_t *length);
+
 /** @brief Values sent as a prepared statement's parameters, in order. */
 typedef struct trl_params trl_params;
 

@@ -80,6 +80,8 @@ extern "C" {
 #define TRL_CAPABILITY_FETCH_ENDS "fetch-ends"
 /** @brief The capability of a statement's conditions in its completion. */
 #define TRL_CAPABILITY_CONDITIONS "conditions"
+/** @brief The capability of each column's declared type in a Prepared and a Description. */
+#define TRL_CAPABILITY_DECLARED_TYPES "declared-types"
 
 /**
  * @brief TLS settings: the certificate authorities trusted, and the

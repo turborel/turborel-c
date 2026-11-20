@@ -283,6 +283,31 @@ void script_complete_tails(script *s) {
     trl_buffer_free(&body);
 }
 
+void script_declared(script *s, uint8_t kind) {
+    static const char *const told[] = {"INTEGER", "INTEGER", "USER-DEFINED", "S.MONEY"};
+    trl_buffer body;
+    trl_buffer_init(&body);
+    if (kind == TRL_KIND_PREPARED) {
+        trl_put_u32(&body, 0U);
+        trl_put_u32(&body, 0U);
+    }
+    trl_put_u32(&body, 2U);
+    for (uint32_t i = 0U; i < 2U; ++i) {
+        trl_put_flag(&body, false);
+        trl_put_u8(&body, TRL_TAG_EXACT);
+        trl_put_u32(&body, i == 0U ? 10U : 9U);
+        trl_put_u32(&body, i == 0U ? 0U : 2U);
+        trl_put_flag(&body, false);
+    }
+    trl_put_u8(&body, TRL_TAIL_DECLARED);
+    trl_put_u32(&body, 2U);
+    for (size_t i = 0U; i < sizeof told / sizeof told[0]; ++i) {
+        script_put_string(&body, told[i]);
+    }
+    script_reply(s, kind, &body);
+    trl_buffer_free(&body);
+}
+
 void script_lob_data(script *s, const uint8_t *bytes, size_t length) {
     trl_buffer body;
     trl_buffer_init(&body);

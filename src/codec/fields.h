@@ -35,6 +35,12 @@ typedef struct trl_column {
     trl_data_type type;
     /** @brief Whether it is constrained NOT NULL. */
     bool not_null;
+    /** @brief Whether the server told the type it was declared with, tail 19 [PROTOCOL Declared types]. */
+    bool declared;
+    /** @brief That type's name, as the Information Schema's DATA_TYPE gives it. */
+    trl_slice declared_name;
+    /** @brief That type, as SQL writes it. */
+    trl_slice declared_written;
 } trl_column;
 
 /** @brief A dynamic parameter: whether CHARACTER VARYING of the longest length, and its type. */

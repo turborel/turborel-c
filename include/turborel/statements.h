@@ -104,6 +104,30 @@ TRL_API const char *trl_result_column_name(const trl_result *result, size_t colu
 TRL_API const trl_data_type *trl_result_column_type(const trl_result *result, size_t column);
 
 /**
+ * @brief The name of the type a column was declared with, as the
+ * Information Schema's DATA_TYPE gives it, as INTEGER, DOUBLE PRECISION,
+ * or USER-DEFINED of a distinct type; told with `declared-types` granted
+ * [PROTOCOL Declared types].
+ *
+ * @param result The result.
+ * @param column Which, from 0.
+ * @return The name, UTF-8, borrowed; null if the server did not tell it,
+ * or past the last column.
+ */
+TRL_API const char *trl_result_column_type_name(const trl_result *result, size_t column);
+
+/**
+ * @brief A column's type as SQL writes it: as it was declared, as INTEGER
+ * or S.MONEY, where the server told it; else as its tag and what follows
+ * say, as trl_type_to_text() writes it, so INTEGER is NUMERIC(10,0).
+ *
+ * @param result The result.
+ * @param column Which, from 0.
+ * @return The type, UTF-8, borrowed; null past the last column.
+ */
+TRL_API const char *trl_result_column_type_written(const trl_result *result, size_t column);
+
+/**
  * @brief How many rows the result holds.
  *
  * @param result The result; null gives 0.
@@ -214,6 +238,26 @@ TRL_API const char *trl_statement_column_name(const trl_statement *statement, si
  * @return Its type, borrowed; null past the last.
  */
 TRL_API const trl_data_type *trl_statement_column_type(const trl_statement *statement, size_t column);
+
+/**
+ * @brief The name of the type a column was declared with, as
+ * trl_result_column_type_name() gives it.
+ *
+ * @param statement The statement.
+ * @param column Which, from 0.
+ * @return The name, borrowed; null if not told, or past the last column.
+ */
+TRL_API const char *trl_statement_column_type_name(const trl_statement *statement, size_t column);
+
+/**
+ * @brief A column's type as SQL writes it, as
+ * trl_result_column_type_written() gives it.
+ *
+ * @param statement The statement.
+ * @param column Which, from 0.
+ * @return The type, borrowed; null past the last column.
+ */
+TRL_API const char *trl_statement_column_type_written(const trl_statement *statement, size_t column);
 
 /**
  * @brief Executes a prepared statement with values, as many times as wanted

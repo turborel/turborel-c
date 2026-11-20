@@ -30,6 +30,10 @@ struct trl_result {
     uint32_t column_count;
     /** @brief Their names, null-ended, null of one unnamed. */
     char **names;
+    /** @brief Their declared types' names, null of one not told. */
+    char **type_names;
+    /** @brief Their types as SQL writes them: as declared, if told, else as their tags write them. */
+    char **written;
     /** @brief Its rows. */
     trl_row *rows;
     /** @brief How many. */

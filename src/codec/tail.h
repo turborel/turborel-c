@@ -35,6 +35,8 @@
 #define TRL_TAIL_CONDITIONS 17U
 /** @brief Tag 18: time, of Complete. */
 #define TRL_TAIL_TIME 18U
+/** @brief Tag 19: declared, of Prepared and Description. */
+#define TRL_TAIL_DECLARED 19U
 
 /** @brief The most attributes a message takes [PROTOCOL The tail]. */
 #define TRL_MAX_ATTRIBUTES 32U

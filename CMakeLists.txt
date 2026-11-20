@@ -81,6 +81,7 @@ add_library(
   src/data/copy.c
   src/data/params.c
   src/data/text.c
+  src/data/type_text.c
   src/data/values.c
   src/data/xml_lex.c
   src/data/xml_parse.c

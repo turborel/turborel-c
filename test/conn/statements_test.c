@@ -303,12 +303,47 @@ static void null_arguments_are_refused(trl_test *test) {
     trl_statement_free(NULL);
 }
 
+/**
+ * Verifies: [PROTOCOL Declared types] each column's declared type, of a
+ * Prepared and of a Description, its name and as SQL writes it; a column
+ * not told it has no name, and is written as its tag writes it, so an
+ * exact numeric type is NUMERIC(p,s) [CLIENT Running statements].
+ */
+static void declared_types_are_given(trl_test *test) {
+    serving plan = {PLAN_DECLARED, true};
+    script s;
+    trl_conn *conn = serving_connect(&s, &plan);
+    trl_statement *statement = NULL;
+    TRL_CHECK(test, trl_prepare(conn, "S", &statement) == TRL_OK && trl_statement_column_count(statement) == 2U);
+    TRL_CHECK(test, strcmp(trl_statement_column_type_name(statement, 0U), "INTEGER") == 0);
+    TRL_CHECK(test, strcmp(trl_statement_column_type_written(statement, 1U), "S.MONEY") == 0);
+    TRL_CHECK(test, trl_statement_column_type_name(statement, 2U) == NULL);
+    TRL_CHECK(test, trl_statement_column_type_written(NULL, 0U) == NULL);
+    trl_statement_free(statement);
+    plan.plan = PLAN_DECLARED_ROWS;
+    trl_result *result = NULL;
+    TRL_CHECK(test, trl_query(conn, "SELECT", &result) == TRL_OK);
+    TRL_CHECK(test, strcmp(trl_result_column_type_name(result, 1U), "USER-DEFINED") == 0);
+    TRL_CHECK(test, strcmp(trl_result_column_type_written(result, 0U), "INTEGER") == 0);
+    TRL_CHECK(test,
+              trl_result_column_type_written(result, 2U) == NULL && trl_result_column_type_name(NULL, 0U) == NULL);
+    trl_result_free(result);
+    plan.plan = PLAN_PREPARED;
+    TRL_CHECK(test, trl_prepare(conn, "S", &statement) == TRL_OK);
+    TRL_CHECK(test, trl_statement_column_type_name(statement, 0U) == NULL);
+    TRL_CHECK(test, strcmp(trl_statement_column_type_written(statement, 0U), "CHARACTER VARYING(20)") == 0);
+    trl_statement_free(statement);
+    trl_conn_free(conn);
+    script_free(&s);
+}
+
 int main(int argc, char **argv) {
     static const trl_test_case cases[] = {
         TRL_TEST_CASE(a_query_is_read_or_refused),      TRL_TEST_CASE(a_completion_tells_its_tails),
         TRL_TEST_CASE(the_last_notices_are_kept),       TRL_TEST_CASE(several_statements_stop_at_a_failure),
         TRL_TEST_CASE(methods_need_their_capabilities), TRL_TEST_CASE(prepared_statements_at_their_edges),
         TRL_TEST_CASE(null_arguments_are_refused),      TRL_TEST_CASE(completions_and_batches_at_their_edges),
+        TRL_TEST_CASE(declared_types_are_given),
     };
     return trl_test_main(argc, argv, cases, TRL_TEST_COUNT(cases));
 }

@@ -2,8 +2,8 @@
  * @file bulk_faults_test.c
  * @brief Memory not had in bulk work (RULES.md R-MEM-2): a copy, an
  * import by INSERT and by copy, an export as CSV and as native frames
- * read back, delimited text read, a large object written, and values
- * written as text, each allocation failing in turn, never crashing
+ * read back, delimited text read, a large object written, and values and
+ * types written as text, each allocation failing in turn, never crashing
  * or leaking. Built with TRL_FAULTS alone.
  */
 #include "bulk_serving.h"
@@ -149,7 +149,7 @@ static bool written(trl_conn *conn) {
     return fine;
 }
 
-/* Values of composite kinds written as text. */
+/* Values of composite kinds, and a type, written as text. */
 static bool as_text(void) {
     trl_value parts[2];
     memset(parts, 0, sizeof parts);
@@ -166,7 +166,11 @@ static bool as_text(void) {
     row.as.list.count = 2U;
     char text[128];
     trl_status shown = trl_value_to_text(&row, text, sizeof text, NULL);
-    return shown == TRL_OK || shown == TRL_NO_MEMORY;
+    trl_data_type type;
+    memset(&type, 0, sizeof type);
+    type.tag = TRL_TAG_INTERVAL;
+    trl_status typed = trl_type_to_text(&type, text, sizeof text, NULL);
+    return (shown == TRL_OK || shown == TRL_NO_MEMORY) && (typed == TRL_OK || typed == TRL_NO_MEMORY);
 }
 
 /* A session of bulk work over a server granting `copy`. */
@@ -190,9 +194,9 @@ static bool bulk_session(void) {
 /**
  * Verifies: [TOOL] R-MEM-2 every allocation of a copy, an import by
  * INSERT and by copy, an export as CSV and as native frames read back,
- * a large object written, and values written as text failing in turn
- * fails the call as memory not had, or the connection lost, and leaks
- * nothing.
+ * a large object written, and values and types written as text failing
+ * in turn fails the call as memory not had, or the connection lost, and
+ * leaks nothing.
  */
 static void bulk_work_survives_each_fault(trl_test *test) {
     TRL_CHECK(test, every_fault(bulk_session));

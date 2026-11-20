@@ -90,6 +90,11 @@ static bool answer_statement(script *s, reply_plan wanted) {
         script_bare(s, TRL_KIND_SUSPENDED);
     } else if (wanted == PLAN_DESCRIBED) {
         script_description(s, 1U);
+    } else if (wanted == PLAN_DECLARED) {
+        script_declared(s, TRL_KIND_PREPARED);
+    } else if (wanted == PLAN_DECLARED_ROWS) {
+        script_declared(s, TRL_KIND_DESCRIPTION);
+        script_complete(s, 0, "00000", false, false);
     } else {
         return false;
     }

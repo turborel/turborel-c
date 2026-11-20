@@ -371,6 +371,53 @@ static void a_cut_parameter_warns(trl_test *test) {
     trl_conn_free(conn);
 }
 
+/* Whether column `column` of `result` was declared as `name`, written as `written`. */
+static bool declared_as(const trl_result *result, size_t column, const char *name, const char *written) {
+    const char *told = trl_result_column_type_name(result, column);
+    const char *as = trl_result_column_type_written(result, column);
+    bool same = told != NULL && as != NULL && strcmp(told, name) == 0 && strcmp(as, written) == 0;
+    if (!same) {
+        (void)fprintf(stderr, "column %zu: %s, %s\n", column, told == NULL ? "(none)" : told, as == NULL ? "" : as);
+    }
+    return same;
+}
+
+/**
+ * Verifies: [PROTOCOL Declared types] granted `declared-types`, which a
+ * connection asks for, each column's declared type as the page's table
+ * gives it, its values read by their tags; not asked, none, the type
+ * written as its tag writes it [CLIENT Prepared statements].
+ */
+static void declared_types_are_told(trl_test *test) {
+    trl_conn *conn = live_trusted(NULL);
+    TRL_CHECK(test, trl_conn_granted(conn, TRL_CAPABILITY_DECLARED_TYPES));
+    TRL_CHECK(test, run(conn, "CREATE TYPE MONEY AS DECIMAL(9,2) FINAL"));
+    TRL_CHECK(test, run(conn, "CREATE TABLE KINDS (A SMALLINT, B INTEGER, C BIGINT, D DECIMAL(9,2), E NUMERIC(5), "
+                              "F REAL, G DOUBLE PRECISION, H FLOAT(20), I MONEY, J INTEGER ARRAY[3])"));
+    trl_result *result = NULL;
+    TRL_CHECK(test, trl_query(conn, "SELECT * FROM KINDS", &result) == TRL_OK);
+    TRL_CHECK(test, declared_as(result, 0U, "SMALLINT", "SMALLINT") && declared_as(result, 1U, "INTEGER", "INTEGER"));
+    TRL_CHECK(test, declared_as(result, 2U, "BIGINT", "BIGINT") && declared_as(result, 3U, "DECIMAL", "DECIMAL(9,2)"));
+    TRL_CHECK(test, declared_as(result, 4U, "NUMERIC", "NUMERIC(5,0)") && declared_as(result, 5U, "REAL", "REAL"));
+    TRL_CHECK(test, declared_as(result, 6U, "DOUBLE PRECISION", "DOUBLE PRECISION"));
+    TRL_CHECK(test,
+              declared_as(result, 7U, "FLOAT", "FLOAT(24)") && declared_as(result, 8U, "USER-DEFINED", "ANN.MONEY"));
+    TRL_CHECK(test, declared_as(result, 9U, "ARRAY", "INTEGER ARRAY[3]"));
+    TRL_CHECK(test, trl_type_kind(trl_result_column_type(result, 1U)) == TRL_KIND_EXACT && run(conn, "COMMIT"));
+    trl_result_free(result);
+    trl_conn_free(conn);
+    trl_conn_options *options = NULL;
+    TRL_CHECK(test, trl_conn_options_new(&options) == TRL_OK && trl_conn_options_ask_none(options) == TRL_OK);
+    conn = live_trusted(options);
+    TRL_CHECK(test, trl_query(conn, "SELECT * FROM KINDS", &result) == TRL_OK);
+    TRL_CHECK(test, trl_result_column_type_name(result, 1U) == NULL);
+    const char *written = trl_result_column_type_written(result, 1U);
+    TRL_CHECK(test, written != NULL && strcmp(written, "NUMERIC(10,0)") == 0);
+    trl_result_free(result);
+    trl_conn_free(conn);
+    trl_conn_options_free(options);
+}
+
 int main(int argc, char **argv) {
     char cwd[PATH_BYTES];
     char dir[PATH_BYTES + sizeof "/live-statements"];
@@ -392,6 +439,7 @@ int main(int argc, char **argv) {
         TRL_TEST_CASE(a_prepared_statement_runs_again),   TRL_TEST_CASE(a_cursor_is_read_in_parts),
         TRL_TEST_CASE(numbered_cursors_and_descriptions), TRL_TEST_CASE(a_call_gives_its_output_parameters),
         TRL_TEST_CASE(an_open_cursors_statement_stays),   TRL_TEST_CASE(a_cut_parameter_warns),
+        TRL_TEST_CASE(declared_types_are_told),
     };
     int result = ready ? trl_test_main(argc, argv, cases, TRL_TEST_COUNT(cases)) : EXIT_FAILURE;
     server_stop(&live_server);

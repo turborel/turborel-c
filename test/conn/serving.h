@@ -33,6 +33,8 @@ typedef enum reply_plan {
     PLAN_PREPARED_BARE,
     PLAN_ROWS_THEN_ERROR,
     PLAN_BEHIND,
+    PLAN_DECLARED,
+    PLAN_DECLARED_ROWS,
 } reply_plan;
 
 /** @brief A server's plan, and whether it grants everything. */

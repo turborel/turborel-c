@@ -119,6 +119,46 @@ ADDED   kind 11 length 0 precision 3 scale 0
 100 02000
 ```
 
+## Declared types
+
+A type's kind can stand for several declared types: SMALLINT, INTEGER,
+DECIMAL and NUMERIC are all exact, INTEGER of precision 10 and scale 0;
+REAL, DOUBLE PRECISION and FLOAT are all approximate; a distinct type
+is its source type. A connection asks for the capability
+`declared-types`, as it asks for every capability but compression, and
+the server then tells each column's declared type:
+`trl_result_column_type_name` gives its name as the Information
+Schema's DATA_TYPE gives it, and `trl_result_column_type_written` the
+whole type as SQL writes it. Where the server did not tell it, the name
+is null, and the type is written as its kind and sizes say, as
+`trl_type_to_text` writes a type, so INTEGER is NUMERIC(10,0)
+[PROTOCOL Declared types]:
+
+```c
+trl_result *result = NULL;
+run(conn, "CREATE TYPE MONEY AS DECIMAL(9,2) FINAL");
+run(conn, "CREATE TABLE STOCK (N INTEGER, SMALL SMALLINT, COST MONEY, RATIO FLOAT(20), BINS INTEGER ARRAY[3])");
+if (trl_query(conn, "SELECT N, SMALL, COST, RATIO, BINS, N + 1 FROM STOCK", &result) == TRL_OK) {
+    for (size_t column = 0; column < trl_result_column_count(result); ++column) {
+        const char *name = trl_result_column_type_name(result, column);
+        char tag[64];
+        trl_type_to_text(trl_result_column_type(result, column), tag, sizeof tag, NULL);
+        printf("%-12s %-18s %s\n", name == NULL ? "(none)" : name, trl_result_column_type_written(result, column),
+               tag);
+    }
+}
+trl_result_free(result);
+```
+
+```
+INTEGER      INTEGER            NUMERIC(10,0)
+SMALLINT     SMALLINT           NUMERIC(5,0)
+USER-DEFINED ANN.MONEY          NUMERIC(9,2)
+FLOAT        FLOAT(24)          FLOAT(24)
+ARRAY        INTEGER ARRAY[3]   NUMERIC(10,0) ARRAY[3]
+NUMERIC      NUMERIC(18,0)      NUMERIC(18,0)
+```
+
 ## Values
 
 A value is read by its kind, `trl_value_kind`, through the function of

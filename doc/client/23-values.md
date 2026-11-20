@@ -231,8 +231,8 @@ as text.
 ### NAME
 
 `trl_data_type`, `trl_type_kind`, `trl_type_length`,
-`trl_type_precision`, `trl_type_scale`: a column's or a parameter's
-type.
+`trl_type_precision`, `trl_type_scale`, `trl_type_to_text`: a column's
+or a parameter's type.
 
 ### SYNOPSIS
 
@@ -241,6 +241,7 @@ trl_kind trl_type_kind(const trl_data_type *type);
 uint64_t trl_type_length(const trl_data_type *type);
 uint32_t trl_type_precision(const trl_data_type *type);
 uint32_t trl_type_scale(const trl_data_type *type);
+trl_status trl_type_to_text(const trl_data_type *type, char *out, size_t capacity, size_t *length);
 ```
 
 ### DESCRIPTION
@@ -252,9 +253,24 @@ an exact, approximate, datetime or DECFLOAT type's precision; and
 `trl_type_scale` an exact type's scale; each gives 0 of a type that has
 none.
 
+`trl_type_to_text` writes a type as SQL writes it, as Turborel's own
+client writes a type read from the protocol: by its tag and sizes, an
+exact type NUMERIC(p,s) however it was declared, an approximate one
+FLOAT(p), a string type with its length, OCTETS after that of a
+character type counted in octets, an interval with its qualifier, an
+array, multiset or row of its elements' or fields' types, a structured
+type by its schema and name, a distinct type, which is sent as its
+source type, as that type, a type of a plug-in UNREGISTERED
+[PROTOCOL Data types]. The text is ended by a null and cut short to fit
+`capacity`; `length`, if not null, gets the whole text's bytes. A
+column's declared type, where the server tells it, is
+`trl_result_column_type_written`'s.
+
 ### ERRORS
 
-None: each gives 0 of a null type.
+None of the sizes: each gives 0 of a null type. `trl_type_to_text`
+gives `TRL_INVALID_ARGUMENT` of a null type, or of a null `out` with
+`capacity` past 0, and `TRL_NO_MEMORY` if memory could not be had.
 
 ## Parameters
 

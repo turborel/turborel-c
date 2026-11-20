@@ -36,6 +36,7 @@ static const char *const asked_by_default[] = {
     TRL_CAPABILITY_GENERATED_VALUES,
     TRL_CAPABILITY_FETCH_ENDS,
     TRL_CAPABILITY_CONDITIONS,
+    TRL_CAPABILITY_DECLARED_TYPES,
 };
 
 /* A copy of `text`, or null if memory cannot be had. */

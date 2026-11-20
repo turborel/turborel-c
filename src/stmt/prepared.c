@@ -314,6 +314,14 @@ const trl_data_type *trl_statement_column_type(const trl_statement *statement, s
     return statement == NULL ? NULL : trl_result_column_type(statement->columns, column);
 }
 
+const char *trl_statement_column_type_name(const trl_statement *statement, size_t column) {
+    return statement == NULL ? NULL : trl_result_column_type_name(statement->columns, column);
+}
+
+const char *trl_statement_column_type_written(const trl_statement *statement, size_t column) {
+    return statement == NULL ? NULL : trl_result_column_type_written(statement->columns, column);
+}
+
 void trl_statement_free(trl_statement *statement) {
     if (statement == NULL) {
         return;

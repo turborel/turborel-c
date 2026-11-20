@@ -18,6 +18,9 @@ void trl_value_put_text(trl_buffer *out, const trl_value *value);
 /** @brief Appends an interval's qualifier, as "DAY(2) TO SECOND(6)". */
 void trl_value_put_qualifier(trl_buffer *out, const trl_interval_qualifier *qualifier);
 
+/** @brief Appends a data type as SQL writes it, as turborel's `DataType` displays one read from the protocol. */
+void trl_type_put_text(trl_buffer *out, const trl_data_type *type);
+
 /**
  * @brief Gives `text` to a caller's `out` of `capacity` bytes, ended by a
  * null and cut short to fit, its whole length in `length` if not null:

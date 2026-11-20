@@ -304,17 +304,82 @@ static void tails_out_of_place_fail(trl_test *test) {
     fixture_free(&f);
 }
 
+/* Puts an unnamed column of tag 2, precision 10 and scale 0. */
+static void put_exact_column(trl_buffer *b) {
+    trl_put_u8(b, 0U);
+    trl_put_u8(b, TRL_TAG_EXACT);
+    trl_put_u32(b, 10U);
+    trl_put_u32(b, 0U);
+    trl_put_u8(b, 0U);
+}
+
+/* A Description of `columns` exact columns, its tail 19 telling `told`
+   declared types, if `told` is not 0, then `after`, a tag, if not 0. */
+static void put_declared(fixture *f, uint32_t columns, uint32_t told, uint8_t after) {
+    trl_buffer_free(&f->buffer);
+    trl_buffer_init(&f->buffer);
+    trl_put_u32(&f->buffer, columns);
+    for (uint32_t i = 0U; i < columns; ++i) {
+        put_exact_column(&f->buffer);
+    }
+    if (told > 0U) {
+        trl_put_u8(&f->buffer, 19U);
+        trl_put_u32(&f->buffer, told);
+        for (uint32_t i = 0U; i < told; ++i) {
+            trl_put_bytes(&f->buffer, text_of(i == 0U ? "INTEGER" : "NUMERIC"));
+            trl_put_bytes(&f->buffer, text_of(i == 0U ? "INTEGER" : "NUMERIC(10,0)"));
+        }
+    }
+    if (after != 0U) {
+        trl_put_u8(&f->buffer, after);
+    }
+}
+
+/**
+ * Verifies: [PROTOCOL Declared types] a Description or a Prepared may end
+ * with tail 19, of each column its declared type's name and its type as
+ * SQL writes it, one for each column; one of more or fewer, or a tag after
+ * 19, is malformed, the connection lost; without it, a column has none.
+ */
+static void declared_types(trl_test *test) {
+    fixture f;
+    fixture_init(&f);
+    trl_reply reply;
+    put_declared(&f, 2U, 2U, 0U);
+    TRL_CHECK(test, decode_buffer(&f, 'D', &reply) && reply.as.description.count == 2U);
+    const trl_column *first = &reply.as.description.columns[0];
+    const trl_column *second = &reply.as.description.columns[1];
+    TRL_CHECK(test, first->declared && slice_is(first->declared_name, "INTEGER") &&
+                        slice_is(first->declared_written, "INTEGER") && first->type.tag == TRL_TAG_EXACT);
+    TRL_CHECK(test, second->declared && slice_is(second->declared_written, "NUMERIC(10,0)"));
+    put_declared(&f, 2U, 0U, 0U);
+    TRL_CHECK(test, decode_buffer(&f, 'D', &reply) && !reply.as.description.columns[0].declared);
+    put_declared(&f, 2U, 1U, 0U);
+    TRL_CHECK(test, !decode_buffer(&f, 'D', &reply) && failed_connection(&f));
+    put_declared(&f, 1U, 1U, 20U);
+    TRL_CHECK(test, !decode_buffer(&f, 'D', &reply) && failed_connection(&f));
+    trl_buffer_free(&f.buffer);
+    trl_buffer_init(&f.buffer);
+    trl_put_u32(&f.buffer, 7U);
+    trl_put_u32(&f.buffer, 0U);
+    trl_put_u32(&f.buffer, 1U);
+    put_exact_column(&f.buffer);
+    trl_put_u8(&f.buffer, 19U);
+    trl_put_u32(&f.buffer, 1U);
+    trl_put_bytes(&f.buffer, text_of("SMALLINT"));
+    trl_put_bytes(&f.buffer, text_of("SMALLINT"));
+    TRL_CHECK(test, decode_buffer(&f, 'P', &reply) && reply.as.prepared.columns[0].declared &&
+                        slice_is(reply.as.prepared.columns[0].declared_name, "SMALLINT"));
+    fixture_free(&f);
+}
+
 int main(int argc, char **argv) {
     static const trl_test_case cases[] = {
-        TRL_TEST_CASE(the_worked_rows),
-        TRL_TEST_CASE(the_worked_complete),
-        TRL_TEST_CASE(complete_tail),
-        TRL_TEST_CASE(error_carries_its_failure),
-        TRL_TEST_CASE(ready_and_challenge),
-        TRL_TEST_CASE(prepared_and_description),
-        TRL_TEST_CASE(a_value_tag_is_not_its_column_type),
-        TRL_TEST_CASE(later_replies),
-        TRL_TEST_CASE(malformed_replies_fail),
+        TRL_TEST_CASE(the_worked_rows),         TRL_TEST_CASE(the_worked_complete),
+        TRL_TEST_CASE(complete_tail),           TRL_TEST_CASE(error_carries_its_failure),
+        TRL_TEST_CASE(ready_and_challenge),     TRL_TEST_CASE(prepared_and_description),
+        TRL_TEST_CASE(declared_types),          TRL_TEST_CASE(a_value_tag_is_not_its_column_type),
+        TRL_TEST_CASE(later_replies),           TRL_TEST_CASE(malformed_replies_fail),
         TRL_TEST_CASE(tails_out_of_place_fail),
     };
     return trl_test_main(argc, argv, cases, TRL_TEST_COUNT(cases));
