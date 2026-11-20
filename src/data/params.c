@@ -186,11 +186,19 @@ trl_status trl_params_add_datetime(trl_params *params, trl_kind kind, trl_dateti
     if (params == NULL || !known) {
         return TRL_INVALID_ARGUMENT;
     }
-    trl_value *value = add(params, (uint8_t)kind);
+    /* A zoned one is sent under its type's tag without the zone, its zone
+       told inside, as the page's values have it [PROTOCOL Values]. */
+    bool zoned = kind == TRL_KIND_TIME_ZONED || kind == TRL_KIND_TIMESTAMP_ZONED;
+    uint8_t tag = (uint8_t)kind;
+    if (zoned) {
+        tag = kind == TRL_KIND_TIME_ZONED ? TRL_TAG_TIME : TRL_TAG_TIMESTAMP;
+    }
+    trl_value *value = add(params, tag);
     if (value == NULL) {
         return TRL_NO_MEMORY;
     }
     value->as.datetime = datetime;
+    value->as.datetime.zoned = datetime.zoned || zoned;
     return TRL_OK;
 }
 

@@ -43,12 +43,13 @@ Arrays, rows and multisets nest at most 16 deep, as turborel's types do.
 | Tag | Value | C type | Bounds |
 |---|---|---|---|
 | 0 | null | none | |
-| 1, 5 | character string | UTF-8 bytes and their length | UTF-8 |
+| 1 | character string | UTF-8 bytes and their length | UTF-8 |
 | 2 | exact number | `trl_decimal` | units the whole of `trl_int128`; scale the whole of `uint32_t` |
 | 3 | approximate number | `double`, its 64 bits kept | every bit kept: NaN, -0.0 and the infinities too |
 | 4 | a plug-in's value | its type's name, its text, its bytes | kept and sent back unchanged |
-| 6, 7 | binary string | bytes and their length | |
-| 8 to 12 | date, time, timestamp | `trl_datetime`: zoned `bool`, precision `uint8_t`, displacement in minutes `int16_t`, instant in UTC microseconds `int64_t` | a displacement of 16 bits |
+| 6 | binary string | bytes and their length | |
+| 8, 9, 11 | date, time, timestamp | `trl_datetime`: zoned `bool`, precision `uint8_t`, displacement in minutes `int16_t`, instant in UTC microseconds `int64_t` | a displacement of 16 bits |
+| 5, 7, 10, 12 | the types' own tags | read as 1, 6, 9 and 11, as turborel-protocol's reader takes them: a character string, a binary string, a time and a timestamp, a zone told inside; the driver sends only 1, 6, 9 and 11 | |
 | 13 | interval | `trl_interval`: its qualifier, then units `trl_int128`: months of a year-month interval, microseconds of a day-time one | fields 0 to 5 |
 | 14 | truth value | `bool` | 0 or 1; unknown is null |
 | 15 | DECFLOAT | `trl_decfloat`: coefficient `trl_int128`, exponent `int32_t` | canonical: at most 34 digits, no trailing zero, zero of exponent 0, adjusted exponent -6143 to 6144 |

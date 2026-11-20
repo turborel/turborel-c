@@ -256,7 +256,7 @@ A parameter list holds one execution's values, in the order of the
 statement's `?`s, each copied as it is added, `trl_params_add_value` a
 value read copied whole, arrays and rows with their elements
 [CLIENT Prepared statements]. `trl_params_add_datetime` takes the kind
-of datetime, `TRL_KIND_DATE` to `TRL_KIND_TIMESTAMP_ZONED`.
+of datetime, `TRL_KIND_DATE` to `TRL_KIND_TIMESTAMP_ZONED`, a zoned one sent as a time or timestamp value, zoned.
 `trl_params_add_json` makes the stored form of the JSON text given
 [PROTOCOL JSON values]; `trl_params_add_xml` sends the serialization
 as it is, which the server parses. The server casts each value to its

@@ -176,10 +176,29 @@ static bool read_octets(trl_reader *reader, trl_value *out) {
     }
 }
 
+/* The tag a value of `tag` is read as: value tags 5, 7, 10 and 12, which
+   the page lists as types' alone, as 1, 6, 9 and 11, as turborel-protocol's
+   reader takes them, their bodies the same. */
+static uint8_t value_tag_of(uint8_t tag) {
+    switch (tag) {
+    case TRL_TAG_VARYING:
+        return TRL_TAG_CHARACTER;
+    case TRL_TAG_BINARY_VARYING:
+        return TRL_TAG_BINARY;
+    case TRL_TAG_TIME_ZONED:
+        return TRL_TAG_TIME;
+    case TRL_TAG_TIMESTAMP_ZONED:
+        return TRL_TAG_TIMESTAMP;
+    default:
+        return tag;
+    }
+}
+
 bool trl_read_value(trl_reader *reader, trl_value *out) {
     if (!trl_read_u8(reader, &out->tag)) {
         return false;
     }
+    out->tag = value_tag_of(out->tag);
     switch (out->tag) {
     case TRL_TAG_NULL:
         return true;
@@ -192,8 +211,6 @@ bool trl_read_value(trl_reader *reader, trl_value *out) {
     case TRL_TAG_DATE:
     case TRL_TAG_TIME:
     case TRL_TAG_TIMESTAMP:
-    case TRL_TAG_TIME_ZONED:
-    case TRL_TAG_TIMESTAMP_ZONED:
         return read_datetime(reader, &out->as.datetime);
     case TRL_TAG_INTERVAL:
         return trl_read_interval_qualifier(reader, &out->as.interval.qualifier) &&

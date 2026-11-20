@@ -34,21 +34,21 @@ typedef enum trl_kind {
     TRL_KIND_APPROXIMATE = 3,
     /** @brief A plug-in type's value: its type's name, its text and its bytes. */
     TRL_KIND_PLUGIN = 4,
-    /** @brief A character string, of a type VARYING. */
+    /** @brief CHARACTER VARYING, a type's kind; its values come as TRL_KIND_CHARACTER. */
     TRL_KIND_CHARACTER_VARYING = 5,
     /** @brief A binary string. */
     TRL_KIND_BINARY = 6,
-    /** @brief A binary string, of a type VARYING. */
+    /** @brief BINARY VARYING, a type's kind; its values come as TRL_KIND_BINARY. */
     TRL_KIND_BINARY_VARYING = 7,
     /** @brief A date. */
     TRL_KIND_DATE = 8,
     /** @brief A time. */
     TRL_KIND_TIME = 9,
-    /** @brief A time WITH TIME ZONE. */
+    /** @brief TIME WITH TIME ZONE, a type's kind; its values come as TRL_KIND_TIME, zoned. */
     TRL_KIND_TIME_ZONED = 10,
     /** @brief A timestamp. */
     TRL_KIND_TIMESTAMP = 11,
-    /** @brief A timestamp WITH TIME ZONE. */
+    /** @brief TIMESTAMP WITH TIME ZONE, a type's kind; its values come as TRL_KIND_TIMESTAMP, zoned. */
     TRL_KIND_TIMESTAMP_ZONED = 12,
     /** @brief An interval. */
     TRL_KIND_INTERVAL = 13,

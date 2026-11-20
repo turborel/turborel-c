@@ -128,13 +128,13 @@ null. Every value the server sends is given whole, with nothing lost:
 | Kind | Read by | As |
 |---|---|---|
 | `TRL_KIND_NULL` | `trl_value_is_null` | the null value, of any type |
-| `TRL_KIND_CHARACTER`, `_CHARACTER_VARYING` | `trl_value_text` | UTF-8 and its length, not ended by a null |
-| `TRL_KIND_BINARY`, `_BINARY_VARYING` | `trl_value_bytes` | the bytes and their count |
+| `TRL_KIND_CHARACTER` | `trl_value_text` | UTF-8 and its length, not ended by a null |
+| `TRL_KIND_BINARY` | `trl_value_bytes` | the bytes and their count |
 | `TRL_KIND_EXACT` | `trl_value_decimal` | a `trl_decimal`, 128-bit units and a scale, which `trl_decimal_text` writes |
 | `TRL_KIND_APPROXIMATE` | `trl_value_double` | a `double` |
 | `TRL_KIND_DECFLOAT` | `trl_value_decfloat` | a coefficient of 128 bits and an exponent |
 | `TRL_KIND_BOOLEAN` | `trl_value_boolean` | a `bool` |
-| `TRL_KIND_DATE`, `_TIME`, `_TIME_ZONED`, `_TIMESTAMP`, `_TIMESTAMP_ZONED` | `trl_value_datetime` | microseconds in UTC from 0001-01-01 00:00:00, of a time from midnight, and a zone's displacement in minutes |
+| `TRL_KIND_DATE`, `_TIME`, `_TIMESTAMP` | `trl_value_datetime` | microseconds in UTC from 0001-01-01 00:00:00, of a time from midnight, and, of one WITH TIME ZONE, `zoned` and the zone's displacement in minutes |
 | `TRL_KIND_INTERVAL` | `trl_value_interval` | months, or microseconds, and its qualifier |
 | `TRL_KIND_ARRAY`, `_ROW`, `_MULTISET`, `_STRUCTURED` | `trl_value_count`, `trl_value_at` | its elements, fields or attributes, each a value |
 | `TRL_KIND_PLUGIN` | `trl_value_text`, `trl_value_bytes` | a plug-in type's value, its text and its bytes |

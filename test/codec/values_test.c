@@ -445,10 +445,24 @@ static void large_objects(trl_test *test) {
     fixture_free(&f);
 }
 
+/* Writes `value` and reads it back into `back`. */
+static bool written_and_read(fixture *f, const trl_value *value, trl_value *back) {
+    fixture_reset(f);
+    if (!trl_write_value(&f->buffer, value, &f->error)) {
+        return false;
+    }
+    trl_buffer written = f->buffer;
+    trl_buffer_init(&f->buffer);
+    trl_put_raw(&f->buffer, written.data, written.length);
+    trl_buffer_free(&written);
+    return read_one(f, back);
+}
+
 /**
- * Verifies: [PROTOCOL Values] the types' own tags read as turborel's
- * reader takes them though no server sends them: 5 a string, 7 bytes, 10
- * and 12 datetimes.
+ * Verifies: [PROTOCOL Values] value tags 5, 7, 10 and 12, the types' own,
+ * read as 1, 6, 9 and 11, as turborel-protocol's reader takes them: a
+ * string, bytes, a time and a timestamp, their bodies the same, the zone
+ * told inside.
  */
 static void type_tags_as_values(trl_test *test) {
     fixture f;
@@ -459,11 +473,15 @@ static void type_tags_as_values(trl_test *test) {
     trl_value bytes = {TRL_TAG_BINARY_VARYING, {text_of("b")}};
     trl_value zoned = {TRL_TAG_TIMESTAMP_ZONED, {{NULL, 0U}}};
     zoned.as.datetime.zoned = true;
+    zoned.as.datetime.zone = 60;
     trl_value time = {TRL_TAG_TIME_ZONED, {{NULL, 0U}}};
-    TRL_CHECK(test, round_trips(&f, &varying, &back) && slice_is(back.as.bytes, "v"));
-    TRL_CHECK(test, round_trips(&f, &bytes, &back) && slice_is(back.as.bytes, "b"));
-    TRL_CHECK(test, round_trips(&f, &zoned, &back) && back.as.datetime.zoned);
-    TRL_CHECK(test, round_trips(&f, &time, &back) && back.tag == TRL_TAG_TIME_ZONED);
+    time.as.datetime.zoned = true;
+    TRL_CHECK(test,
+              written_and_read(&f, &varying, &back) && back.tag == TRL_TAG_CHARACTER && slice_is(back.as.bytes, "v"));
+    TRL_CHECK(test, written_and_read(&f, &bytes, &back) && back.tag == TRL_TAG_BINARY && slice_is(back.as.bytes, "b"));
+    TRL_CHECK(test, written_and_read(&f, &zoned, &back) && back.tag == TRL_TAG_TIMESTAMP && back.as.datetime.zoned &&
+                        back.as.datetime.zone == 60);
+    TRL_CHECK(test, written_and_read(&f, &time, &back) && back.tag == TRL_TAG_TIME && back.as.datetime.zoned);
     fixture_free(&f);
 }
 
