@@ -19,7 +19,7 @@
 static bool decodes_or_fails(fixture *f, uint8_t kind, const uint8_t *body, size_t length) {
     fixture_reset(f);
     trl_reply reply;
-    return decode_bytes(f, kind, body, length, &reply) || failed_connection(f);
+    return decode_bytes(f, kind, body, length, &reply) || failed_connection(f) || failed_value(f);
 }
 
 /**

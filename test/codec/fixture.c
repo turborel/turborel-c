@@ -66,3 +66,8 @@ bool failed_with(const fixture *f, int32_t sqlcode, const char *sqlstate) {
 bool failed_connection(const fixture *f) {
     return failed_with(f, TRL_SQLCODE_CONNECTION, TRL_SQLSTATE_CONNECTION_FAILURE);
 }
+
+bool failed_value(const fixture *f) {
+    return failed_with(f, TRL_SQLCODE_CORRUPT, TRL_SQLSTATE_CORRUPT) ||
+           failed_with(f, TRL_SQLCODE_UNSUPPORTED, TRL_SQLSTATE_UNSUPPORTED);
+}

@@ -8,6 +8,7 @@
 #include "codec/values.h"
 
 #include "codec/decfloat.h"
+#include "codec/error.h"
 #include "codec/int128.h"
 #include "codec/json.h"
 #include "codec/reader.h"
@@ -19,6 +20,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 
 /* The fewest bytes a value takes: its tag. */
 #define TRL_VALUE_LEAST_BYTES 1U
@@ -51,7 +53,9 @@ static bool read_truth(trl_reader *reader, bool *out) {
         return false;
     }
     if (byte > 1U) {
-        return trl_reader_fail(reader, "a truth value is neither 0 nor 1");
+        char why[TRL_CODEC_MESSAGE_BYTES];
+        (void)snprintf(why, sizeof why, "%u is not a truth value", (unsigned int)byte);
+        return trl_reader_value_fail(reader, TRL_SQLCODE_CORRUPT, TRL_SQLSTATE_CORRUPT, why);
     }
     *out = byte == 1U;
     return true;
@@ -123,12 +127,31 @@ static bool read_uuid(trl_reader *reader, trl_slice *out) {
     return out->length == TRL_UUID_OCTETS || trl_reader_fail(reader, "a UUID is 16 octets");
 }
 
-/* Reads a JSON value: bytes, a document of turborel's binary tree. */
+/* Reads a JSON value: bytes, a document of turborel's binary tree, one
+   damaged, or past turborel's limits, a value failure. */
 static bool read_json(trl_reader *reader, trl_slice *out) {
     if (!trl_read_bytes(reader, out)) {
         return false;
     }
-    return trl_json_valid(out->bytes, out->length) || trl_reader_fail(reader, "a JSON value's octets are damaged");
+    switch (trl_json_check_document(out->bytes, out->length)) {
+    case TRL_JSON_WHOLE:
+        return true;
+    case TRL_JSON_TOO_DEEP:
+        return trl_reader_value_fail(reader, TRL_SQLCODE_UNSUPPORTED, TRL_SQLSTATE_UNSUPPORTED,
+                                     "the SQL/JSON item is beyond turborel's limits: arrays and objects nest too deep");
+    case TRL_JSON_TOO_LONG:
+        return trl_reader_value_fail(reader, TRL_SQLCODE_UNSUPPORTED, TRL_SQLSTATE_UNSUPPORTED,
+                                     "the SQL/JSON item is beyond turborel's limits: its stored form is longer than "
+                                     "256 MiB");
+    case TRL_JSON_NO_MEMORY:
+        reader->failed = true;
+        trl_codec_no_memory(reader->error);
+        return false;
+    case TRL_JSON_DAMAGED:
+    default:
+        return trl_reader_value_fail(reader, TRL_SQLCODE_CORRUPT, TRL_SQLSTATE_CORRUPT,
+                                     "a JSON value's octets are damaged");
+    }
 }
 
 /* Reads the bodies of the constructed values. */
@@ -225,7 +248,8 @@ bool trl_read_value(trl_reader *reader, trl_value *out) {
     case TRL_TAG_BLOB:
         /* The server's stored form of a large object, which no server
            sends, though turborel-protocol's reader takes it (RULES.md D8). */
-        return trl_reader_fail(reader, "value tags 18 and 19 are a large object's stored form, which no server sends");
+        return trl_reader_value_fail(reader, TRL_SQLCODE_CORRUPT, TRL_SQLSTATE_CORRUPT,
+                                     "value tags 18 and 19 are a large object's stored form, which no server sends");
     case TRL_TAG_LOB_LOCATOR:
         return read_lob_locator(reader, out);
     default:

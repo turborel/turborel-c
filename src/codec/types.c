@@ -7,6 +7,7 @@
 #include "codec/types.h"
 
 #include "codec/buffer.h"
+#include "codec/error.h"
 #include "codec/reader.h"
 #include "codec/tags.h"
 #include "turborel/turborel.h"
@@ -25,7 +26,8 @@ static bool read_units(trl_reader *reader, uint8_t *out) {
     if (!trl_read_u8(reader, out)) {
         return false;
     }
-    return *out <= TRL_UNITS_OCTETS || trl_reader_fail(reader, "a length's units are neither characters nor octets");
+    return *out <= TRL_UNITS_OCTETS || trl_reader_value_fail(reader, TRL_SQLCODE_CORRUPT, TRL_SQLSTATE_CORRUPT,
+                                                             "a length's units are neither characters nor octets");
 }
 
 /* Reads a schema and a name. */

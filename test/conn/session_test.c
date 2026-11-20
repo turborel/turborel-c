@@ -34,6 +34,8 @@ typedef enum after {
     AFTER_LONG_PONG,
     AFTER_ROWS,
     AFTER_TERMINATE_ERROR,
+    AFTER_TERMINATE_NOTICE_ERROR,
+    AFTER_TERMINATE_NOTICE,
 } after;
 
 /* The capabilities a test's server grants. */
@@ -65,7 +67,13 @@ static void compressed_pong(script *s) {
 static void after_ready(script *s, const serving *plan, uint8_t kind) {
     static const uint8_t long_header[] = {TRL_KIND_PONG, 100U, 0U, 0U, 0U};
     if (kind == TRL_KIND_TERMINATE) {
-        if (plan->after == AFTER_TERMINATE_ERROR) {
+        if (plan->after == AFTER_TERMINATE_NOTICE_ERROR || plan->after == AFTER_TERMINATE_NOTICE) {
+            script_notice(s, "01000", "a warning");
+        }
+        if (plan->after == AFTER_TERMINATE_NOTICE_ERROR) {
+            script_status(s, "READ_ONLY", "NO");
+        }
+        if (plan->after == AFTER_TERMINATE_ERROR || plan->after == AFTER_TERMINATE_NOTICE_ERROR) {
             script_error(s, -320, "40002", "a deferred constraint is not satisfied", NULL);
         }
         return;
@@ -92,6 +100,8 @@ static void after_ready(script *s, const serving *plan, uint8_t kind) {
         break;
     case AFTER_PONG:
     case AFTER_TERMINATE_ERROR:
+    case AFTER_TERMINATE_NOTICE_ERROR:
+    case AFTER_TERMINATE_NOTICE:
     default:
         script_bare(s, TRL_KIND_PONG);
         break;
@@ -296,6 +306,57 @@ static void terminate_gives_a_failing_commit(trl_test *test) {
     script_free(&s);
 }
 
+/**
+ * Verifies: [CLIENT Connecting] a Notice and a Status before the Error
+ * that ends Terminate are read past, and the Error reported; a Notice
+ * before the close ends it well.
+ */
+static void terminate_reads_past_a_notice_to_its_error(trl_test *test) {
+    serving plan = {AFTER_TERMINATE_NOTICE_ERROR, false};
+    script s;
+    trl_conn *conn = connected(&s, &plan, NULL);
+    TRL_CHECK(test, trl_conn_terminate(conn) == TRL_FAILED);
+    TRL_CHECK(test, strcmp(trl_failure_sqlstate(trl_conn_failure(conn)), "40002") == 0);
+    trl_conn_free(conn);
+    script_free(&s);
+    plan.after = AFTER_TERMINATE_NOTICE;
+    conn = connected(&s, &plan, NULL);
+    TRL_CHECK(test, trl_conn_terminate(conn) == TRL_OK);
+    trl_conn_free(conn);
+    script_free(&s);
+}
+
+/**
+ * Verifies: [CLIENT Timeouts] a stream of the program's own that bounds
+ * itself is bounded by the read timeout the options give as it opens,
+ * its read timeout settable as a connection's, and Terminate waits at most
+ * it; one its maker bounds cannot be [CLIENT Connecting].
+ */
+static void a_stream_that_bounds_itself(trl_test *test) {
+    serving plan = {AFTER_PONG, false};
+    script s;
+    script_init(&s, respond, &plan);
+    s.bounds = true;
+    trl_conn_options *options = NULL;
+    (void)trl_conn_options_new(&options);
+    (void)trl_conn_options_timeouts(options, 0U, 250U);
+    trl_mechanism *trust = NULL;
+    (void)trl_mechanism_trust(&trust);
+    trl_conn *conn = NULL;
+    TRL_CHECK(test, script_connect(&s, trust, options, &conn) == TRL_OK && s.bounded && s.bound_ms == 250U);
+    TRL_CHECK(test, trl_conn_read_timeout(conn) == 250U);
+    TRL_CHECK(test, trl_conn_set_read_timeout(conn, 0U) == TRL_OK && s.bound_ms == 0U);
+    TRL_CHECK(test, trl_conn_terminate(conn) == TRL_OK && s.bound_ms == 60000U);
+    trl_conn_free(conn);
+    script_free(&s);
+    conn = connected(&s, &plan, options);
+    TRL_CHECK(test, trl_conn_set_read_timeout(conn, 10U) == TRL_FAILED && !s.bounded);
+    trl_conn_free(conn);
+    script_free(&s);
+    trl_conn_options_free(options);
+    trl_mechanism_free(trust);
+}
+
 int main(int argc, char **argv) {
     static const trl_test_case cases[] = {
         TRL_TEST_CASE(ping_is_answered_by_pong),
@@ -304,6 +365,8 @@ int main(int argc, char **argv) {
         TRL_TEST_CASE(compressed_frames_only_once_granted),
         TRL_TEST_CASE(a_longer_reply_loses_the_connection),
         TRL_TEST_CASE(terminate_gives_a_failing_commit),
+        TRL_TEST_CASE(terminate_reads_past_a_notice_to_its_error),
+        TRL_TEST_CASE(a_stream_that_bounds_itself),
     };
     return trl_test_main(argc, argv, cases, TRL_TEST_COUNT(cases));
 }

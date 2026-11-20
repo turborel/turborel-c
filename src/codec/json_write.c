@@ -19,9 +19,6 @@
 #include <stdint.h>
 #include <string.h>
 
-/* The most octets a document holds, turborel's MAX_DOCUMENT_OCTETS. */
-#define TRL_JSON_MAX_DOCUMENT 268435456U
-
 /* The runs a merge sort merges at a time: two. */
 #define TRL_MERGE_WAYS 2U
 

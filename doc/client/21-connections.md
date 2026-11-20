@@ -242,6 +242,7 @@ typedef struct trl_stream {
     int64_t (*read)(void *context, uint8_t *into, size_t capacity);
     int64_t (*write)(void *context, const uint8_t *bytes, size_t length);
     void (*close)(void *context);
+    bool (*bound)(void *context, uint32_t ms);
 } trl_stream;
 
 trl_status trl_connect(const trl_target *target, const char *user, trl_mechanism *mechanism,
@@ -281,13 +282,17 @@ received when it was not loses the connection
 [PROTOCOL Compressed frames].
 
 `trl_connect_stream` logs in over a stream the program opened, as a TLS
-stream of its own, through its functions; it waits as its maker set it
-to, and the caller answers for its privacy.
+stream of its own, through its functions, and the caller answers for its
+privacy. A stream whose `bound` is given bounds itself: it is bounded by
+the read timeout the options give as it opens, and its read timeout is
+set as a socket's is; one whose `bound` is null waits as its maker set
+it to, Terminate too, and its read timeout cannot be set
+[CLIENT Timeouts].
 
 Each Status the server sends, at login and after a statement, is kept:
 `trl_conn_setting` gives a setting as the server last told it, by its
 name as the server spells it, with no round trip
-[CLIENT What the server tells]. A Notice before a reply is passed over.
+[CLIENT What the server tells]. A Notice is kept, or given to a handler ([Statements and Cursors](22-statements.md)).
 
 The read timeout bounds each read or write after the login; a wait that
 runs out loses the connection. A reply is taken up to 16 MiB, or as many
@@ -301,8 +306,9 @@ before it sends anything, the connection kept.
 
 `trl_conn_terminate` sends Terminate: the session ends, its transaction
 as SESSION.COMMIT_AT_END says, and the server closes; a commit that
-fails then is its failure. It waits at most the read timeout, else 60
-seconds [PROTOCOL Terminate 'X']. The connection is lost after.
+fails then is its failure, a Notice or a Status before it read past. It
+waits at most the read timeout, else 60 seconds, on a stream that bounds
+itself [PROTOCOL Terminate 'X']. The connection is lost after.
 `trl_conn_free` closes a connection, over TLS with TLS's closing
 message, without Terminate.
 

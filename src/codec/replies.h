@@ -135,4 +135,30 @@ typedef struct trl_reply {
  */
 bool trl_decode_reply(uint8_t kind, trl_slice body, trl_arena *arena, trl_reply *out, trl_codec_error *error);
 
+/**
+ * @brief The head of a Complete that may not decode whole: its SQLCODE,
+ * SQLSTATE, whether a transaction is active, and of its tail the commit's
+ * position and whether more replies follow, which come before any field a
+ * client may fail to take [PROTOCOL Complete 'K'].
+ * @param kind The reply's kind.
+ * @param body Its body.
+ * @param arena Where its strings go.
+ * @param out Where the head goes.
+ * @return Whether it is a Complete whose head reads.
+ */
+bool trl_completed_head(uint8_t kind, trl_slice body, trl_arena *arena, trl_completed *out);
+
+/**
+ * @brief Whether a reply, decoded or not, is the last its request is
+ * answered with, by the order of a statement's replies: a Description,
+ * Rows, a Notice or a Status has more after it; a Complete has if its tail
+ * says more (tag 5); any other reply ends its request's [PROTOCOL
+ * Conversations].
+ * @param kind The reply's kind.
+ * @param body Its body.
+ * @param arena Where a Complete's head is read into.
+ * @return Whether it ends its request's replies.
+ */
+bool trl_reply_ends_request(uint8_t kind, trl_slice body, trl_arena *arena);
+
 #endif

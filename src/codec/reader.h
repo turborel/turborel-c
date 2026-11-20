@@ -66,6 +66,18 @@ void trl_reader_init(trl_reader *reader, const uint8_t *data, size_t length, trl
 bool trl_reader_fail(trl_reader *reader, const char *why);
 
 /**
+ * @brief Fails the reader on a value it cannot take, in a frame that is
+ * whole: SQLCODE -916, SQLSTATE TB916, or of `sqlcode` and `sqlstate` as
+ * given, which fails the request alone, not the connection.
+ * @param reader The reader.
+ * @param sqlcode The SQLCODE.
+ * @param sqlstate The SQLSTATE.
+ * @param why Why.
+ * @return False, so a decoder returns its result.
+ */
+bool trl_reader_value_fail(trl_reader *reader, int32_t sqlcode, const char *sqlstate, const char *why);
+
+/**
  * @brief Whether every byte was read.
  * @param reader The reader.
  * @return Nonzero at the end.

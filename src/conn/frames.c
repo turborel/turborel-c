@@ -27,6 +27,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* The SQLSTATE class of a malformed frame, which loses the connection. */
+#define TRL_CONNECTION_CLASS "08"
+
 void trl_conn_lose(trl_conn *conn, const trl_failure *failure) {
     if (failure != &conn->failure) {
         trl_failure_copy(&conn->failure, failure);
@@ -143,22 +146,6 @@ static bool take_body(trl_conn *conn, size_t length) {
     return true;
 }
 
-/* Loses the connection: a reply that cannot be inflated or decoded leaves
-   the rest of the statement's replies unread, so the conversation is out
-   of step (RULES.md D8); SQLCODE -919, SQLSTATE 08006, or memory not had. */
-static bool undecoded(trl_conn *conn, const trl_codec_error *error) {
-    if (error->sqlcode == TRL_SQLCODE_RESOURCES) {
-        trl_failure failure;
-        trl_failure_init(&failure);
-        trl_failure_no_memory(&failure);
-        trl_conn_lose(conn, &failure);
-        trl_failure_clear(&failure);
-        return false;
-    }
-    trl_conn_lose_by(conn, error->message);
-    return false;
-}
-
 /* Copies a reply's body into the arena of the result it outlives the next
    reply for, so what it decodes to is kept with it. */
 static bool kept(trl_conn *conn, trl_slice *body) {
@@ -199,35 +186,43 @@ static bool read_header(trl_conn *conn, trl_frame_header *header) {
     return true;
 }
 
-/* Reads one reply, of any kind, inflating a compressed one if granted. */
-static bool next_reply(trl_conn *conn, trl_reply *out) {
+/* Reads one frame, inflated if it came compressed and compression is
+   granted: its kind and body. A frame that does not come whole, or does
+   not inflate, loses the connection. */
+static bool next_frame(trl_conn *conn, uint8_t *kind, trl_slice *body) {
     trl_frame_header header = {0U, 0U};
-    if (!read_header(conn, &header)) {
+    if (!read_header(conn, &header) || !take_body(conn, header.length)) {
         return false;
     }
-    if (!take_body(conn, header.length)) {
-        return false;
-    }
-    trl_codec_error error = {0, "", ""};
-    trl_slice body = {conn->body.data, conn->body.length};
-    uint8_t kind = header.kind;
-    if (kind == TRL_KIND_COMPRESSED && conn->compressed) {
+    body->bytes = conn->body.data;
+    body->length = conn->body.length;
+    *kind = header.kind;
+    if (*kind == TRL_KIND_COMPRESSED && conn->compressed) {
+        trl_codec_error error = {0, "", ""};
         trl_buffer_free(&conn->inflated);
-        if (!trl_decompress_frame(body, conn->max_body, &kind, &conn->inflated, &error)) {
-            return undecoded(conn, &error);
+        if (!trl_decompress_frame(*body, conn->max_body, kind, &conn->inflated, &error)) {
+            trl_conn_lose_by(conn, error.message);
+            return false;
         }
-        body.bytes = conn->inflated.data;
-        body.length = conn->inflated.length;
+        body->bytes = conn->inflated.data;
+        body->length = conn->inflated.length;
     }
+    return true;
+}
+
+/* Decodes a frame, in the arena of the result that outlives the next
+   reply, if one is kept. */
+static bool decode_frame(trl_conn *conn, uint8_t kind, trl_slice body, trl_reply *out, trl_codec_error *error) {
     trl_arena *arena = &conn->arena;
     if (conn->keep == NULL) {
         trl_arena_free(&conn->arena);
     } else if (!kept(conn, &body)) {
+        trl_codec_no_memory(error);
         return false;
     } else {
         arena = conn->keep;
     }
-    return trl_decode_reply(kind, body, arena, out, &error) || undecoded(conn, &error);
+    return trl_decode_reply(kind, body, arena, out, error);
 }
 
 /* A copy of `text`, null-ended, or null if memory cannot be had. */
@@ -301,27 +296,110 @@ static void noted(trl_conn *conn, const trl_reply *reply) {
     }
 }
 
-bool trl_conn_receive(trl_conn *conn, trl_reply *out) {
+/* Takes a Notice or a Status: 1 if `reply` was one, 0 if not, -1 if
+   memory to keep it could not be had. */
+static int took(trl_conn *conn, const trl_reply *reply) {
+    if (reply->kind == TRL_KIND_STATUS) {
+        if (!trl_conn_tell(conn, reply->as.status.name, reply->as.status.value)) {
+            trl_failure_no_memory(&conn->failure);
+            return -1;
+        }
+        return 1;
+    }
+    if (reply->kind == TRL_KIND_NOTICE) {
+        trl_conn_notice(conn, reply);
+        return 1;
+    }
+    return 0;
+}
+
+/* Takes a frame that did not decode (RULES.md D8): a malformed one, of
+   class 08, loses the connection; of one holding a value the client
+   cannot take, a Complete's head is noted as its whole would be. */
+static bool skipped(trl_conn *conn, uint8_t kind, trl_slice body, const trl_codec_error *error) {
+    if (strncmp(error->sqlstate, TRL_CONNECTION_CLASS, sizeof TRL_CONNECTION_CLASS - 1U) == 0) {
+        trl_conn_lose_by(conn, error->message);
+        return false;
+    }
+    trl_reply head;
+    memset(&head, 0, sizeof head);
+    head.kind = TRL_KIND_COMPLETE;
+    if (trl_completed_head(kind, body, &conn->arena, &head.as.complete)) {
+        noted(conn, &head);
+    }
+    return true;
+}
+
+/* Reads past the rest of a request's replies once one, of `kind` and
+   `body`, held a value the client cannot take, up to the one that ends
+   them, each taken as a reply is, or skipped as that one was. */
+static bool drained(trl_conn *conn, uint8_t kind, trl_slice body) {
+    bool ends = trl_reply_ends_request(kind, body, &conn->arena);
+    trl_arena *keep = conn->keep;
+    conn->keep = NULL;
+    bool read = true;
+    while (read && !ends) {
+        trl_codec_error error = {0, "", ""};
+        trl_reply reply;
+        read = next_frame(conn, &kind, &body);
+        if (read && decode_frame(conn, kind, body, &reply, &error)) {
+            int taken = took(conn, &reply);
+            read = taken >= 0;
+            if (taken == 0) {
+                noted(conn, &reply);
+            }
+        } else if (read) {
+            read = skipped(conn, kind, body, &error);
+        }
+        ends = read && trl_reply_ends_request(kind, body, &conn->arena);
+    }
+    conn->keep = keep;
+    return read;
+}
+
+/* Fails the request of a frame that did not decode: a malformed one loses
+   the connection; one holding a value the client cannot take has the rest
+   of its request's replies read past, unless the request is answered by
+   `one` reply, and fails with its value's failure. */
+static bool undecoded(trl_conn *conn, uint8_t kind, trl_slice body, const trl_codec_error *error, bool one) {
+    if (skipped(conn, kind, body, error) && (one || drained(conn, kind, body))) {
+        trl_failure_from_codec(&conn->failure, error);
+    }
+    return false;
+}
+
+/* Receives the next reply but Notices and Statuses; one holding a value
+   the client cannot take fails its request alone, read past with the rest
+   of its replies unless the request is answered by `one` reply. */
+static bool receive_as(trl_conn *conn, trl_reply *out, bool one) {
     if (conn->lost) {
         trl_failure_copy(&conn->failure, &conn->lost_by);
         return false;
     }
     for (;;) {
-        if (!next_reply(conn, out)) {
+        uint8_t kind = 0U;
+        trl_slice body = {NULL, 0U};
+        if (!next_frame(conn, &kind, &body)) {
             return false;
         }
-        if (out->kind == TRL_KIND_STATUS) {
-            if (!trl_conn_tell(conn, out->as.status.name, out->as.status.value)) {
-                trl_failure_no_memory(&conn->failure);
-                return false;
+        trl_codec_error error = {0, "", ""};
+        if (!decode_frame(conn, kind, body, out, &error)) {
+            return undecoded(conn, kind, body, &error, one);
+        }
+        int taken = took(conn, out);
+        if (taken <= 0) {
+            if (taken == 0) {
+                noted(conn, out);
             }
-            continue;
+            return taken == 0;
         }
-        if (out->kind == TRL_KIND_NOTICE) {
-            trl_conn_notice(conn, out);
-            continue;
-        }
-        noted(conn, out);
-        return true;
     }
+}
+
+bool trl_conn_receive(trl_conn *conn, trl_reply *out) {
+    return receive_as(conn, out, false);
+}
+
+bool trl_conn_receive_one(trl_conn *conn, trl_reply *out) {
+    return receive_as(conn, out, true);
 }

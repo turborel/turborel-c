@@ -162,6 +162,13 @@ bool trl_conn_send(trl_conn *conn);
  */
 bool trl_conn_receive(trl_conn *conn, trl_reply *out);
 
+/**
+ * @brief Receives a reply as trl_conn_receive() does, of a request
+ * answered by it alone, as a Describe of a cursor is: one holding a value
+ * the client cannot take is not read past.
+ */
+bool trl_conn_receive_one(trl_conn *conn, trl_reply *out);
+
 /** @brief Keeps a setting the server told. */
 bool trl_conn_tell(trl_conn *conn, trl_slice name, trl_slice value);
 

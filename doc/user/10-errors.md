@@ -134,6 +134,7 @@ handles the server's, and cites the rule `DESIGN`:
 | -919 | 08006 | a method needs a capability the server did not grant, or query attributes are past their bounds | kept |
 | -919 | 28000 | a password or SCRAM over plain TCP, a SCRAM exchange the server did not prove, or one not bound where binding is required | not made |
 | -918 | TB918 | memory could not be had for what a call makes | kept |
+| -916 | TB916 | a value the server sent that the driver cannot take, the rest of the statement's replies read past | kept |
 | -900 | 0A000 | past Turborel's limits, or not built in | kept |
 | -301 | 2200N | XML text that is not well-formed content | kept |
 | -301 | 22000, 22021 and others | a value the protocol cannot carry | kept |

@@ -37,6 +37,10 @@
 #define TRL_SQLCODE_UNSUPPORTED (-900)
 /** @brief The SQLSTATE of a limit passed, as turborel's. */
 #define TRL_SQLSTATE_UNSUPPORTED "0A000"
+/** @brief The SQLCODE of a value that is damaged, as turborel's stored data that fails its format. */
+#define TRL_SQLCODE_CORRUPT (-916)
+/** @brief The SQLSTATE of a value that is damaged, as turborel's. */
+#define TRL_SQLSTATE_CORRUPT "TB916"
 /** @brief The SQLCODE of a call the program made wrongly, as turborel's. */
 #define TRL_SQLCODE_API (-910)
 /** @brief The SQLSTATE of a call the program made wrongly, as turborel's. */

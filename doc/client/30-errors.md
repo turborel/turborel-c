@@ -126,6 +126,7 @@ FATAL if it ends the connection, else ERROR (RULES.md D9):
 | -919 | 08006 | a method needing a capability not granted; query attributes past their bounds [PROTOCOL The tail] | kept |
 | -919 | 28000 | a password or SCRAM refused over plain TCP; a SCRAM exchange the server did not prove, or one not bound where binding is required | not made |
 | -918 | TB918 | memory not had for what a call does | kept |
+| -916 | TB916 | a reply's value the driver cannot take, as damaged JSON or a truth byte not 0 or 1, the rest of its statement's replies read past [PROTOCOL Values and fields] | kept |
 | -900 | 0A000 | past Turborel's limits, as a value nested too deep or an XML tree too large; not built in, as TLS in a library built without it | kept |
 | -301 | 22000, 22003, 22015, 22021, 22032 | a value the protocol cannot carry: a string not UTF-8, a number or interval out of range, JSON text not valid | kept |
 | -301 | 2200N | XML text that is not well-formed content | kept |

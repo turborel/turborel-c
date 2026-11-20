@@ -282,7 +282,7 @@ static void a_programs_own_tls_stream_is_bound(trl_test *test) {
     (void)trl_mechanism_scram("ann's", &scram);
     TRL_CHECK(test, trl_mechanism_bind(scram, NULL, 0U, exported, sizeof exported) == TRL_OK);
     TRL_CHECK(test, strcmp(trl_mechanism_name(scram), "scram-sha-256-plus") == 0);
-    trl_stream stream = {&own, own_read, own_write, own_close};
+    trl_stream stream = {&own, own_read, own_write, own_close, NULL};
     trl_conn *conn = NULL;
     TRL_CHECK(test, trl_connect_stream(&stream, "ann", scram, NULL, &conn) == TRL_FAILED);
     trl_conn_free(conn);

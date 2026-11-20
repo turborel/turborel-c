@@ -477,19 +477,11 @@ rule here, the rule is kept:
 Where the driver departs from turborel-client itself, each decided for
 every Turborel driver alike, and reported to the owner:
 
-- A reply that cannot be decoded loses the connection, SQLCODE -919,
-  SQLSTATE 08006: a character or large object units byte, or a truth
-  byte, other than 0 or 1; a damaged JSON document, or one nested past
-  128 or over 256 MiB; a condition in Complete's tag 17 that cannot be
-  read. turborel-client gives SQLSTATE TB916 or 0A000 on some of these
-  and keeps the connection with the rest of the reply unread, out of
-  step. A reply that cannot be inflated is lost the same way; one whose
-  decoding wants memory not had loses the connection too, with SQLCODE
-  -918.
 - Value tags 18 and 19, a large object's stored form, which no server
-  sends, are refused as malformed, SQLCODE -919, SQLSTATE 08006, though
-  turborel-protocol's reader takes them; a value to send under them is
-  refused, SQLCODE -910.
+  sends, are refused, though turborel-protocol's reader takes them: the
+  request fails as of any value the client cannot take, SQLCODE -916,
+  SQLSTATE TB916, the rest of its replies read past and the connection
+  kept; a value to send under them is refused, SQLCODE -910.
 - Query attributes past their bounds are refused before sending, SQLCODE
   -919, SQLSTATE 08006, the connection kept, where turborel-client sends
   them and the server then fails the connection (D9).
@@ -542,6 +534,13 @@ FATAL if it ends the connection, else ERROR, as turborel-client's do. A
 null handle or buffer passed in is refused with a status, never
 dereferenced, and a parameter refused as it is added, as text that is
 not UTF-8, is a status too, nothing sent.
+
+A reply holding a value the client cannot take, in a frame that is
+whole, fails its request alone with that value's own failure, SQLCODE
+-916, SQLSTATE TB916, or -900, 0A000, of one past Turborel's limits, the
+rest of the request's replies read past first, a Complete's head noted;
+the connection goes on. Only a malformed frame loses it, SQLCODE -919,
+SQLSTATE 08006 [PROTOCOL Values and fields].
 
 A statement's failure is the connection's; several statements run as
 one request give their outcomes and the failure that stopped them, the

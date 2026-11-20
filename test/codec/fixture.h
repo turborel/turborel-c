@@ -50,6 +50,9 @@ bool decode_bytes(fixture *f, uint8_t kind, const uint8_t *body, size_t length, 
 /** Whether the fixture's error is a connection failure, -919 and 08006. */
 bool failed_connection(const fixture *f);
 
+/** Whether the case failed on a value it cannot take, its request's failure alone: SQLSTATE TB916, or 0A000. */
+bool failed_value(const fixture *f);
+
 /** Whether the fixture's error has the SQLCODE and SQLSTATE given. */
 bool failed_with(const fixture *f, int32_t sqlcode, const char *sqlstate);
 

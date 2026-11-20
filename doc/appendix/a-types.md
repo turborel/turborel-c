@@ -55,7 +55,7 @@ Arrays, rows and multisets nest at most 16 deep, as turborel's types do.
 | 15 | DECFLOAT | `trl_decfloat`: coefficient `trl_int128`, exponent `int32_t` | canonical: at most 34 digits, no trailing zero, zero of exponent 0, adjusted exponent -6143 to 6144 |
 | 16, 17 | array, row | a list of values | nested at most 16 deep |
 | 20 | large object whole | kind, character or binary; its octets | a character one's UTF-8 |
-| 18, 19 | a large object's stored form, which no server sends | refused: the connection fails, SQLCODE -919, SQLSTATE 08006 (RULES.md D8) | |
+| 18, 19 | a large object's stored form, which no server sends | refused: the statement fails, SQLCODE -916, SQLSTATE TB916, the connection kept (RULES.md D8) | |
 | 21 | large object by locator | kind; locator `uint32_t`; octets and characters `uint64_t` | |
 | 22 | multiset | a list of values | at most 65535 elements |
 | 23 | structured value | its type's schema and name; its attributes | |

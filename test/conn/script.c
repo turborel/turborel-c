@@ -83,8 +83,15 @@ static void script_close(void *context) {
     s->closed = true;
 }
 
+static bool script_bound(void *context, uint32_t ms) {
+    script *s = context;
+    s->bound_ms = ms;
+    s->bounded = true;
+    return true;
+}
+
 trl_stream script_stream(script *s) {
-    trl_stream stream = {s, script_read, script_write, script_close};
+    trl_stream stream = {s, script_read, script_write, script_close, s->bounds ? script_bound : NULL};
     return stream;
 }
 

@@ -19,6 +19,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 
 /* The fewest bytes a row takes: its count; a condition: its bytes' count. */
@@ -66,12 +67,21 @@ static bool read_condition(trl_reader *reader, trl_wire_failure *out) {
     if (!trl_read_bytes(reader, &bytes)) {
         return false;
     }
+    trl_codec_error error = {0, "", ""};
     trl_reader inner;
-    trl_reader_init(&inner, bytes.bytes, bytes.length, reader->arena, reader->error);
+    trl_reader_init(&inner, bytes.bytes, bytes.length, reader->arena, &error);
     inner.what = "condition";
-    bool read = trl_read_failure(&inner, out) && trl_reader_finish(&inner);
-    reader->failed = reader->failed || inner.failed;
-    return read;
+    if (trl_read_failure(&inner, out) && trl_reader_finish(&inner)) {
+        return true;
+    }
+    if (error.sqlcode == TRL_SQLCODE_RESOURCES) {
+        reader->failed = true;
+        trl_codec_no_memory(reader->error);
+        return false;
+    }
+    /* A condition is read as stored data is: its failure the request's
+       alone, not the connection's. */
+    return trl_reader_value_fail(reader, TRL_SQLCODE_CORRUPT, TRL_SQLSTATE_CORRUPT, error.message);
 }
 
 /* Reads tag 17, the conditions. */
@@ -133,6 +143,46 @@ static bool read_complete(trl_reader *reader, trl_completed *out) {
         }
     }
     return !reader->failed;
+}
+
+bool trl_completed_head(uint8_t kind, trl_slice body, trl_arena *arena, trl_completed *out) {
+    if (kind != TRL_KIND_COMPLETE) {
+        return false;
+    }
+    trl_codec_error error = {0, "", ""};
+    trl_reader reader;
+    trl_reader_init(&reader, body.bytes, body.length, arena, &error);
+    memset(out, 0, sizeof *out);
+    uint32_t sqlcode = 0U;
+    if (!trl_read_u32(&reader, &sqlcode) || !trl_read_string(&reader, &out->sqlstate) ||
+        !trl_read_flag(&reader, &out->active)) {
+        return false;
+    }
+    out->sqlcode = trl_bits_i32(sqlcode);
+    /* The fields before any a client may fail to take, a condition. */
+    const uint32_t taken = TRL_TAG_BIT(TRL_TAIL_POSITION) | TRL_TAG_BIT(TRL_TAIL_MORE) | TRL_TAG_BIT(TRL_TAIL_ROWS) |
+                           TRL_TAG_BIT(TRL_TAIL_GENERATED) | TRL_TAG_BIT(TRL_TAIL_CONDITIONS) |
+                           TRL_TAG_BIT(TRL_TAIL_TIME);
+    trl_tail tail = {0U};
+    uint8_t tag = 0U;
+    while (trl_tail_next(&reader, &tail, taken, &tag) && (tag == TRL_TAIL_POSITION || tag == TRL_TAIL_MORE)) {
+        if (tag == TRL_TAIL_MORE) {
+            out->more = true;
+        } else if (!trl_read_u64(&reader, &out->position)) {
+            break;
+        } else {
+            out->has_position = true;
+        }
+    }
+    return true;
+}
+
+bool trl_reply_ends_request(uint8_t kind, trl_slice body, trl_arena *arena) {
+    if (kind == TRL_KIND_DESCRIPTION || kind == TRL_KIND_ROWS || kind == TRL_KIND_NOTICE || kind == TRL_KIND_STATUS) {
+        return false;
+    }
+    trl_completed head;
+    return kind != TRL_KIND_COMPLETE || !trl_completed_head(kind, body, arena, &head) || !head.more;
 }
 
 /* Reads a Lob reply: data or a locator [PROTOCOL Lob 'L']. */

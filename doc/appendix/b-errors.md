@@ -33,6 +33,7 @@ failure, and cites the rule `DESIGN`:
 | 08006 | -919 | a method needing a capability the server did not grant; query attributes past their bounds | kept |
 | 28000 | -919 | a password or SCRAM over plain TCP; a SCRAM exchange the server did not prove, or one not bound where binding is required | not made |
 | TB918 | -918 | memory not had for what a call does | kept |
+| TB916 | -916 | a reply's value the driver cannot take, the rest of its statement's replies read past | kept |
 | 0A000 | -900 | past Turborel's limits, as a value nested past 16 deep or an XML tree too large; not built in | kept |
 | 22000 | -301 | a value the protocol cannot carry | kept |
 | 22003 | -301 | a number out of range | kept |

@@ -37,6 +37,12 @@ bool trl_reader_fail(trl_reader *reader, const char *why) {
     return false;
 }
 
+bool trl_reader_value_fail(trl_reader *reader, int32_t sqlcode, const char *sqlstate, const char *why) {
+    reader->failed = true;
+    trl_codec_fail(reader->error, sqlcode, sqlstate, why);
+    return false;
+}
+
 bool trl_reader_at_end(const trl_reader *reader) {
     return reader->at >= reader->length;
 }

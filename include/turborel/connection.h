@@ -72,6 +72,15 @@ typedef struct trl_stream {
     int64_t (*write)(void *context, const uint8_t *bytes, size_t length);
     /** @brief Closes the stream, once, as the connection is freed; may be null. */
     void (*close)(void *context);
+    /**
+     * @brief Bounds how long each read and write waits, `ms`, 0 for no
+     * bound: whether it could. May be null, of a stream its maker bounds:
+     * the connection then waits as the maker set it, Terminate too, and
+     * its read timeout cannot be set. A stream that bounds itself is
+     * bounded by the read timeout the options give as it opens, as a
+     * socket is [CLIENT Timeouts].
+     */
+    bool (*bound)(void *context, uint32_t ms);
 } trl_stream;
 
 /**

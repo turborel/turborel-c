@@ -182,35 +182,53 @@ static bool read_rest(trl_conn *conn, trl_buffer *rest, size_t most) {
     return true;
 }
 
-/* What the server said as it closed: an Error, which `terminate` gives,
-   or nothing it need. */
-static trl_status closing_said(trl_conn *conn, const trl_buffer *rest) {
-    if (rest->length < TRL_FRAME_HEADER_BYTES) {
-        return TRL_OK;
-    }
+/* What one frame the server sent as it closed says: 1 nothing it need, a
+   Notice, a Status or a Pong, read past; 0 an Error, or a reply out of
+   turn, which `terminate` gives; -1 a frame not whole, the end. */
+static int closing_frame(trl_conn *conn, const uint8_t *at, size_t left, size_t *taken) {
     trl_frame_header header = {0U, 0U};
-    if (trl_frame_header_decode(rest->data, rest->length, conn->max_body, &header) != TRL_FRAME_OK) {
-        trl_failure_broken(&conn->failure, "a message is longer than the bytes taken");
-        return TRL_FAILED;
+    trl_frame_result read = trl_frame_header_decode(at, left, conn->max_body, &header);
+    if (read == TRL_FRAME_SHORT || (read == TRL_FRAME_OK && left - TRL_FRAME_HEADER_BYTES < header.length)) {
+        return -1;
     }
-    trl_slice body = {rest->data + TRL_FRAME_HEADER_BYTES, rest->length - TRL_FRAME_HEADER_BYTES};
+    if (read != TRL_FRAME_OK) {
+        trl_failure_broken(&conn->failure, "a message is longer than the bytes taken");
+        return 0;
+    }
+    *taken = TRL_FRAME_HEADER_BYTES + header.length;
+    trl_slice body = {at + TRL_FRAME_HEADER_BYTES, header.length};
     trl_codec_error error = {0, "", ""};
     trl_reply reply;
     trl_arena_free(&conn->arena);
     if (!trl_decode_reply(header.kind, body, &conn->arena, &reply, &error)) {
-        return codec_failed(conn, &error);
+        trl_failure_from_codec(&conn->failure, &error);
+        return 0;
     }
-    switch (reply.kind) {
-    case TRL_KIND_ERROR:
+    if (reply.kind == TRL_KIND_ERROR) {
         trl_failure_from_wire(&conn->failure, &reply.as.error);
-        return TRL_FAILED;
-    case TRL_KIND_NOTICE:
-    case TRL_KIND_STATUS:
-    case TRL_KIND_PONG:
-        return TRL_OK;
-    default:
-        trl_failure_broken(&conn->failure, "the server answered Terminate");
-        return TRL_FAILED;
+        return 0;
+    }
+    if (reply.kind == TRL_KIND_NOTICE || reply.kind == TRL_KIND_STATUS || reply.kind == TRL_KIND_PONG) {
+        return 1;
+    }
+    trl_failure_broken(&conn->failure, "the server answered Terminate");
+    return 0;
+}
+
+/* What the server said as it closed: an Error, which `terminate` gives,
+   past any Notice or Status before it, or nothing it need. */
+static trl_status closing_said(trl_conn *conn, const trl_buffer *rest) {
+    size_t at = 0U;
+    for (;;) {
+        size_t taken = 0U;
+        int said = closing_frame(conn, rest->data + at, rest->length - at, &taken);
+        if (said < 0) {
+            return TRL_OK;
+        }
+        if (said == 0) {
+            return TRL_FAILED;
+        }
+        at += taken;
     }
 }
 

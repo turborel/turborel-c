@@ -250,7 +250,8 @@ static trl_status read_description(trl_conn *conn, trl_result **out) {
     }
     conn->keep = &result->arena;
     trl_reply reply;
-    bool received = trl_conn_receive(conn, &reply);
+    /* A Describe of a cursor is answered by its Description alone. */
+    bool received = trl_conn_receive_one(conn, &reply);
     conn->keep = NULL;
     bool made = false;
     if (received && reply.kind == TRL_KIND_DESCRIPTION) {

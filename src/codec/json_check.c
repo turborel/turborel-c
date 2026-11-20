@@ -145,7 +145,13 @@ static bool check_object(checker *check, trl_json_span node, unsigned int depth)
 }
 
 static bool check_node(checker *check, trl_json_span node, unsigned int depth, size_t *length) {
-    if (depth > TRL_JSON_MAX_NESTING || !trl_json_node_length(node, length) || *length > node.length) {
+    if (depth > TRL_JSON_MAX_NESTING) {
+        if (check->result == TRL_JSON_WHOLE) {
+            check->result = TRL_JSON_TOO_DEEP;
+        }
+        return false;
+    }
+    if (!trl_json_node_length(node, length) || *length > node.length) {
         return damaged(check);
     }
     trl_json_span whole = {node.bytes, *length};
@@ -167,6 +173,9 @@ static bool check_node(checker *check, trl_json_span node, unsigned int depth, s
 
 trl_json_check trl_json_check_document(const uint8_t *bytes, size_t length) {
     checker check = {TRL_JSON_WHOLE};
+    if (length > TRL_JSON_MAX_DOCUMENT) {
+        return TRL_JSON_TOO_LONG;
+    }
     if (bytes == NULL || length < TRL_JSON_LEAST_DOCUMENT || bytes[0] != TRL_JSON_FORMAT_VERSION) {
         return TRL_JSON_DAMAGED;
     }

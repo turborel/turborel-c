@@ -238,7 +238,7 @@ static void truth_values(trl_test *test) {
     fixture_reset(&f);
     trl_put_u8(&f.buffer, TRL_TAG_BOOLEAN);
     trl_put_u8(&f.buffer, 2U);
-    TRL_CHECK(test, !read_one(&f, &back) && failed_connection(&f));
+    TRL_CHECK(test, !read_one(&f, &back) && failed_value(&f));
     fixture_free(&f);
 }
 
@@ -487,8 +487,9 @@ static void type_tags_as_values(trl_test *test) {
 
 /**
  * Verifies: [PROTOCOL Values] a value under tag 18 or 19, a large
- * object's stored form, and a tag no value has, fail the connection
- * (RULES.md D8); one to send under them is refused.
+ * object's stored form, fails its request alone (SQLSTATE TB916, RULES.md
+ * D8); a tag no value has fails the connection; one to send under 18 or
+ * 19 is refused.
  */
 static void type_tags_malformed_fail(trl_test *test) {
     fixture f;
@@ -500,10 +501,10 @@ static void type_tags_malformed_fail(trl_test *test) {
     const uint8_t unknown[] = {28U, 99U};
     fixture_reset(&f);
     trl_put_raw(&f.buffer, kept, sizeof kept);
-    TRL_CHECK(test, !read_one(&f, &back) && failed_connection(&f));
+    TRL_CHECK(test, !read_one(&f, &back) && failed_value(&f));
     fixture_reset(&f);
     trl_put_raw(&f.buffer, not_utf8, sizeof not_utf8);
-    TRL_CHECK(test, !read_one(&f, &back) && failed_connection(&f));
+    TRL_CHECK(test, !read_one(&f, &back) && failed_value(&f));
     for (size_t i = 0U; i < sizeof unknown; ++i) {
         fixture_reset(&f);
         trl_put_u8(&f.buffer, unknown[i]);

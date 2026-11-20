@@ -290,7 +290,17 @@ static void stream_close(trl_transport *transport) {
     free(stream);
 }
 
+static bool stream_bound(trl_transport *transport, uint32_t ms) {
+    const trl_stream *stream = transport->state;
+    if (!stream->bound(stream->context, ms)) {
+        trl_io_error_set(&transport->error, "the program's stream could not be bounded", false);
+        return false;
+    }
+    return true;
+}
+
 static const trl_transport_ops stream_ops = {stream_read, stream_write, NULL, stream_close};
+static const trl_transport_ops bounded_stream_ops = {stream_read, stream_write, stream_bound, stream_close};
 
 trl_status trl_connect_stream(const trl_stream *stream, const char *user, trl_mechanism *mechanism,
                               const trl_conn_options *options, trl_conn **out) {
@@ -313,9 +323,14 @@ trl_status trl_connect_stream(const trl_stream *stream, const char *user, trl_me
         return TRL_NO_MEMORY;
     }
     *held = *stream;
-    conn->transport.ops = &stream_ops;
+    conn->transport.ops = stream->bound == NULL ? &stream_ops : &bounded_stream_ops;
     conn->transport.state = held;
-    bool logged_in = log_in(conn, user, mechanism, options == NULL ? defaults : options);
+    const trl_conn_options *taken = options == NULL ? defaults : options;
+    bool logged_in = bound(conn, taken->read_ms);
+    if (logged_in && stream->bound != NULL) {
+        conn->read_ms = taken->read_ms;
+    }
+    logged_in = logged_in && log_in(conn, user, mechanism, taken);
     trl_conn_options_free(defaults);
     return opened(conn, logged_in, out);
 }

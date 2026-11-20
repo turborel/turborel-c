@@ -48,7 +48,7 @@ static void character_types(trl_test *test) {
     trl_put_u32(&f.buffer, 1U);
     trl_put_u8(&f.buffer, 2U);
     trl_data_type t;
-    TRL_CHECK(test, !read_type(&f, &t) && failed_connection(&f));
+    TRL_CHECK(test, !read_type(&f, &t) && failed_value(&f));
     fixture_free(&f);
 }
 

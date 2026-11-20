@@ -220,7 +220,7 @@ static void a_statement_tells_only_its_changes(trl_test *test) {
     memset(&r, 0, sizeof r);
     trl_buffer_init(&r.heard);
     TRL_CHECK(test, trl_tcp_open("127.0.0.1", SERVER_PORT, TRL_CONNECT_WITHIN_MS, &r.transport));
-    trl_stream stream = {&r, recorder_read, recorder_write, recorder_close};
+    trl_stream stream = {&r, recorder_read, recorder_write, recorder_close, NULL};
     trl_mechanism *trust = NULL;
     (void)trl_mechanism_trust(&trust);
     trl_conn *conn = NULL;

@@ -32,6 +32,8 @@
 #define TRL_JSON_FORMAT_VERSION 1U
 /** @brief How deep arrays and objects nest, turborel's MAX_NESTING. */
 #define TRL_JSON_MAX_NESTING 128U
+/** @brief The most octets of a document's stored form, turborel's MAX_DOCUMENT_OCTETS: 256 MiB. */
+#define TRL_JSON_MAX_DOCUMENT 268435456U
 
 /** @brief What checking a document found. */
 typedef enum trl_json_check {
@@ -41,6 +43,10 @@ typedef enum trl_json_check {
     TRL_JSON_DAMAGED,
     /** @brief Memory to check it could not be had. */
     TRL_JSON_NO_MEMORY,
+    /** @brief Its arrays and objects nest deeper than TRL_JSON_MAX_NESTING. */
+    TRL_JSON_TOO_DEEP,
+    /** @brief Its stored form is longer than TRL_JSON_MAX_DOCUMENT. */
+    TRL_JSON_TOO_LONG,
 } trl_json_check;
 
 /**

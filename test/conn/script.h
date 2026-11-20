@@ -40,6 +40,12 @@ struct script {
     uint8_t kinds[SCRIPT_REQUESTS];
     /** @brief How many. */
     size_t requests;
+    /** @brief Whether its stream bounds itself. */
+    bool bounds;
+    /** @brief The last bound set, and whether one was. */
+    uint32_t bound_ms;
+    /** @brief Whether a bound was set. */
+    bool bounded;
     /** @brief Whether a read past what was written fails, rather than ends. */
     bool fail_reads;
     /** @brief Whether a write fails. */
