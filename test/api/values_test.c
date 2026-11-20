@@ -4,7 +4,6 @@
  * [CLIENT Running statements] [CLIENT Prepared statements], and UUIDs'
  * octets and text [CLIENT UUIDs].
  */
-#include "codec/arena.h"
 #include "codec/buffer.h"
 #include "codec/tags.h"
 #include "codec/types.h"
