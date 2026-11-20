@@ -12,6 +12,7 @@
 #ifndef TRL_TEST_HARNESS_H
 #define TRL_TEST_HARNESS_H
 
+#include <stdbool.h>
 #include <stddef.h>
 
 /** @brief The case running, and the checks of it that failed. */
@@ -55,6 +56,9 @@ void trl_test_check(trl_test *test, int passed, const char *expression, const ch
  * EXIT_FAILURE, as also when a case named is not among them.
  */
 int trl_test_main(int argc, char **argv, const trl_test_case *cases, size_t count);
+
+/** @brief Writes `text` to a file at `path`, made or emptied first; whether it was written. */
+bool trl_test_write_file(const char *path, const char *text);
 
 /** @brief Checks that `condition` holds, in the case `test`. */
 #define TRL_CHECK(test, condition) trl_test_check((test), !!(condition), #condition, __FILE__, __LINE__)

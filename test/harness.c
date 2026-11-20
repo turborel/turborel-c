@@ -43,3 +43,19 @@ int trl_test_main(int argc, char **argv, const trl_test_case *cases, size_t coun
     }
     return failures == 0U ? EXIT_SUCCESS : EXIT_FAILURE;
 }
+
+bool trl_test_write_file(const char *path, const char *text) {
+#ifdef _WIN32
+    FILE *file = NULL;
+    if (fopen_s(&file, path, "wb") != 0) {
+        file = NULL;
+    }
+#else
+    FILE *file = fopen(path, "wb");
+#endif
+    if (file == NULL) {
+        return false;
+    }
+    bool written = fputs(text, file) >= 0;
+    return fclose(file) == 0 && written;
+}

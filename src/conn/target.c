@@ -167,6 +167,35 @@ void trl_io_failed(trl_failure *failure, const char *what, const trl_io_error *e
     trl_failure_broken(failure, message);
 }
 
+bool trl_target_is_tls(const trl_target *target) {
+    return target->kind == KIND_TLS;
+}
+
+trl_opening trl_target_open_preferring(const trl_target *target, uint32_t within_ms, trl_transport *out,
+                                       trl_tls_channel *channel, trl_failure *failure) {
+    if (target->kind != KIND_TLS) {
+        return trl_target_open(target, within_ms, out, channel, failure) ? TRL_OPENED : TRL_NOT_OPENED;
+    }
+    memset(channel, 0, sizeof *channel);
+    memset(out, 0, sizeof *out);
+    if (!trl_tcp_open(target->host, target->port, within_ms, out)) {
+        trl_io_failed(failure, "connect", &out->error);
+        return TRL_NOT_OPENED;
+    }
+    if (trl_tls_secure(target->tls, target->server_name, out, channel, failure)) {
+        return TRL_OPENED;
+    }
+    /* The server was reached and took no TLS: the same address again,
+       over plain TCP. */
+    trl_failure_clear(failure);
+    memset(out, 0, sizeof *out);
+    if (!trl_tcp_open(target->host, target->port, within_ms, out)) {
+        trl_io_failed(failure, "connect", &out->error);
+        return TRL_NOT_OPENED;
+    }
+    return TRL_OPENED_PLAIN;
+}
+
 bool trl_target_open(const trl_target *target, uint32_t within_ms, trl_transport *out, trl_tls_channel *channel,
                      trl_failure *failure) {
     memset(channel, 0, sizeof *channel);

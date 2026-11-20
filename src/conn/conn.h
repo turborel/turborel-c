@@ -11,6 +11,7 @@
 #include "codec/replies.h"
 #include "codec/tail.h"
 #include "failure.h"
+#include "net/tls.h"
 #include "net/transport.h"
 #include "turborel/turborel.h"
 
@@ -172,6 +173,31 @@ bool trl_conn_receive(trl_conn *conn, trl_reply *out);
  * the client cannot take is not read past.
  */
 bool trl_conn_receive_one(trl_conn *conn, trl_reply *out);
+
+/**
+ * @brief Opens `target` within `connect_ms`, of `plain`, if not null, the
+ * same address's plain TCP connected to instead if TLS's handshake fails,
+ * as `prefer` does: a connection, null only if memory cannot be had, its
+ * transport open if `opened_now`, else lost, holding why; `channel` what
+ * SCRAM binds to, the caller's to free [CLIENT TLS by mode].
+ */
+trl_conn *trl_conn_open(const trl_target *target, const trl_target *plain, uint32_t connect_ms,
+                        trl_tls_channel *channel, bool *opened_now);
+
+/** @brief A connection lost before it was made, holding `failure`; null if memory cannot be had. */
+trl_conn *trl_conn_failed_with(const trl_failure *failure);
+
+/** @brief Whether a connection opened is over TLS. */
+bool trl_conn_over_tls(const trl_conn *conn);
+
+/**
+ * @brief Logs in over a connection trl_conn_open() opened, as trl_connect()
+ * does: a secret refused over plain TCP (SQLSTATE 28000), SCRAM bound to
+ * `channel`, Hello answered to Ready; TRL_OK, or the connection lost and
+ * closed, holding why.
+ */
+trl_status trl_conn_log_in(trl_conn *conn, const char *user, trl_mechanism *mechanism, const trl_conn_options *options,
+                           const trl_tls_channel *channel);
 
 /** @brief Keeps a setting the server told. */
 bool trl_conn_tell(trl_conn *conn, trl_slice name, trl_slice value);

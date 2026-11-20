@@ -45,6 +45,8 @@ struct trl_tls {
     bool trusts;
     /* Whether a target holds the context, which then changes no more. */
     bool shared;
+    /* How the server's certificate is checked. */
+    trl_tls_checks checks;
 };
 
 /* Says what the TLS library's last error was, its queue then emptied. */
@@ -251,12 +253,30 @@ bool trl_tls_at_most_tls12(trl_tls *tls) {
     return changeable(tls) == TRL_OK && SSL_CTX_set_max_proto_version(tls->context, TLS1_2_VERSION) == 1;
 }
 
+/* Takes a certificate whose only fault is its name, as `verify-ca` does. */
+static int of_any_name(int verified, X509_STORE_CTX *store) {
+    int error = X509_STORE_CTX_get_error(store);
+    return verified == 1 || error == X509_V_ERR_HOSTNAME_MISMATCH || error == X509_V_ERR_IP_ADDRESS_MISMATCH ? 1 : 0;
+}
+
+void trl_tls_set_checks(trl_tls *tls, trl_tls_checks checks) {
+    if (changeable(tls) != TRL_OK) {
+        return;
+    }
+    tls->checks = checks;
+    if (checks == TRL_CHECKS_NONE) {
+        SSL_CTX_set_verify(tls->context, SSL_VERIFY_NONE, NULL);
+    } else {
+        SSL_CTX_set_verify(tls->context, SSL_VERIFY_PEER, checks == TRL_CHECKS_AUTHORITY ? of_any_name : NULL);
+    }
+}
+
 void *trl_tls_hold(trl_tls *tls, trl_failure *failure) {
     if (tls->context == NULL) {
         trl_failure_copy(failure, &tls->failure);
         return NULL;
     }
-    if (!tls->trusts) {
+    if (!tls->trusts && tls->checks != TRL_CHECKS_NONE) {
         trl_failure_broken(failure, "no certificate authority is trusted: name a file of them, or the platform's");
         return NULL;
     }
@@ -321,6 +341,11 @@ trl_status trl_tls_present(trl_tls *tls, const char *chain, const char *key) {
 bool trl_tls_at_most_tls12(trl_tls *tls) {
     (void)tls;
     return false;
+}
+
+void trl_tls_set_checks(trl_tls *tls, trl_tls_checks checks) {
+    (void)tls;
+    (void)checks;
 }
 
 void *trl_tls_hold(trl_tls *tls, trl_failure *failure) {

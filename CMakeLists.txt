@@ -75,6 +75,7 @@ add_library(
   src/conn/control.c
   src/conn/frames.c
   src/conn/options.c
+  src/conn/role.c
   src/conn/session.c
   src/conn/target.c
   src/conn/told.c
@@ -82,6 +83,10 @@ add_library(
   src/data/params.c
   src/data/text.c
   src/data/type_text.c
+  src/settings/connect.c
+  src/settings/files.c
+  src/settings/options.c
+  src/settings/settings.c
   src/data/values.c
   src/data/xml_lex.c
   src/data/xml_parse.c

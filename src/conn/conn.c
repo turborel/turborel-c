@@ -215,6 +215,18 @@ static bool in_the_clear(trl_conn *conn, const trl_target *target, const trl_mec
     return false;
 }
 
+/* Binds SCRAM to a TLS channel, and logs in over the transport opened. */
+static bool logged_in_over(trl_conn *conn, const trl_tls_channel *channel, const char *user, trl_mechanism *mechanism,
+                           const trl_conn_options *options) {
+    if (channel->secured) {
+        (void)trl_mechanism_bind(mechanism, channel->certificate, channel->certificate_length,
+                                 channel->has_exporter ? channel->exporter : NULL,
+                                 channel->has_exporter ? sizeof channel->exporter : 0U);
+    }
+    conn->read_ms = options->read_ms;
+    return log_in(conn, user, mechanism, options) && bound(conn, options->read_ms);
+}
+
 /* Opens the target, binds SCRAM to a TLS channel, and logs in. */
 static bool open_and_log_in(trl_conn *conn, const trl_target *target, const char *user, trl_mechanism *mechanism,
                             const trl_conn_options *options) {
@@ -222,14 +234,59 @@ static bool open_and_log_in(trl_conn *conn, const trl_target *target, const char
     if (!trl_target_open(target, options->connect_ms, &conn->transport, &channel, &conn->failure)) {
         return false;
     }
-    if (channel.secured) {
-        (void)trl_mechanism_bind(mechanism, channel.certificate, channel.certificate_length,
-                                 channel.has_exporter ? channel.exporter : NULL,
-                                 channel.has_exporter ? sizeof channel.exporter : 0U);
-    }
+    bool logged_in = logged_in_over(conn, &channel, user, mechanism, options);
     trl_tls_channel_free(&channel);
-    conn->read_ms = options->read_ms;
-    return log_in(conn, user, mechanism, options) && bound(conn, options->read_ms);
+    return logged_in;
+}
+
+trl_conn *trl_conn_open(const trl_target *target, const trl_target *plain, uint32_t connect_ms,
+                        trl_tls_channel *channel, bool *opened_now) {
+    *opened_now = false;
+    memset(channel, 0, sizeof *channel);
+    trl_conn *conn = unopened();
+    if (conn == NULL) {
+        return NULL;
+    }
+    bool fell_back = false;
+    if (plain == NULL) {
+        *opened_now = trl_target_open(target, connect_ms, &conn->transport, channel, &conn->failure);
+    } else {
+        trl_opening opening = trl_target_open_preferring(target, connect_ms, &conn->transport, channel, &conn->failure);
+        *opened_now = opening != TRL_NOT_OPENED;
+        fell_back = opening == TRL_OPENED_PLAIN;
+    }
+    conn->reach = trl_target_clone(fell_back ? plain : target);
+    if (conn->reach == NULL && *opened_now) {
+        trl_failure_no_memory(&conn->failure);
+        trl_transport_close(&conn->transport);
+        trl_tls_channel_free(channel);
+        *opened_now = false;
+    }
+    if (!*opened_now) {
+        trl_conn_lose(conn, &conn->failure);
+    }
+    return conn;
+}
+
+trl_conn *trl_conn_failed_with(const trl_failure *failure) {
+    trl_conn *conn = unopened();
+    if (conn != NULL) {
+        trl_failure_copy(&conn->failure, failure);
+        trl_conn_lose(conn, &conn->failure);
+    }
+    return conn;
+}
+
+bool trl_conn_over_tls(const trl_conn *conn) {
+    return conn->reach != NULL && trl_target_is_tls(conn->reach);
+}
+
+trl_status trl_conn_log_in(trl_conn *conn, const char *user, trl_mechanism *mechanism, const trl_conn_options *options,
+                           const trl_tls_channel *channel) {
+    bool logged_in =
+        in_the_clear(conn, conn->reach, mechanism) && logged_in_over(conn, channel, user, mechanism, options);
+    trl_conn *same = NULL;
+    return opened(conn, logged_in, &same);
 }
 
 trl_status trl_connect(const trl_target *target, const char *user, trl_mechanism *mechanism,

@@ -54,6 +54,7 @@
 #include "turborel/lobs.h"       // IWYU pragma: export
 #include "turborel/numbers.h"    // IWYU pragma: export
 #include "turborel/session.h"    // IWYU pragma: export
+#include "turborel/settings.h"   // IWYU pragma: export
 #include "turborel/statements.h" // IWYU pragma: export
 #include "turborel/values.h"     // IWYU pragma: export
 #include "turborel/xml.h"        // IWYU pragma: export

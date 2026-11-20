@@ -269,6 +269,60 @@ bool trl_tcp_open(const char *host, uint16_t port, uint32_t within_ms, trl_trans
     return set_up(fd, within_ms, out);
 }
 
+/* Each address `found` lists, numeric and shown, into a list of the
+   caller's. */
+static bool listed(const struct addrinfo *found, trl_address **out, size_t *count) {
+    size_t n = 0U;
+    for (const struct addrinfo *at = found; at != NULL; at = at->ai_next) {
+        ++n;
+    }
+    *out = trl_calloc(n == 0U ? 1U : n, sizeof **out);
+    if (*out == NULL) {
+        return false;
+    }
+    for (const struct addrinfo *at = found; at != NULL; at = at->ai_next) {
+        trl_address *address = &(*out)[*count];
+        char port[TRL_PORT_TEXT];
+        if (getnameinfo(at->ai_addr, at->ai_addrlen, address->host, sizeof address->host, port, sizeof port,
+                        NI_NUMERICHOST | NI_NUMERICSERV) != 0) {
+            continue;
+        }
+        bool six = at->ai_family == AF_INET6;
+        trl_format(address->shown, sizeof address->shown, six ? "[%s]:%s" : "%s:%s", address->host, port);
+        ++*count;
+    }
+    return true;
+}
+
+bool trl_tcp_resolve(const char *host, uint16_t port, trl_address **out, size_t *count, trl_io_error *error) {
+    *out = NULL;
+    *count = 0U;
+    char service[TRL_PORT_TEXT];
+    trl_format(service, sizeof service, "%u", (unsigned int)port);
+    struct addrinfo hints;
+    memset(&hints, 0, sizeof hints);
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_protocol = IPPROTO_TCP;
+    struct addrinfo *found = NULL;
+    int resolved = getaddrinfo(host, service, &hints, &found);
+    if (resolved != 0) {
+        char text[TRL_IO_TEXT_BYTES];
+        trl_format(text, sizeof text, "failed to lookup address information: %s", gai_strerror(resolved));
+        trl_io_error_set(error, text, false);
+        return false;
+    }
+    bool made = listed(found, out, count);
+    freeaddrinfo(found);
+    if (!made || *count == 0U) {
+        free(*out);
+        *out = NULL;
+        trl_io_error_set(error, made ? "no address to connect to" : "memory could not be had for the addresses", false);
+        return false;
+    }
+    return true;
+}
+
 bool trl_local_open(const char *path, uint32_t within_ms, trl_transport *out) {
     struct sockaddr_un address;
     memset(&address, 0, sizeof address);

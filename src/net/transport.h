@@ -73,4 +73,23 @@ bool trl_tcp_open(const char *host, uint16_t port, uint32_t within_ms, trl_trans
  */
 bool trl_local_open(const char *path, uint32_t within_ms, trl_transport *out);
 
+/** @brief Room for an address's text, and for it shown with its port. */
+#define TRL_ADDRESS_BYTES 64U
+#define TRL_SHOWN_BYTES 80U
+
+/** @brief An address a name resolves to: as it is connected to, and as it is shown, as "[::1]:7422". */
+typedef struct trl_address {
+    /** @brief The address, numeric, as "127.0.0.1" or "::1". */
+    char host[TRL_ADDRESS_BYTES];
+    /** @brief It and its port, as Rust shows a socket address. */
+    char shown[TRL_SHOWN_BYTES];
+} trl_address;
+
+/**
+ * @brief The addresses `host` resolves to at `port`, in the order the
+ * system gives them, into `out`, the caller's to free, and how many;
+ * false, with why, if none.
+ */
+bool trl_tcp_resolve(const char *host, uint16_t port, trl_address **out, size_t *count, trl_io_error *error);
+
 #endif

@@ -35,6 +35,19 @@ typedef struct trl_tls_channel {
  */
 void *trl_tls_hold(trl_tls *tls, trl_failure *failure);
 
+/** @brief How the server's certificate is checked [CLIENT TLS by mode]. */
+typedef enum trl_tls_checks {
+    /** @brief Signed by an authority trusted, and of the server's name, as `verify-full`. */
+    TRL_CHECKS_FULL = 0,
+    /** @brief Signed by an authority trusted, of whatever name, as `verify-ca`. */
+    TRL_CHECKS_AUTHORITY,
+    /** @brief Not checked, but that the server holds its key, as `prefer` and `require`. */
+    TRL_CHECKS_NONE,
+} trl_tls_checks;
+
+/** @brief Says how the server's certificate is checked; of settings no target holds yet. */
+void trl_tls_set_checks(trl_tls *tls, trl_tls_checks checks);
+
 /**
  * @brief Keeps the settings to TLS 1.2 at most, as a server of TLS 1.2
  * alone would; for the tests of SCRAM's binding over TLS 1.2.

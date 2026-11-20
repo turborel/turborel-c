@@ -236,6 +236,61 @@ bool trl_tcp_open(const char *host, uint16_t port, uint32_t within_ms, trl_trans
     return set_up(socket, within_ms, out);
 }
 
+/* Each address `found` lists, numeric and shown, into a list of the
+   caller's. */
+static bool listed(const ADDRINFOA *found, trl_address **out, size_t *count) {
+    size_t n = 0U;
+    for (const ADDRINFOA *at = found; at != NULL; at = at->ai_next) {
+        ++n;
+    }
+    *out = trl_calloc(n == 0U ? 1U : n, sizeof **out);
+    if (*out == NULL) {
+        return false;
+    }
+    for (const ADDRINFOA *at = found; at != NULL; at = at->ai_next) {
+        trl_address *address = &(*out)[*count];
+        char port[TRL_PORT_TEXT];
+        if (getnameinfo(at->ai_addr, (socklen_t)at->ai_addrlen, address->host, (DWORD)sizeof address->host, port,
+                        (DWORD)sizeof port, NI_NUMERICHOST | NI_NUMERICSERV) != 0) {
+            continue;
+        }
+        bool six = at->ai_family == AF_INET6;
+        trl_format(address->shown, sizeof address->shown, six ? "[%s]:%s" : "%s:%s", address->host, port);
+        ++*count;
+    }
+    return true;
+}
+
+bool trl_tcp_resolve(const char *host, uint16_t port, trl_address **out, size_t *count, trl_io_error *error) {
+    *out = NULL;
+    *count = 0U;
+    WSADATA data;
+    int started = WSAStartup(MAKEWORD(TRL_WINSOCK_VERSION, TRL_WINSOCK_VERSION), &data);
+    if (started != 0) {
+        trl_io_error_os(error, started);
+        return false;
+    }
+    trl_transport said;
+    memset(&said, 0, sizeof said);
+    ADDRINFOA *found = NULL;
+    bool made = resolve(host, port, &found, &said);
+    if (!made) {
+        *error = said.error;
+    } else {
+        made = listed(found, out, count);
+        freeaddrinfo(found);
+        if (!made || *count == 0U) {
+            free(*out);
+            *out = NULL;
+            trl_io_error_set(error, made ? "no address to connect to" : "memory could not be had for the addresses",
+                             false);
+            made = false;
+        }
+    }
+    (void)WSACleanup();
+    return made;
+}
+
 static HANDLE handle_of(const trl_transport *transport) {
     return ((const pipe_state *)transport->state)->handle;
 }

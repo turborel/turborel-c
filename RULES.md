@@ -505,6 +505,12 @@ Where it departs from turborel-client on its own:
   Extended-A, Greek and Cyrillic alone, where Turborel takes a letter by
   Unicode's Alphabetic property and applies Unicode's full case mapping. A name of other scripts is written as given, so a
   table named in them is better given as a delimited identifier.
+- Settings keep their connect timeout in milliseconds, at most
+  2^32 - 1, about 49 days; a longer one is taken as that, where
+  turborel-client keeps any.
+- The home directory of the default service file and password file is
+  HOME, or on Windows USERPROFILE, where turborel-client asks the
+  system's user database too when HOME is not set.
 
 ### This driver's own
 
@@ -577,9 +583,10 @@ comes with its length. Types are named `trl_name`, without `_t`, which
 POSIX reserves.
 
 A result, a prepared statement, the outcomes of several statements, a
-parameter list, an XML tree and what an import did are the caller's,
-each freed by its own `_free`, and none depends on the connection after
-it is made: a result
+parameter list, an XML tree, what an import did, a layer of options and
+settings laid are the caller's, each freed by its own `_free`, and none
+depends on the connection after it is made, nor a connection on the
+settings that made it: a result
 copies what it holds out of the reply it was read from, so it outlives
 the connection's later calls. A batch given to a handler, and a notice
 given to one, last only until the handler returns. A cursor is no
@@ -600,9 +607,11 @@ call (R-SAFE-5). A handle is used by one thread at a time; different
 handles may be used on different threads at once. Two depart from that
 by design, as their doc comments say: a SCRAM key cache, which every
 thread may use at once, behind a lock of its own (POSIX threads'
-mutex, or a Windows SRW lock), its holds counted under it; and a
-canceller, made of a connection on the connection's thread, then used on
-another to cancel its statement. The library starts no thread
+mutex, or a Windows SRW lock), its holds counted under it; a canceller,
+made of a connection on the connection's thread, then used on another
+to cancel its statement; and settings, which several threads may connect
+by at once, as each connection only reads them and shares their key
+cache. The library starts no thread
 (R-SAFE-6), and a callback the program gives, as a stream's, runs on
 the thread that made the call. On Windows each socket starts and cleans
 up Winsock itself, which counts its users, so no call of the program's
