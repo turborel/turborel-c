@@ -5,6 +5,13 @@
  * each failing as turborel-client fails, and a handshake with a server
  * that speaks no TLS.
  */
+#ifndef __APPLE__
+/* POSIX's setenv, which C17 alone does not declare; the feature macro is
+   the C library's name, reserved and so spelled. */
+// NOLINTNEXTLINE(bugprone-reserved-identifier,cert-dcl37-c,cert-dcl51-cpp,readability-identifier-naming)
+#define _POSIX_C_SOURCE 200809L
+#endif
+
 #include "certs.h"
 #include "fake.h"
 #include "harness.h"

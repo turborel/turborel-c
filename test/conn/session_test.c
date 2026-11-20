@@ -62,15 +62,15 @@ static void compressed_pong(script *s) {
 }
 
 /* Answers each request after Ready as the test asks. */
-static void after_ready(script *s, const serving *serving, uint8_t kind) {
+static void after_ready(script *s, const serving *plan, uint8_t kind) {
     static const uint8_t long_header[] = {TRL_KIND_PONG, 100U, 0U, 0U, 0U};
     if (kind == TRL_KIND_TERMINATE) {
-        if (serving->after == AFTER_TERMINATE_ERROR) {
+        if (plan->after == AFTER_TERMINATE_ERROR) {
             script_error(s, -320, "40002", "a deferred constraint is not satisfied", NULL);
         }
         return;
     }
-    switch (serving->after) {
+    switch (plan->after) {
     case AFTER_STATUS_PONG:
         script_status(s, "SESSION.TIME_ZONE", "+02:00");
         script_bare(s, TRL_KIND_PONG);
@@ -101,19 +101,19 @@ static void after_ready(script *s, const serving *serving, uint8_t kind) {
 /* A server granting `ping` and `status`, and `compression` if asked. */
 static void respond(script *s, uint8_t kind, trl_slice body) {
     (void)body;
-    const serving *serving = s->data;
+    const serving *plan = s->data;
     static const char *const granted[] = {TRL_CAPABILITY_STATUS, TRL_CAPABILITY_PING, TRL_CAPABILITY_COMPRESSION};
     if (kind == TRL_KIND_HELLO) {
         script_status(s, "SESSION.TIME_ZONE", "+00:00");
-        script_ready(s, "ANN", granted, serving->compression ? 3U : 2U);
+        script_ready(s, "ANN", granted, plan->compression ? 3U : 2U);
         return;
     }
-    after_ready(s, serving, kind);
+    after_ready(s, plan, kind);
 }
 
-/* Connects to a server answering as `serving` says, by trust. */
-static trl_conn *connected(script *s, serving *serving, const trl_conn_options *options) {
-    script_init(s, respond, serving);
+/* Connects to a server answering as `plan` says, by trust. */
+static trl_conn *connected(script *s, serving *plan, const trl_conn_options *options) {
+    script_init(s, respond, plan);
     trl_mechanism *trust = NULL;
     (void)trl_mechanism_trust(&trust);
     trl_conn *conn = NULL;
@@ -128,23 +128,23 @@ static trl_conn *connected(script *s, serving *serving, const trl_conn_options *
  * loses the connection, another does not, and a reply out of turn loses it.
  */
 static void ping_is_answered_by_pong(trl_test *test) {
-    serving serving = {AFTER_STATUS_PONG, false};
+    serving plan = {AFTER_STATUS_PONG, false};
     script s;
-    trl_conn *conn = connected(&s, &serving, NULL);
+    trl_conn *conn = connected(&s, &plan, NULL);
     TRL_CHECK(test, trl_conn_ping(conn) == TRL_OK);
     TRL_CHECK(test, s.kinds[1] == TRL_KIND_PING && strcmp(trl_conn_setting(conn, "SESSION.TIME_ZONE"), "+02:00") == 0);
     TRL_CHECK(test, trl_conn_setting_count(conn) == 1U);
-    serving.after = AFTER_ERROR_42;
+    plan.after = AFTER_ERROR_42;
     TRL_CHECK(test, trl_conn_ping(conn) == TRL_FAILED && !trl_conn_is_lost(conn));
     TRL_CHECK(test, strcmp(trl_failure_sqlstate(trl_conn_failure(conn)), "0A000") == 0);
-    serving.after = AFTER_ERROR_08;
+    plan.after = AFTER_ERROR_08;
     TRL_CHECK(test, trl_conn_ping(conn) == TRL_FAILED && trl_conn_is_lost(conn));
     TRL_CHECK(test, trl_conn_ping(conn) == TRL_FAILED);
     TRL_CHECK(test, strcmp(trl_failure_message(trl_conn_failure(conn)), "the server is stopping") == 0);
     trl_conn_free(conn);
     script_free(&s);
-    serving.after = AFTER_ROWS;
-    conn = connected(&s, &serving, NULL);
+    plan.after = AFTER_ROWS;
+    conn = connected(&s, &plan, NULL);
     TRL_CHECK(test, trl_conn_ping(conn) == TRL_FAILED && trl_conn_is_lost(conn));
     TRL_CHECK(test, strcmp(trl_failure_message(trl_conn_failure(conn)), "the server sent no Pong") == 0);
     trl_conn_free(conn);
@@ -157,9 +157,9 @@ static void ping_is_answered_by_pong(trl_test *test) {
  * kept.
  */
 static void a_capability_not_granted_sends_nothing(trl_test *test) {
-    serving serving = {AFTER_PONG, false};
+    serving plan = {AFTER_PONG, false};
     script s;
-    script_init(&s, NULL, &serving);
+    script_init(&s, NULL, &plan);
     script_ready(&s, "ANN", NULL, 0U);
     trl_mechanism *trust = NULL;
     (void)trl_mechanism_trust(&trust);
@@ -191,21 +191,21 @@ static uint32_t asked_count(const script *s) {
 static void an_offer_of_the_programs_own(trl_test *test) {
     trl_conn_options *options = NULL;
     TRL_CHECK(test, trl_conn_options_new(&options) == TRL_OK);
-    serving serving = {AFTER_PONG, false};
+    serving plan = {AFTER_PONG, false};
     script s;
-    trl_conn *conn = connected(&s, &serving, options);
+    trl_conn *conn = connected(&s, &plan, options);
     TRL_CHECK(test, asked_count(&s) == 17U);
     trl_conn_free(conn);
     script_free(&s);
     TRL_CHECK(test, trl_conn_options_ask_none(options) == TRL_OK);
-    conn = connected(&s, &serving, options);
+    conn = connected(&s, &plan, options);
     TRL_CHECK(test, asked_count(&s) == 0U && s.from_client.data[s.from_client.length - 1U] == 0U);
     trl_conn_free(conn);
     script_free(&s);
     TRL_CHECK(test, trl_conn_options_ask(options, TRL_CAPABILITY_COMPRESSION) == TRL_OK);
     TRL_CHECK(test, trl_conn_options_ask(options, TRL_CAPABILITY_COMPRESSION) == TRL_OK);
     TRL_CHECK(test, trl_conn_options_attribute(options, "application", "payroll") == TRL_OK);
-    conn = connected(&s, &serving, options);
+    conn = connected(&s, &plan, options);
     TRL_CHECK(test, asked_count(&s) == (trl_compression_built() ? 1U : 0U));
     static const char tail[] = "application\x07\x00\x00\x00payroll";
     TRL_CHECK(test,
@@ -233,16 +233,16 @@ static void compressed_frames_only_once_granted(trl_test *test) {
     if (!trl_compression_built()) {
         return;
     }
-    serving serving = {AFTER_COMPRESSED_PONG, true};
+    serving plan = {AFTER_COMPRESSED_PONG, true};
     script s;
-    trl_conn *conn = connected(&s, &serving, NULL);
+    trl_conn *conn = connected(&s, &plan, NULL);
     TRL_CHECK(test, trl_conn_ping(conn) == TRL_OK);
     TRL_CHECK(test, s.kinds[1] == TRL_KIND_PING);
     TRL_CHECK(test, trl_conn_setting_count(conn) == 2U);
     trl_conn_free(conn);
     script_free(&s);
-    serving.compression = false;
-    conn = connected(&s, &serving, NULL);
+    plan.compression = false;
+    conn = connected(&s, &plan, NULL);
     TRL_CHECK(test, trl_conn_ping(conn) == TRL_FAILED && trl_conn_is_lost(conn));
     TRL_CHECK(test, strcmp(trl_failure_sqlstate(trl_conn_failure(conn)), "08006") == 0);
     trl_conn_free(conn);
@@ -255,9 +255,9 @@ static void compressed_frames_only_once_granted(trl_test *test) {
  * its maker, so its read timeout is not set.
  */
 static void a_longer_reply_loses_the_connection(trl_test *test) {
-    serving serving = {AFTER_LONG_PONG, false};
+    serving plan = {AFTER_LONG_PONG, false};
     script s;
-    trl_conn *conn = connected(&s, &serving, NULL);
+    trl_conn *conn = connected(&s, &plan, NULL);
     TRL_CHECK(test, trl_conn_set_max_body(conn, 0U) == TRL_INVALID_ARGUMENT);
     TRL_CHECK(test, trl_conn_set_max_body(conn, TRL_MAX_BODY_BYTES + 1U) == TRL_INVALID_ARGUMENT);
     TRL_CHECK(test, trl_conn_set_max_body(conn, 10U) == TRL_OK);
@@ -279,17 +279,17 @@ static void a_longer_reply_loses_the_connection(trl_test *test) {
  * every call after fails, the connection lost.
  */
 static void terminate_gives_a_failing_commit(trl_test *test) {
-    serving serving = {AFTER_PONG, false};
+    serving plan = {AFTER_PONG, false};
     script s;
-    trl_conn *conn = connected(&s, &serving, NULL);
+    trl_conn *conn = connected(&s, &plan, NULL);
     TRL_CHECK(test, trl_conn_terminate(conn) == TRL_OK && s.kinds[1] == TRL_KIND_TERMINATE);
     TRL_CHECK(test, trl_conn_is_lost(conn) && trl_conn_ping(conn) == TRL_FAILED);
     TRL_CHECK(test, strcmp(trl_failure_message(trl_conn_failure(conn)), "the connection was terminated") == 0);
     TRL_CHECK(test, trl_conn_terminate(conn) == TRL_FAILED);
     trl_conn_free(conn);
     script_free(&s);
-    serving.after = AFTER_TERMINATE_ERROR;
-    conn = connected(&s, &serving, NULL);
+    plan.after = AFTER_TERMINATE_ERROR;
+    conn = connected(&s, &plan, NULL);
     TRL_CHECK(test, trl_conn_terminate(conn) == TRL_FAILED);
     TRL_CHECK(test, strcmp(trl_failure_sqlstate(trl_conn_failure(conn)), "40002") == 0);
     trl_conn_free(conn);

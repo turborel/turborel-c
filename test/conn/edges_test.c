@@ -58,10 +58,10 @@ static void notice(script *s) {
 }
 
 /* Answers what follows Terminate as the test asks. */
-static void closing(script *s, after after) {
+static void closing(script *s, after wanted) {
     static const uint8_t long_header[] = {TRL_KIND_ERROR, 0xff, 0xff, 0xff, 0x7f};
     static const uint8_t bad_error[] = {TRL_KIND_ERROR, 1, 0, 0, 0, 0};
-    switch (after) {
+    switch (wanted) {
     case AFTER_NOTICE_CLOSING:
         notice(s);
         break;

@@ -63,8 +63,8 @@ struct trl_mechanism {
     uint32_t used_iterations;
 };
 
-/* Makes a mechanism of `kind`, of a copy of `password` if not null. */
-static trl_status make(kind kind, const char *password, trl_mechanism **out) {
+/* Makes a mechanism of kind `of`, of a copy of `password` if not null. */
+static trl_status make(kind of, const char *password, trl_mechanism **out) {
     if (out == NULL) {
         return TRL_INVALID_ARGUMENT;
     }
@@ -74,7 +74,7 @@ static trl_status make(kind kind, const char *password, trl_mechanism **out) {
         return TRL_NO_MEMORY;
     }
     trl_failure_init(&mechanism->failure);
-    mechanism->kind = kind;
+    mechanism->kind = of;
     trl_scram_init(&mechanism->exchange, TRL_SCRAM_UNBOUND, NULL, 0U);
     if (password != NULL) {
         size_t length = strlen(password);

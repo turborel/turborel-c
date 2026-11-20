@@ -214,9 +214,18 @@ bool trl_scram_read_first(const trl_scram *scram, trl_slice message, trl_scram_f
     trl_slice field = {NULL, 0U};
     trl_slice salt = {NULL, 0U};
     trl_slice iterations = {NULL, 0U};
-    if (!attribute(next_field(message, &at, &field), field, 'r', &out->both, failure) ||
-        !attribute(next_field(message, &at, &field), field, 's', &salt, failure) ||
-        !attribute(next_field(message, &at, &field), field, 'i', &iterations, failure)) {
+    /* Each field is read before it is passed on: the order a call's
+       arguments are evaluated in is the compiler's. */
+    bool present = next_field(message, &at, &field);
+    if (!attribute(present, field, 'r', &out->both, failure)) {
+        return false;
+    }
+    present = next_field(message, &at, &field);
+    if (!attribute(present, field, 's', &salt, failure)) {
+        return false;
+    }
+    present = next_field(message, &at, &field);
+    if (!attribute(present, field, 'i', &iterations, failure)) {
         return false;
     }
     if (next_field(message, &at, &field)) {

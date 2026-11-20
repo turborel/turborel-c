@@ -51,8 +51,8 @@ static char *copy_of(const char *text) {
     return copy;
 }
 
-/* Makes a target of `kind`, of copies of `text` as its host or path. */
-static trl_status make(kind kind, const char *text, trl_target **out) {
+/* Makes a target of kind `of`, of a copy of `text` as its host or path. */
+static trl_status make(kind of, const char *text, trl_target **out) {
     if (out == NULL) {
         return TRL_INVALID_ARGUMENT;
     }
@@ -68,8 +68,8 @@ static trl_status make(kind kind, const char *text, trl_target **out) {
         return TRL_NO_MEMORY;
     }
     trl_failure_init(&target->failure);
-    target->kind = kind;
-    if (kind == KIND_LOCAL) {
+    target->kind = of;
+    if (of == KIND_LOCAL) {
         target->path = copy;
     } else {
         target->host = copy;

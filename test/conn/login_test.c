@@ -5,7 +5,6 @@
  * answered, Ready kept, a refusal or a reply out of turn failing, and
  * SCRAM's whole exchange with its key cache.
  */
-#include "auth/base64.h"
 #include "auth/crypto.h"
 #include "codec/buffer.h"
 #include "codec/kinds.h"
@@ -17,7 +16,6 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <stdio.h>
 #include <string.h>
 
 /* Answers a trusted login: Statuses, then Ready of `status` and `ping`. */
@@ -120,11 +118,11 @@ static void a_refusal_or_a_reply_out_of_turn_fails(trl_test *test) {
     trl_mechanism_free(trust);
 }
 
-/* Connects over a SCRAM server ending as `ending`, with `cache` if given. */
-static trl_status scram_login(ending ending, trl_key_cache *cache, trl_conn **conn, bool *proof_right) {
+/* Connects over a SCRAM server ending as `end` says, with `cache` if given. */
+static trl_status scram_login(ending end, trl_key_cache *cache, trl_conn **conn, bool *proof_right) {
     scram_server server;
     memset(&server, 0, sizeof server);
-    server.ending = ending;
+    server.ending = end;
     script s;
     script_init(&s, scram_serving, &server);
     trl_mechanism *scram = NULL;
