@@ -206,7 +206,7 @@ static void an_offer_of_the_programs_own(trl_test *test) {
     TRL_CHECK(test, trl_conn_options_ask(options, TRL_CAPABILITY_COMPRESSION) == TRL_OK);
     TRL_CHECK(test, trl_conn_options_attribute(options, "application", "payroll") == TRL_OK);
     conn = connected(&s, &serving, options);
-    TRL_CHECK(test, asked_count(&s) == 1U);
+    TRL_CHECK(test, asked_count(&s) == (trl_compression_built() ? 1U : 0U));
     static const char tail[] = "application\x07\x00\x00\x00payroll";
     TRL_CHECK(test,
               memcmp(s.from_client.data + s.from_client.length - (sizeof tail - 1U), tail, sizeof tail - 1U) == 0);

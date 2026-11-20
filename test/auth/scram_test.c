@@ -14,6 +14,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 
 /* RFC 7677 section 3's example. */
@@ -76,7 +77,11 @@ static void the_rfc_example_runs_step_by_step(trl_test *test) {
     trl_failure failure;
     trl_failure_init(&failure);
     trl_scram_first read;
-    TRL_CHECK(test, trl_scram_read_first(&scram, text(SERVER_FIRST), &read, &failure));
+    bool read_it = trl_scram_read_first(&scram, text(SERVER_FIRST), &read, &failure);
+    if (!read_it) {
+        (void)fprintf(stderr, "server-first refused: %s\n", failure.message);
+    }
+    TRL_CHECK(test, read_it);
     TRL_CHECK(test, read.iterations == ITERATIONS && read.salt_length == 16U);
     trl_salt salt_of_read = trl_scram_salt(&read);
     trl_scram_keys keys;

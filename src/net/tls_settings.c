@@ -137,6 +137,7 @@ trl_status trl_tls_trust_file(trl_tls *tls, const char *path) {
     return TRL_OK;
 }
 
+#if defined(__APPLE__) || defined(_WIN32)
 /* Adds one certificate, DER, to the store; whether it was. */
 static bool add_der(X509_STORE *store, const uint8_t *der, size_t length) {
     const unsigned char *at = der;
@@ -145,6 +146,8 @@ static bool add_der(X509_STORE *store, const uint8_t *der, size_t length) {
     X509_free(certificate);
     return added;
 }
+
+#endif
 
 #ifdef __APPLE__
 /* The system's anchors, of the keychain's trust settings. */
