@@ -318,8 +318,10 @@ of datetime, `TRL_KIND_DATE` to `TRL_KIND_TIMESTAMP_ZONED`, a zoned one sent as 
 `trl_params_add_json` makes the stored form of the JSON text given
 [PROTOCOL JSON values]; `trl_params_add_xml` sends the serialization
 as it is, which the server parses. The server casts each value to its
-parameter's type, as SQL's assignment does. `trl_params_clear` empties
-the list for the next execution.
+parameter's type, as SQL's assignment does. A list is executed with a
+prepared statement by `trl_execute`, or with a statement run once by
+`trl_query_values` ([Statements and Cursors](22-statements.md)).
+`trl_params_clear` empties the list for the next execution.
 
 ### ERRORS
 

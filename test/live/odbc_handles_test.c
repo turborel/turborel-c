@@ -504,6 +504,31 @@ static void modes_at_their_edges(trl_test *test) {
     odbc_close(&o);
 }
 
+/**
+ * Verifies: [DESIGN] D2 SQLExecDirect of a bound parameter, prepared,
+ * executed and destroyed, telling its execution's completion, not its
+ * destruction's: the rows an UPDATE changed, and a query's warning
+ * (01003) [PROTOCOL Complete 'K'].
+ */
+static void a_bound_statement_run_once_tells_its_completion(trl_test *test) {
+    odbc_opened o;
+    TRL_CHECK(test, odbc_open(&o));
+    TRL_CHECK(test, odbc_run(o.stmt, "CREATE TABLE BQ (K INTEGER, X INTEGER)") &&
+                        odbc_run(o.stmt, "INSERT INTO BQ VALUES (1, NULL), (2, NULL), (3, NULL)"));
+    SQLINTEGER above = 1;
+    (void)SQLBindParameter(o.stmt, 1, SQL_PARAM_INPUT, SQL_C_SLONG, SQL_INTEGER, 0, 0, &above, 0, NULL);
+    SQLLEN rows = 0;
+    TRL_CHECK(test, SQLExecDirect(o.stmt, sql_text("UPDATE BQ SET K = K + 10 WHERE K > ?"), SQL_NTS) == SQL_SUCCESS &&
+                        SQLRowCount(o.stmt, &rows) == SQL_SUCCESS && rows == 2);
+    TRL_CHECK(test,
+              SQLExecDirect(o.stmt, sql_text("SELECT SUM(X) FROM BQ WHERE K > ?"), SQL_NTS) == SQL_SUCCESS_WITH_INFO &&
+                  strcmp(odbc_state(SQL_HANDLE_STMT, o.stmt, NULL), "01003") == 0);
+    (void)SQLFreeStmt(o.stmt, SQL_CLOSE);
+    (void)SQLFreeStmt(o.stmt, SQL_RESET_PARAMS);
+    TRL_CHECK(test, odbc_run(o.stmt, "DROP TABLE BQ CASCADE"));
+    odbc_close(&o);
+}
+
 int main(int argc, char **argv) {
     bool skip = false;
     if (!odbc_start("live-odbc-handles", &skip)) {
@@ -515,6 +540,7 @@ int main(int argc, char **argv) {
         TRL_TEST_CASE(transaction_modes_are_the_servers),
         TRL_TEST_CASE(a_query_timeout_cancels_on_the_server),
         TRL_TEST_CASE(modes_at_their_edges),
+        TRL_TEST_CASE(a_bound_statement_run_once_tells_its_completion),
         TRL_TEST_CASE(statement_attributes_are_set_and_read),
         TRL_TEST_CASE(statement_attributes_the_driver_takes),
         TRL_TEST_CASE(diagnostics_tell_each_field),

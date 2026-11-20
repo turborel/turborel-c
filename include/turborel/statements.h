@@ -69,6 +69,26 @@ TRL_API trl_status trl_query_params(trl_conn *conn, const char *sql, size_t coun
                                     trl_result **out);
 
 /**
+ * @brief Runs one statement with its `?` parameters given as typed
+ * values, as trl_query_params() runs one with text: prepared, executed
+ * with `params`, each value assigned to its parameter's type as
+ * trl_execute() sends it, so octets, JSON, arrays, rows and multisets
+ * arrive as they are, then destroyed; with no parameter, by Query, as
+ * trl_query(). What the connection then tells of the last completion,
+ * its rows, identity values, warning and conditions, is the statement's
+ * own, not its destruction's.
+ *
+ * @param conn The connection.
+ * @param sql The statement, UTF-8.
+ * @param params Its parameters' values, in the order of its `?`s; null
+ * or empty for none. The caller's still after.
+ * @param out Where the result goes, the caller's to free; null unless
+ * TRL_OK.
+ * @return As trl_query() returns; TRL_NO_MEMORY.
+ */
+TRL_API trl_status trl_query_values(trl_conn *conn, const char *sql, const trl_params *params, trl_result **out);
+
+/**
  * @brief Given each batch of a query's rows as it comes: a result of the
  * query's columns and that batch's rows, borrowed for the call alone.
  */

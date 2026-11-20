@@ -129,6 +129,79 @@ static void a_statement_run_once_tells_its_completion(trl_test *test) {
     trl_conn_free(conn);
 }
 
+/* Runs `sql` once with `params`, its result let go; whether it ran. */
+static bool ran_values(trl_conn *conn, const char *sql, const trl_params *params) {
+    trl_result *result = NULL;
+    bool ran = trl_query_values(conn, sql, params, &result) == TRL_OK;
+    trl_result_free(result);
+    return ran;
+}
+
+/* A JSON number of more digits than an exact number holds, 34 of them
+   significant, which a DECFLOAT holds exactly. */
+#define WIDE_NUMBER "1234567890123456789012345678901234000000"
+
+/**
+ * Verifies: [CLIENT Prepared statements] a statement run once with its
+ * parameters as typed values: octets not UTF-8 into a BLOB and a JSON
+ * DECFLOAT kept as they were sent, which text would not be; its own
+ * completion told, not its Deallocate's: the rows it changed, the
+ * identity values it generated, its warning [PROTOCOL Complete 'K'];
+ * none run as by trl_query(); a failure the connection's; a null pointer
+ * refused.
+ */
+static void a_statement_run_once_takes_typed_values(trl_test *test) {
+    trl_conn *conn = NULL;
+    (void)trl_connect_uri(uri, &conn);
+    trl_params *params = NULL;
+    TRL_CHECK(test, trl_query_values(conn,
+                                     "CREATE TABLE GT (ID INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY, "
+                                     "B BLOB, J JSON, X INTEGER)",
+                                     NULL, NULL) == TRL_INVALID_ARGUMENT);
+    TRL_CHECK(test, ran_values(conn,
+                               "CREATE TABLE GT (ID INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY, "
+                               "B BLOB, J JSON, X INTEGER)",
+                               NULL));
+    static const uint8_t octets[] = {0x00U, 0xFFU, 0x80U};
+    TRL_CHECK(test, trl_params_new(&params) == TRL_OK && trl_params_add_bytes(params, octets, sizeof octets) == TRL_OK);
+    TRL_CHECK(test, trl_params_add_json(params, WIDE_NUMBER, strlen(WIDE_NUMBER)) == TRL_OK);
+    TRL_CHECK(test, ran_values(conn, "INSERT INTO GT (B, J) VALUES (?, ?), (?, ?)", NULL) == false);
+    trl_params *twice = NULL;
+    (void)trl_params_new(&twice);
+    for (size_t i = 0U; i < 2U; ++i) {
+        (void)trl_params_add_bytes(twice, octets, sizeof octets);
+        (void)trl_params_add_json(twice, WIDE_NUMBER, strlen(WIDE_NUMBER));
+    }
+    TRL_CHECK(test, ran_values(conn, "INSERT INTO GT (B, J) VALUES (?, ?), (?, ?)", twice));
+    uint64_t rows = 0U;
+    TRL_CHECK(test, trl_conn_rows_affected(conn, &rows) && rows == 2U);
+    TRL_CHECK(test, trl_conn_generated_count(conn) == 2U && strcmp(trl_conn_generated_at(conn, 1U), "2") == 0);
+    trl_result *result = NULL;
+    trl_params_clear(params);
+    (void)trl_params_add_bytes(params, octets, sizeof octets);
+    TRL_CHECK(test, trl_query_values(conn, "SELECT OCTET_LENGTH(B), B = ?, J FROM GT WHERE ID = 1", params, &result) ==
+                        TRL_OK);
+    TRL_CHECK(test, trl_result_row_count(result) == 1U && strcmp(trl_result_text(result, 0U, 0U), "3") == 0);
+    TRL_CHECK(test, strcmp(trl_result_text(result, 0U, 1U), "TRUE") == 0);
+    char json[64];
+    size_t length = 0U;
+    TRL_CHECK(test, trl_value_json_text(trl_result_value(result, 0U, 2U), json, sizeof json, &length) == TRL_OK &&
+                        strcmp(json, WIDE_NUMBER) == 0);
+    trl_result_free(result);
+    trl_params_clear(params);
+    (void)trl_params_add_text(params, "x", 1U);
+    TRL_CHECK(test, ran_values(conn, "SELECT SUM(X) FROM GT WHERE CAST(ID AS VARCHAR(5)) <> ?", params));
+    TRL_CHECK(test, trl_conn_warning(conn) != NULL && strcmp(trl_conn_warning(conn), "01003") == 0);
+    TRL_CHECK(test, ran_values(conn, "UPDATE GT SET X = ? WHERE ID > 0", NULL) == false);
+    TRL_CHECK(test, trl_failure_sqlcode(trl_conn_failure(conn)) != 0);
+    TRL_CHECK(test, ran_values(conn, "ROLLBACK", NULL));
+    TRL_CHECK(test, trl_query_values(NULL, "VALUES 1", NULL, &result) == TRL_INVALID_ARGUMENT);
+    TRL_CHECK(test, trl_query_values(conn, NULL, NULL, &result) == TRL_INVALID_ARGUMENT);
+    trl_params_free(twice);
+    trl_params_free(params);
+    trl_conn_free(conn);
+}
+
 int main(int argc, char **argv) {
     char cwd[PATH_BYTES];
     char dir[PATH_BYTES + sizeof "/live-standard"];
@@ -153,6 +226,7 @@ int main(int argc, char **argv) {
         TRL_TEST_CASE(a_connection_is_made_of_a_uri),
         TRL_TEST_CASE(parameters_go_as_text_and_values_come_as_text),
         TRL_TEST_CASE(a_statement_run_once_tells_its_completion),
+        TRL_TEST_CASE(a_statement_run_once_takes_typed_values),
     };
     int run_result = ready ? trl_test_main(argc, argv, cases, TRL_TEST_COUNT(cases)) : EXIT_FAILURE;
     server_stop(&live_server);

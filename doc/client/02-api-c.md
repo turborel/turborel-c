@@ -50,6 +50,7 @@ The calls a program makes most, by what each does:
 | End a connection | `trl_conn_terminate`, then `trl_conn_free` |
 | Run a statement | `trl_query` |
 | Run a statement with parameters given as text | `trl_query_params` |
+| Run a statement once with parameters given as typed values | `trl_query_values` ([Values](23-values.md)) |
 | Prepare a statement and execute it | `trl_prepare`, `trl_execute` ([Statements and Cursors](22-statements.md)) |
 | Count a result's rows and columns, and name its columns | `trl_result_row_count`, `trl_result_column_count`, `trl_result_column_name` |
 | Read a value | `trl_result_text`, or `trl_result_value` for the typed value ([Values](23-values.md)) |

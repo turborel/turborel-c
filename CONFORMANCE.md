@@ -886,7 +886,7 @@ later decision of RULES.md.
 |---|---|---|---|
 | S-API-1 | `trl_connect`: a connection handle made from a `turborel://` URI or settings, and `trl_conn_free` | `[DESIGN] D2` | done |
 | S-API-2 | Every call answered by a `trl_status`, and the failure object of SQLCODE, SQLSTATE, message and diagnostics a handle keeps | `[DESIGN] D9` | done |
-| S-API-3 | Queries, with and without `?` parameters, giving a result handle | `[DESIGN] D2` | done |
+| S-API-3 | Queries, with and without `?` parameters, given as text or as typed values, giving a result handle | `[DESIGN] D2` | done |
 | S-API-4 | Prepared statements and cursors, by handle | `[DESIGN] D2` | done |
 | S-API-5 | A result's columns and their types, its rows, and each value as text or by a typed accessor | `[DESIGN] D2` | done |
 | S-API-6 | Exact numbers as `trl_decimal`, two 64-bit halves and a scale, with nothing lost, and their text | `[DESIGN] D2` | done |

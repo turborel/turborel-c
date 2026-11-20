@@ -61,8 +61,10 @@ inserted 1
 ```
 
 A parameter list copies each value it is given, so the program's own may
-go at once; `trl_params_clear` empties it for the next execution. Each
-kind of value has its function:
+go at once; `trl_params_clear` empties it for the next execution. A
+statement run once takes one too: `trl_query_values` prepares it,
+executes it with the list and destroys it, as `trl_query_params` does
+with text. Each kind of value has its function:
 
 | Function | Gives a parameter of |
 |---|---|

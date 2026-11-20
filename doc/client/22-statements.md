@@ -17,7 +17,7 @@ change-user and query attributes. The User's Guide's
 
 ### NAME
 
-`trl_query`, `trl_query_params`, `trl_query_batches`,
+`trl_query`, `trl_query_params`, `trl_query_values`, `trl_query_batches`,
 `trl_result_has_rows`, `trl_result_column_count`, `trl_result_column_name`,
 `trl_result_column_not_null`,
 `trl_result_column_type`, `trl_result_column_type_name`,
@@ -35,6 +35,7 @@ typedef void (*trl_batch_handler)(void *context, const trl_result *batch);
 trl_status trl_query(trl_conn *conn, const char *sql, trl_result **out);
 trl_status trl_query_params(trl_conn *conn, const char *sql, size_t count, const char *const *values,
                             trl_result **out);
+trl_status trl_query_values(trl_conn *conn, const char *sql, const trl_params *params, trl_result **out);
 trl_status trl_query_batches(trl_conn *conn, const char *sql, trl_batch_handler handler, void *context,
                              trl_result **out);
 bool trl_result_has_rows(const trl_result *result);
@@ -73,6 +74,17 @@ the rows it changed, the identity values it generated, its warning and
 its conditions, is the statement's own, not its destruction's. With no
 parameter it is `trl_query`.
 
+`trl_query_values` runs a statement once with its `?` parameters given
+as typed values, a list `trl_params_new` makes ([Values](23-values.md)),
+as `trl_query_params` runs one with text: prepared, executed with the
+list as `trl_execute` sends it, and destroyed, its result and the
+completion the connection tells as `trl_query_params`'s. Each value is
+assigned to its parameter's type as it is, so octets that are not
+UTF-8, a JSON value's numbers and kinds, arrays, rows and multisets
+arrive as they were added, where text would be cast. The list is the
+caller's still, to run again or free. With a null or empty list it is
+`trl_query`.
+
 `trl_query_batches` gives each Rows reply to `handler` as it comes, a
 batch whose rows and values last only until the handler returns, the
 columns the query's; its result has the columns and the completion, and
@@ -101,8 +113,8 @@ left rows to fetch.
 
 `TRL_INVALID_ARGUMENT` for a null pointer, or parameters counted but
 not given, nothing sent. `TRL_FAILED`, `*out` null, with the
-connection's failure: the statement's Error, of `trl_query_params` its
-preparing's or its execution's,
+connection's failure: the statement's Error, of `trl_query_params` and
+`trl_query_values` its preparing's or its execution's,
 the connection kept unless it is of class 08; or the driver's own,
 SQLSTATE 08006 of a connection lost, a reply out of turn ("the server
 sent no result", "the server broke off its rows") or a malformed one.

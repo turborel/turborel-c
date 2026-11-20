@@ -47,6 +47,17 @@ static trl_status texts_of(size_t count, const char *const *values, trl_params *
     return made;
 }
 
+/* Prepares `sql`, executes it with `params` and destroys it, the
+   connection telling the execution's completion and failure. */
+static trl_status run_once(trl_conn *conn, const char *sql, const trl_params *params, trl_result **out) {
+    trl_statement *statement = NULL;
+    trl_status ran = trl_prepare(conn, sql, &statement);
+    ran = ran == TRL_OK ? trl_execute(conn, statement, params, out) : ran;
+    trl_deallocate_after_run(conn, statement);
+    trl_statement_free(statement);
+    return ran;
+}
+
 trl_status trl_query_params(trl_conn *conn, const char *sql, size_t count, const char *const *values,
                             trl_result **out) {
     if (out != NULL) {
@@ -60,16 +71,25 @@ trl_status trl_query_params(trl_conn *conn, const char *sql, size_t count, const
     }
     trl_params *params = NULL;
     trl_status made = texts_of(count, values, &params);
-    trl_statement *statement = NULL;
-    trl_status ran = made == TRL_OK ? trl_prepare(conn, sql, &statement) : made;
-    ran = ran == TRL_OK ? trl_execute(conn, statement, params, out) : ran;
-    trl_deallocate_after_run(conn, statement);
-    trl_statement_free(statement);
+    trl_status ran = made == TRL_OK ? run_once(conn, sql, params, out) : made;
     trl_params_free(params);
     if (made == TRL_NO_MEMORY) {
         trl_failure_no_memory(&conn->failure);
     }
     return ran;
+}
+
+trl_status trl_query_values(trl_conn *conn, const char *sql, const trl_params *params, trl_result **out) {
+    if (out != NULL) {
+        *out = NULL;
+    }
+    if (conn == NULL || sql == NULL || out == NULL) {
+        return TRL_INVALID_ARGUMENT;
+    }
+    if (trl_params_count(params) == 0U) {
+        return trl_query(conn, sql, out);
+    }
+    return run_once(conn, sql, params, out);
 }
 
 /* The texts of a result's values, made once; false if memory cannot be had. */
