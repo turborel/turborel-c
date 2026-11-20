@@ -1,5 +1,5 @@
 # A program outside libturborel's tree, as its users write one: it finds
-# the installed package and links turborel::turborel (RULES.md D8).
+# the installed package and links turborel::turborel (RULES.md D13).
 cmake_minimum_required(VERSION 3.25)
 project(turborel_consumer LANGUAGES C)
 

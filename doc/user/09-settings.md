@@ -2,4 +2,8 @@
 
 [Contents](README.md)
 
-How a program connects by settings: the `turborel://` URI, options, environment variables, the service file and the password file, several servers and roles, TLS modes and channel binding. It is filled at M5.
+This chapter will tell where a connection's settings come from: a
+`turborel://` URI or the program's options, a service file, the
+environment's TURBOREL_ variables and a password file; how several
+servers are tried and a primary or a replica chosen; and how TLS modes
+and channel binding protect a connection. It is filled at milestone M5.

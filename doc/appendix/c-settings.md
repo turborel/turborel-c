@@ -2,4 +2,7 @@
 
 [Contents](README.md)
 
-Every connection setting, its environment variable, its default and what it accepts, as the URI, options, the service file and the password file give them. It is filled at M5.
+This appendix will list every connection setting, its name in options,
+the URI and the service file, its environment variable, what it says and
+its default, and each setting of a pool. It is filled at milestone M5,
+and the pool's settings at M6.

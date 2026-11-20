@@ -1,6 +1,6 @@
 # Runs one command for CI, prints its output, and, if it fails, reports
 # the output's last lines as a GitHub annotation, so a failure can be read
-# from the run's annotations as well as from its log (RULES.md D13).
+# from the run's annotations as well as from its log (RULES.md D4).
 #
 # Takes: COMMAND, the command as a CMake list ("cmake;--workflow;...").
 

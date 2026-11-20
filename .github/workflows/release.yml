@@ -39,7 +39,7 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: The version, from the header (RULES.md D9)
+      - name: The version, from the header (RULES.md D5)
         id: version
         run: echo "version=$(sed -n 's/^#define TRL_VERSION_STRING "\(.*\)"$/\1/p' include/turborel/turborel.h)" >> "$GITHUB_OUTPUT"
       - name: Download the archives

@@ -1,5 +1,5 @@
 # The API reference of libturborel, from the public header's doc comments
-# (RULES.md D10, R-DOC-1). CI builds it with every warning an error, so an
+# (RULES.md D4, R-DOC-1). CI builds it with every warning an error, so an
 # item left undocumented fails: `doxygen Doxyfile` writes build/doc/.
 PROJECT_NAME           = libturborel
 PROJECT_BRIEF          = "The C driver for turborel"

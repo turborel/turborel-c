@@ -1,6 +1,6 @@
 /**
  * @file consumer.c
- * @brief A program linking the installed libturborel (RULES.md D8): it
+ * @brief A program linking the installed libturborel (RULES.md D13): it
  * succeeds if the header and the library it found are of one release.
  */
 #include <turborel/turborel.h>

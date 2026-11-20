@@ -1,4 +1,4 @@
-# The checks a build can turn on (RULES.md D10): clang-tidy and
+# The checks a build can turn on (RULES.md D4): clang-tidy and
 # clang-format, the sanitizers, and coverage. Each applies to every target
 # made after this file is included.
 
@@ -42,7 +42,7 @@ endif()
 
 if(TRL_COVERAGE)
   if(NOT CMAKE_C_COMPILER_ID MATCHES "Clang")
-    message(FATAL_ERROR "TRL_COVERAGE needs Clang, for source-based coverage (RULES.md D10)")
+    message(FATAL_ERROR "TRL_COVERAGE needs Clang, for source-based coverage (RULES.md D4)")
   endif()
   add_compile_options(-fprofile-instr-generate -fcoverage-mapping)
   add_link_options(-fprofile-instr-generate)

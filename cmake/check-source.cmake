@@ -7,45 +7,19 @@
 #   R-DOC-1    every macro, type and function of include/ documented;
 #   R-ERR-1    no call in the library that ends the process, prints, or
 #              is unsafe by design;
-#   R-TRACE-1  every test case cites what it verifies, by a heading the
-#              spec or the client's manual has, or a decision RULES.md has;
-#   R-DOC-8    every relative link of a Markdown document names a file
-#              that exists.
+#   R-TRACE-1  every test case cites what it verifies, beginning
+#              `Verifies:` and a tag of RULES.md D6;
+#   R-TRACE-2  every citation, in code, tests, the build and the
+#              documents, names a heading, decision or rule that exists
+#              (cmake/CheckCitations.cmake);
+#   R-DOC-7    every page of the manual opens with its title and its
+#              `[Contents](README.md)` line, each volume's README lists its
+#              pages, every relative link resolves, and none leaves `doc/`
+#              (cmake/CheckManual.cmake).
 #
 # Takes: SOURCE_DIR.
 
 set(TRL_MAX_FILE_LINES 600)
-
-# The headings a test may cite, as [PROTOCOL heading] or [CLIENT heading]:
-# those of doc/client/05-protocol.md, and of doc/client/02-library.md and
-# 02-library-connections.md, in turborel's main at e4f08f77.
-set(TRL_PROTOCOL_HEADINGS
-    "The Native Protocol" "Frames" "Compressed frames" "Values and fields" "Data types" "Values"
-    "Composite fields" "The tail" "Opening a connection" "Mechanisms" "Capabilities" "Requests" "Hello 'H'"
-    "Answer 'A'" "Query 'Q'" "Prepare 'P'" "Execute 'E'" "Fetch 'F'" "Close 'C'" "Deallocate 'D'" "Lob 'L'"
-    "Cancel 'Z'" "Terminate 'X'" "Describe 'Y'" "Ping 'G'" "Reset 'W'" "ChangeUser 'U'" "CopyIn 'I'"
-    "CopyData 'J'" "CopyEnd 'N'" "Replies" "Challenge 'C'" "Ready 'R'" "Prepared 'P'" "Description 'D'"
-    "Rows 'B'" "Suspended 'S'" "Complete 'K'" "Error 'E'" "Notice 'N'" "Status 'T'" "Pong 'G'"
-    "Conversations" "Errors and notices" "A worked example")
-set(TRL_CLIENT_HEADINGS
-    "The Client Library" "Connecting" "Timeouts" "Running statements" "Prepared statements" "Large objects"
-    "XML values" "UUIDs" "Importing" "What a connection asks for" "What the server tells"
-    "Controlling the session" "Copying and exporting" "The SQL-agent" "Settings, Pipelines and Pools"
-    "Connecting by settings" "Where settings come from" "The connection URI" "The service file"
-    "The password file" "Several servers" "TLS by mode" "Pipelines" "Pools" "The SCRAM key cache")
-
-# Calls the library never makes: they end the process, print, keep
-# global state, or cannot be used safely (R-ERR-1, R-SAFE-2, R-MEM-1).
-set(TRL_BANNED_CALLS
-    abort exit _Exit quick_exit assert printf fprintf puts fputs perror putchar sprintf vsprintf strcpy
-    strcat gets strtok atoi atol atof rand srand setjmp longjmp system signal alloca)
-
-set(trl_failures "")
-
-# Reports `message` about `file`, and goes on.
-macro(trl_fail file message)
-  list(APPEND trl_failures "${file}: ${message}")
-endmacro()
 
 # The lines of `path` as a list, each with \ ; [ ] spelled <b> <s> <l> <r>,
 # so CMake's lists keep them whole.
@@ -58,6 +32,23 @@ function(trl_read_lines path out)
   string(REPLACE "\n" ";" text "${text}")
   set(${out} "${text}" PARENT_SCOPE)
 endfunction()
+
+include("${CMAKE_CURRENT_LIST_DIR}/CheckCitations.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/CheckManual.cmake")
+
+# Calls the library never makes: they end the process, print, keep
+# global state, or cannot be used safely (R-ERR-1, R-SAFE-5, R-MEM-1).
+set(TRL_BANNED_CALLS
+    abort exit _Exit quick_exit assert printf fprintf puts fputs perror putchar sprintf vsprintf strcpy
+    strcat gets strtok atoi atol atof rand srand setjmp longjmp system signal alloca)
+
+set(trl_failures "")
+
+# Reports `message` about `file`, and goes on.
+macro(trl_fail file message)
+  list(APPEND trl_failures "${file}: ${message}")
+endmacro()
+
 
 # The doc comment that ends on the line before `index` of `lines`, its
 # lines joined by spaces with their leading stars gone; empty if the line
@@ -158,27 +149,6 @@ function(trl_check_public file lines)
   set(trl_failures "${trl_failures}" PARENT_SCOPE)
 endfunction()
 
-# Whether `doc`, a test case's doc comment, cites what it verifies
-# (R-TRACE-1); `out` is empty if it does, else why not.
-function(trl_citation doc out)
-  set(${out} "" PARENT_SCOPE)
-  string(REGEX REPLACE "[ \t]+" " " doc "${doc}")
-  if(doc MATCHES "Verifies: <l>(PROTOCOL|CLIENT) ([^<]+)<r>")
-    set(kind "${CMAKE_MATCH_1}")
-    set(heading "${CMAKE_MATCH_2}")
-    if(NOT heading IN_LIST TRL_${kind}_HEADINGS)
-      set(${out} "cites [${kind} ${heading}], a heading its document does not have" PARENT_SCOPE)
-    endif()
-  elseif(doc MATCHES "Verifies: <l>DESIGN<r> D([0-9]+)[^0-9]")
-    file(STRINGS "${SOURCE_DIR}/RULES.md" decision REGEX "^#### D${CMAKE_MATCH_1}\\. ")
-    if(NOT decision)
-      set(${out} "cites [DESIGN] D${CMAKE_MATCH_1}, which RULES.md does not have" PARENT_SCOPE)
-    endif()
-  else()
-    set(${out} "has no 'Verifies: [PROTOCOL ...]', '[CLIENT ...]' or '[DESIGN] D<n>'" PARENT_SCOPE)
-  endif()
-endfunction()
-
 # R-TRACE-1, for a test executable's source: every case cites.
 function(trl_check_cases file lines)
   list(LENGTH lines count)
@@ -188,7 +158,7 @@ function(trl_check_cases file lines)
     if(line MATCHES "^static void ([a-z0-9_]+)\\(trl_test \\*test\\)")
       set(name "${CMAKE_MATCH_1}")
       trl_doc_before("${lines}" ${index} doc)
-      trl_citation("${doc}" why)
+      trl_test_citation("${doc}" why)
       if(why)
         math(EXPR number "${index} + 1")
         trl_fail("${file}:${number}" "test case ${name} ${why} (R-TRACE-1)")
@@ -216,33 +186,29 @@ foreach(trl_file IN LISTS trl_files)
   endif()
 endforeach()
 
-# R-DOC-8, for every Markdown document but the build trees'.
-function(trl_check_links file)
-  file(READ "${SOURCE_DIR}/${file}" text)
-  string(REPLACE "[" "<l>" text "${text}")
-  string(REPLACE "]" "<r>" text "${text}")
-  string(REPLACE ";" "<s>" text "${text}")
-  string(REGEX MATCHALL "<r>\\(([^)# ]+)" links "${text}")
-  get_filename_component(dir "${SOURCE_DIR}/${file}" DIRECTORY)
-  foreach(link IN LISTS links)
-    string(REGEX REPLACE "^<r>\\(" "" target "${link}")
-    if(target MATCHES "^[a-z]+:")
-      continue()
-    endif()
-    if(NOT EXISTS "${dir}/${target}")
-      trl_fail("${file}" "links to ${target}, which does not exist (R-DOC-8)")
-    endif()
-  endforeach()
-  set(trl_failures "${trl_failures}" PARENT_SCOPE)
-endfunction()
-
+# R-TRACE-2, R-DOC-7: the citations of every file that cites, and the
+# manual's layout and links.
 file(GLOB_RECURSE trl_documents RELATIVE "${SOURCE_DIR}" "${SOURCE_DIR}/*.md")
-list(FILTER trl_documents EXCLUDE REGEX "^(build|out|\\.claude)/")
-list(SORT trl_documents)
+list(FILTER trl_documents EXCLUDE REGEX "^(build|out|\\.claude|\\.venv[^/]*)/")
+file(GLOB_RECURSE trl_build_files RELATIVE "${SOURCE_DIR}" "${SOURCE_DIR}/cmake/*" "${SOURCE_DIR}/.github/*.yml"
+     "${SOURCE_DIR}/*CMakeLists.txt")
+list(FILTER trl_build_files EXCLUDE REGEX "^(build|out|\\.claude|\\.venv[^/]*)/")
+list(APPEND trl_build_files .clang-tidy .clang-format Doxyfile .githooks/pre-commit)
+set(trl_citing ${trl_files} ${trl_documents} ${trl_build_files})
+list(REMOVE_DUPLICATES trl_citing)
+list(SORT trl_citing)
+foreach(trl_file IN LISTS trl_citing)
+  trl_check_citations("${trl_file}")
+endforeach()
 foreach(trl_document IN LISTS trl_documents)
   trl_check_links("${trl_document}")
+  if(trl_document MATCHES "^doc/")
+    trl_check_page("${trl_document}")
+  endif()
 endforeach()
-list(APPEND trl_files ${trl_documents})
+trl_check_volumes()
+list(APPEND trl_files ${trl_documents} ${trl_build_files})
+list(REMOVE_DUPLICATES trl_files)
 
 list(LENGTH trl_files trl_count)
 if(trl_failures)

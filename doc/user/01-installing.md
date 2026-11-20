@@ -2,4 +2,11 @@
 
 [Contents](README.md)
 
-How to build libturborel from source with CMake on Linux, macOS and Windows, install it, and link a program to it through its CMake package or pkg-config, with the TLS and zlib libraries it uses. No package is published yet; this chapter is filled at M7, when the library is complete, and the release archives it describes exist.
+This chapter will tell what the driver needs, a C17 compiler, GCC, Clang or MSVC, and CMake 3.25 or later on Linux,
+macOS or Windows, and how a program takes `libturborel`, found as the CMake package `turborel` or by `turborel.pc` in from
+archives on the repository's GitHub releases. No package is published until every Turborel driver is
+done; until then the driver is built from its source, as the
+repository's
+[README](https://github.com/turborel/turborel-c/blob/main/README.md)
+says. The chapter is written with the standard API, at milestone M7, and
+again when the packages are published.

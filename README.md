@@ -5,45 +5,51 @@
     </picture>
 </p>
 
-> turborel-c is in alpha, meaning, version 0.0.0. Anything may change
-> from one build to the next, the API, the protocol and the files alike.
-> See [VERSIONING.md](VERSIONING.md).
+> turborel-c is in alpha, meaning, version 0.0.0. Its version is the
+> number of the Turborel release it is made for, and the alpha is made
+> for Turborel 0.0.0, which speaks protocol version 1. Anything may
+> change from one build to the next, API and behaviour alike. See
+> [VERSIONING.md](VERSIONING.md). The latest Turborel alpha is built for
+> Linux, macOS and Windows as the pre-release
+> [nightly](https://github.com/turborel/turborel/releases/tag/nightly),
+> and as the image `ghcr.io/turborel/turborel:nightly`.
 
-turborel-c is the C driver for [turborel](https://github.com/turborel/turborel),
-a relational database system. Its library, `libturborel`, connects a C
-program to a turborel server over turborel's native protocol, which it
-speaks itself, with no Rust code of turborel's linked in. It is written
-in C17 and builds with GCC, Clang and MSVC on Linux, macOS and Windows.
+turborel-c is the C driver for
+[Turborel](https://github.com/turborel/turborel), a relational database
+system. It connects a C program to a Turborel server,
+`turboreld`, over Turborel's [native
+protocol](https://github.com/turborel/turborel/blob/main/doc/client/05-protocol.md),
+version 1, which it speaks itself, in C17, with no Rust code of Turborel's linked in.
 
-It is to give a libpq-style C API with every feature of turborel's own
-client library, turborel-client, and an ODBC 3.x driver over it, so that
-Excel, Power BI, Tableau and LibreOffice reach turborel. turborel-cpp, the
-C++ driver, wraps its C API.
+Its standard interface is a libpq-style C API, and an ODBC 3.x driver over it. Beneath it is a low-level
+client built to do all that Turborel's own client library,
+turborel-client, does: TCP, Unix sockets and Windows named pipes, TLS,
+SCRAM-SHA-256 and SCRAM-SHA-256-PLUS, prepared statements and cursors,
+large objects, bulk copy, import and export, settings from a URI, the
+environment and service and password files, several servers, pipelines
+and pools.
 
-A driver's version is the turborel release it is made for, the same
-number as the server's. This alpha is 0.0.0, as turborel's is, and speaks
-protocol version 1.
+The driver is built in milestones, M0 to M8, and does not connect to a
+server yet. [CONFORMANCE.md](CONFORMANCE.md) shows what is done, row by
+row, and [TODO.md](TODO.md) what is open.
 
-## What it has
+## Requirements
 
-The repository's kit: the build, its checks, CI on Linux, macOS and
-Windows, and the frame header's codec with its tests. The C API, the
-ODBC driver and the rest of the protocol are being built, milestone by
-milestone, as [TODO.md](TODO.md) lists, and
-[CONFORMANCE.md](CONFORMANCE.md) shows what of turborel-client it matches.
-
-## What it needs
-
-- A C17 compiler: GCC, Clang or MSVC.
-- CMake 3.25 or later.
-- For TLS and SCRAM, once they are built: OpenSSL 3.5 or later, or
-  AWS-LC. For compressed frames: zlib. Neither is required yet.
+- a C17 compiler, GCC, Clang or MSVC, and CMake 3.25 or later, on Linux, macOS or Windows ([RULES.md](RULES.md) D3).
+- For TLS and SCRAM, OpenSSL 3.5 or later, or AWS-LC; for compressed frames, zlib.
+- A Turborel server of the same release, which speaks protocol version 1
+  ([running the server](https://github.com/turborel/turborel/blob/main/doc/operator/02-turboreld.md)).
 
 ## Installing
 
-No package is published yet; build it from source.
+No package is published yet. The driver's package, `libturborel`, found as the CMake package `turborel` or by `turborel.pc`, goes to
+archives on the repository's GitHub releases only once every Turborel driver is done, with the others
+([VERSIONING.md](VERSIONING.md#publishing)). Until then, build the
+driver from source:
 
 ```
+git clone https://github.com/turborel/turborel-c.git
+cd turborel-c
 cmake --workflow --preset release          # configure, build and test
 cmake --install build/release --prefix /usr/local
 ```
@@ -59,8 +65,9 @@ or with pkg-config, `pkg-config --cflags --libs turborel`.
 
 ## A first query
 
-This is what the C API is to look like once it is built, at M8; none
-of it compiles yet, and its names may change until then.
+This is what the standard API will be once milestone M7 builds it and
+M8's audit checks it. None of it runs yet, and its names may change
+until then.
 
 ```c
 #include <stdio.h>
@@ -74,8 +81,9 @@ int main(void) {
         trl_conn_free(conn);
         return 1;
     }
+    const char *const values[] = {"3"};
     trl_result *result = NULL;
-    if (trl_query(conn, "SELECT ID, NAME FROM STAFF ORDER BY ID", &result) == TRL_OK) {
+    if (trl_query_params(conn, "SELECT ID, NAME FROM STAFF WHERE ID < ? ORDER BY ID", 1, values, &result) == TRL_OK) {
         for (size_t row = 0; row < trl_result_rows(result); ++row) {
             printf("%s %s\n", trl_result_text(result, row, 0), trl_result_text(result, row, 1));
         }
@@ -86,32 +94,32 @@ int main(void) {
 }
 ```
 
-What works today is the version:
+## The manual
 
-```c
-#include <stdio.h>
-#include <turborel/turborel.h>
+[doc/](doc/README.md) is the manual: a User's Guide, an API Reference
+and Appendices, published on turborel.com's documentation site too. Each
+chapter is written as the milestone that fills it lands. The SQL a
+program sends, and the server, are described in Turborel's own manual,
+[The Turborel Documentation Set](https://github.com/turborel/turborel/blob/main/doc/README.md).
+[VERSIONING.md](VERSIONING.md) tells how the driver's releases are
+numbered and published.
 
-int main(void) {
-    printf("libturborel %s, protocol %d\n", trl_version(), TRL_PROTOCOL_VERSION);
-    return 0;
-}
-```
+## Contributing
 
-```
-libturborel 0.0.0, protocol 1
-```
+Read [CONTRIBUTING.md](CONTRIBUTING.md) before making a change: how a
+change is made, its commit message, pull requests and issues. Every
+change passes `cmake --workflow --preset verify`. [RULES.md](RULES.md) says how the
+driver is designed, written and verified,
+[CONFORMANCE.md](CONFORMANCE.md) is the parity matrix every Turborel
+driver keeps, and [TODO.md](TODO.md) lists open work.
 
-## Documents
+## Security
 
-- [doc/](doc/README.md): the manual, written as the API is built.
-- [VERSIONING.md](VERSIONING.md): the version, and how it is published.
-- [CONFORMANCE.md](CONFORMANCE.md): what the driver implements of the
-  protocol and of turborel-client.
-- [RULES.md](RULES.md): how the driver is designed, written and verified.
-- [TODO.md](TODO.md): open work.
-- [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md):
-  contributing, and reporting an issue or a vulnerability.
-- [LICENSE](LICENSE) and [TRADEMARK.md](TRADEMARK.md): the code is
-  under the BSD-2-Clause Plus Patent License; the name Turborel and its
-  logos are not, and TRADEMARK.md says how they may be used.
+Report a vulnerability privately, never in a public issue, as
+[SECURITY.md](SECURITY.md) says.
+
+## License and trademark
+
+The code is under the BSD-2-Clause Plus Patent License, in
+[LICENSE](LICENSE). The name Turborel and its logos are not:
+[TRADEMARK.md](TRADEMARK.md) says how they may be used.

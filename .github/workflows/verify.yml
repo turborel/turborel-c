@@ -1,6 +1,6 @@
 # Every check a change must pass (RULES.md R-PROC-1), on each platform and
 # compiler the driver claims (D3, R-PLAT-1), with the sanitizers, coverage
-# and fuzzing (D10). Each job runs a workflow of CMakePresets.json, as a
+# and fuzzing (D4). Each job runs a workflow of CMakePresets.json, as a
 # contributor does, through cmake/ci-run.cmake, which reports a failure's
 # output as an annotation too.
 name: verify
@@ -25,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: The pinned clang-format and clang-tidy (D12), and Doxygen
+      - name: The pinned clang-format and clang-tidy (D4), and Doxygen
         run: |
           python3 -m venv "$RUNNER_TEMP/lint"
           "$RUNNER_TEMP/lint/bin/pip" install -r .github/lint-requirements.txt
@@ -85,7 +85,7 @@ jobs:
       - name: Build the fuzz targets
         run: cmake "-DCOMMAND=cmake;--workflow;--preset;fuzz" -P cmake/ci-run.cmake
       # A fixed seed and count of runs, so a run is the same each time
-      # (R-TEST-4).
+      # (R-TEST-5).
       - name: Fuzz the frame header
         timeout-minutes: 15
         run: cmake "-DCOMMAND=build/fuzz/fuzz/fuzz.frame;-seed=1;-runs=1000000" -P cmake/ci-run.cmake

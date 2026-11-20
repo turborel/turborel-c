@@ -1,20 +1,26 @@
 # Volume II: API Reference
 
-The C API of `turborel/turborel.h`, a page for each of its handles and groups of functions, and the ODBC driver over it.
+The standard API, then the low-level client beneath it, a page for each main interface or module, to look a thing up.
 
 [The documentation set](../README.md)
 
 ## Contents
 
-- [Versions](01-version.md)
-- [Connections](02-connections.md)
-- [Failures](03-failures.md)
-- [Results](04-results.md)
-- [Values](05-values.md)
-- [Large Objects](06-large-objects.md)
-- [Copy, Import and Export](07-copy.md)
-- [Settings](08-settings.md)
-- [Pipelines](09-pipelines.md)
-- [Pools](10-pools.md)
-- [The SQL-agent](11-sql-agent.md)
-- [The ODBC Driver](12-odbc.md)
+### The standard API
+
+- [The ODBC Driver](01-api-odbc.md)
+
+### The low-level client
+
+The same pages in every Turborel driver, one for each part of turborel-client.
+
+- [Connections](21-connections.md)
+- [Statements and Cursors](22-statements.md)
+- [Values](23-values.md)
+- [Large Objects](24-large-objects.md)
+- [Copy, Import and Export](25-copy.md)
+- [Settings](26-settings.md)
+- [Pipelines](27-pipelines.md)
+- [Pools](28-pools.md)
+- [The SQL-agent](29-sql-agent.md)
+- [Errors](30-errors.md)

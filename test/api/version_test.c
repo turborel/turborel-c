@@ -12,7 +12,7 @@
 #define VERSION_TEXT_BYTES 32U
 
 /**
- * Verifies: [DESIGN] D9 the library linked gives the version the header
+ * Verifies: [DESIGN] D5 the library linked gives the version the header
  * declares, the turborel release it is made for, 0.0.0 in the alpha.
  */
 static void library_and_header_agree(trl_test *test) {
@@ -21,7 +21,7 @@ static void library_and_header_agree(trl_test *test) {
 }
 
 /**
- * Verifies: [DESIGN] D9 the version's text is its three parts, joined by
+ * Verifies: [DESIGN] D5 the version's text is its three parts, joined by
  * full stops.
  */
 static void text_is_its_parts(trl_test *test) {

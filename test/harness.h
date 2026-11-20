@@ -1,7 +1,7 @@
 /**
  * @file harness.h
  * @brief The one harness every test executable is written on (RULES.md
- * D11, R-TEST-6).
+ * D14, R-TEST-7).
  *
  * A test executable lists its cases in an array and hands it to
  * trl_test_main(). Each case is a function that checks with TRL_CHECK();

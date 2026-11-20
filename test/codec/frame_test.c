@@ -119,7 +119,7 @@ static void needs_five_bytes(trl_test *test) {
 }
 
 /**
- * Verifies: [DESIGN] D4 a null buffer or result is refused, never
+ * Verifies: [DESIGN] D9 a null buffer or result is refused, never
  * dereferenced.
  */
 static void refuses_null_pointers(trl_test *test) {

@@ -1,145 +1,493 @@
 # turborel-c rules
 
 How turborel-c is designed, written and verified. Every change follows
-these rules; `cmake --workflow --preset verify` checks those a tool can
-check, and review checks the rest.
+these rules; `cmake --workflow --preset verify` checks those a tool can check, and
+review checks the rest.
 
 Rules (R-…) say how code and tests are written. **shall** is mandatory,
-and a departure needs a recorded deviation in this file. **should** is
+and a departure needs a decision recorded here (§7). **should** is
 expected, and a reviewer may accept a reasoned exception.
 
-Decisions (D1…) record how the driver is built and why. Change one only by
-changing this file in a reviewed commit. A decision says what was chosen
-and why, and the file it names holds the mechanism.
+Decisions (D1…) record how the driver is built and why. Change one only
+by changing this file in a reviewed commit. A decision says what was
+chosen and why, and the module it names holds the mechanism.
 
 Cite both by ID in code, tests, reviews and commit messages, as in
-`RULES.md D4` or `R-ERR-1`.
+`RULES.md D6` or `R-ERR-2`.
+
+The rules are modelled on Turborel's own
+[RULES.md](https://github.com/turborel/turborel/blob/main/RULES.md),
+adapted to drivers. Every Turborel driver keeps the same requirement IDs
+with the same meaning, and the same decisions D1 to D8, so a rule is
+cited the same way in every repository; a driver's own decisions begin
+at D9, and its own requirements are in families of their own. Where
+C's library conventions and a rule here disagree, the rule is
+kept, and D8 lists where.
 
 Before changing code, read §3 (code rules), §4 (test rules) and the
-decisions covering your area. What the driver implements of the protocol
-and of turborel-client is in [CONFORMANCE.md](CONFORMANCE.md), and open
-work is in [TODO.md](TODO.md).
-
-The rules are modelled on turborel's own RULES.md, adapted to C.
+decisions covering your area. What the driver implements is in
+[CONFORMANCE.md](CONFORMANCE.md), and open work is in [TODO.md](TODO.md).
 
 [1 Decisions](#1-decisions) · [2 Layout](#2-project-layout) ·
 [3 Code](#3-code-rules) · [4 Tests](#4-test-rules) ·
-[5 Coverage](#5-coverage) · [6 Platforms](#6-platforms) ·
-[7 Process](#7-process-and-tools) · [8 References](#8-references)
+[5 Coverage](#5-coverage) · [6 Process](#6-process-and-tools) ·
+[7 The decisions](#7-the-decisions) · [8 References](#8-references)
 
 ---
 
 ## 1. Decisions
 
+Each is told in full in [§7](#7-the-decisions).
+
 | # | Decision |
 |---|---|
-| **The driver** | |
-| D1 | Native protocol 1, written in C, with no native core |
-| D2 | A libpq-style C API, and an ODBC 3.x driver over it |
-| D3 | C17, built by GCC, Clang and MSVC, with CMake 3.25 or later |
-| D9 | The version is the turborel release's |
-| **The interface** | |
-| D4 | Failures are status codes, with a failure object of SQLCODE and SQLSTATE |
-| D5 | Opaque handles, and ownership said by every function |
-| D6 | No global mutable state, and one thread at a time on a handle |
-| **Build and tooling** | |
-| D7 | Dependencies: the C library, OpenSSL 3.5 or AWS-LC, and zlib |
-| D8 | CMake with presets, an installed package, and hidden symbols |
-| D10 | Warnings as errors, clang-tidy, clang-format, sanitizers, coverage and fuzzing |
-| D11 | Tests run by CTest, on one harness of our own |
-| D12 | clang-format and clang-tidy pinned by version |
-| D13 | Automation in CMake, never shell scripts |
-| D14 | Where C's conventions and these rules differ |
+| **Shared by every Turborel driver** | |
+| D1 | The native protocol, version 1, in layers that follow turborel-client |
+| D2 | The language's standard API, over a low-level client of turborel-client's features |
+| D3 | The runtime minimum follows the ecosystem's own support |
+| D4 | One command runs every check, before each commit and in CI on three platforms |
+| D5 | The version is the Turborel release's: 0.0.0 in the alpha, speaking protocol 1 |
+| D6 | Tests and code cite Turborel's documents by their headings |
+| D7 | A coverage floor, enforced in CI, that only rises |
+| D8 | Where these rules depart from C's conventions |
+| **This driver's own** | |
+| D9 | Failures are status codes, with a failure object of SQLCODE and SQLSTATE |
+| D10 | Opaque handles, and ownership said by every function |
+| D11 | No global mutable state, and one thread at a time on a handle |
+| D12 | Dependencies: the C library, OpenSSL 3.5 or AWS-LC, and zlib |
+| D13 | CMake with presets, an installed package, and hidden symbols |
+| D14 | Tests run by CTest, on one harness of our own |
 
-### The driver
+---
 
-#### D1. Native protocol 1, written in C, with no native core
+## 2. Project layout
 
-libturborel speaks turborel's native protocol, version 1, itself, from
-`doc/client/05-protocol.md` in turborel's repository. Where that page and
-turborel-client's code differ, the code is right, and the difference is
-noted in CONFORMANCE.md.
+| Path | What |
+|---|---|
+| `include/turborel/turborel.h` | the public header, the whole interface (D13) |
+| `src/codec/` | the `codec` layer: frames, fields, types, values, JSON, the tail, messages, compression, with no I/O |
+| `src/` | the other layers, one directory each, as they are written (D1) |
+| `test/harness.h`, `test/harness.c` | the one test harness (D14) |
+| `test/<layer>/*_test.c` | the tests, one executable per file, `layer.thing` in CTest |
+| `test/package/` | a program outside the tree, for the installed package's test |
+| `fuzz/` | the libFuzzer targets of the codec |
+| `cmake/` | CMake modules, and the checks tool: `check-source.cmake` with `CheckCitations.cmake` and `CheckManual.cmake`, `check-format.cmake`, `coverage-report.cmake`, `test-package.cmake`, `ci-run.cmake` |
+| `CMakeLists.txt`, `CMakePresets.json` | the build, and the workflows every check runs by |
+| `.clang-format`, `.clang-tidy`, `Doxyfile` | the formatter, the linters, the API reference |
 
-It links no code of turborel's: not turborel-client through a foreign
-function interface, nor anything else in Rust. So it builds wherever a
-C17 compiler does, with no Rust toolchain, and a program links one C
-library. turborel-cpp wraps this library's C API and speaks no protocol
-of its own.
+---
 
-Its layers follow turborel-client's modules, so a reviewer checks one
-against the other: the codec (`protocol/src`), transport, authentication,
-the session, statements, large objects, copy, settings, pipelines, pools,
-and the API over them. The codec does no I/O, as turborel-protocol's does
-not, so it is tested byte by byte (`src/codec/`).
+## 3. Code rules
 
-#### D2. A libpq-style C API, and an ODBC 3.x driver over it
+The tools named by "the formatter", "the linters", "the type checker" and
+"the checks tool" are D4's.
+
+### R-STYLE: formatting and idiom
+
+| ID | Rule | Checked by |
+|---|---|---|
+| R-STYLE-1 | Code **shall** be formatted by the formatter. | the formatter |
+| R-STYLE-2 | Names **shall** follow the language's own conventions; code implementing a message, field or setting is named after it, as the spec names it. | the linters; review |
+| R-STYLE-3 | Library code **shall not** print, or write to a stream it was not given. | the linters or the checks tool |
+| R-STYLE-4 | What is not public **shall** be private, by the language's own means, so the public API is what is documented. | review |
+
+### R-SIZE: short functions and files
+
+| ID | Rule | Checked by |
+|---|---|---|
+| R-SIZE-1 | A function **shall** have at most 50 lines of code, blank lines and comments not counted. | the linters or the checks tool |
+| R-SIZE-2 | A source file **shall** have at most 600 lines; split by the spec's sections or by layer. | the linters or the checks tool |
+| R-SIZE-3 | A function **shall** take at most 5 parameters; else a structure or an options object. | the linters |
+| R-SIZE-4 | A module **should** hold one concept, stated in its doc comment. | review |
+| R-SIZE-5 | A function's complexity **shall** be at most 15, and its blocks nested at most 5 deep. | the linters |
+
+### R-DOC: comments and documentation
+
+| ID | Rule | Checked by |
+|---|---|---|
+| R-DOC-1 | Every public item **shall** have a doc comment in the language's documentation format, saying each parameter, what it returns, and each failure it gives. | the linters; review |
+| R-DOC-2 | Comments **shall** say *why*: the section implemented, the choice made, the invariant relied on. | review |
+| R-DOC-3 | The API reference, where the language's tools build one, **shall** build without warnings. | the checks tool |
+| R-DOC-4 | Behaviour the protocol or turborel-client governs **shall** cite it by its heading, `[PROTOCOL Frames]`, `[CLIENT Pools]`; the driver's own choices cite their decision (D6). | review; the checks tool |
+| R-DOC-5 | No commented-out code, and no `TODO`, `FIXME` or `XXX` comments: open work goes in TODO.md, and code never cites TODO.md. | the linters or the checks tool |
+| R-DOC-6 | Every source file **shall** begin with a doc comment giving its responsibility and the sections it implements. | review |
+| R-DOC-7 | A change a program can see **shall** update the manual, `doc/`, in the same commit; every claim is checked against the code, and every example is run. The manual keeps Turborel's layout, which turborel.com's documentation site reads: each page opens with its `# Title` and a line holding only `[Contents](README.md)`, each volume's README.md lists its pages, links within `doc/` are relative `.md` links that resolve, and a link out of `doc/` is a full URL. | review; the checks tool |
+
+### R-CONST: no magic numbers or strings
+
+| ID | Rule | Checked by |
+|---|---|---|
+| R-CONST-1 | Numbers in library code other than `0` or `1` **shall** be named constants, documenting the value's source. | the linters; review |
+| R-CONST-2 | Every protocol tag **shall** be a named constant, defined once: a message's kind, a data type's and a value's tag, a tail tag, a capability's name, a mechanism's name, a status name, and each SQLSTATE the driver raises. | review |
+| R-CONST-3 | Strings matched or looked up, such as settings' names, URI parts and environment variables, **shall** be named constants. Messages for people are not. | review |
+| R-CONST-4 | Related constants **shall** live together in their layer's module, under a comment naming the section they come from. | review |
+| R-CONST-5 | Tests may use literal fixtures, as the spec prints its bytes; an expected value restating a constant **should** use it. | review |
+
+### R-ERR: errors
+
+| ID | Rule | Checked by |
+|---|---|---|
+| R-ERR-1 | Every failure the library gives **shall** be the driver's error (D2): no stray exception, panic, abort, assertion or other error of the language or its libraries reaches a program, and no library code ends the process. | the linters; tests; review |
+| R-ERR-2 | Each failure **shall** carry its SQLCODE, SQLSTATE and message, and, once read from a server, the rest of it: the rule it cites, its position, whether a transaction is still active, and its diagnostics. A failure the driver raises itself carries the SQLCODE and SQLSTATE turborel-client gives the same failure. | tests |
+| R-ERR-3 | No failure **shall** be silenced. One caught and given again as the driver's keeps its cause; a result left unread says why it cannot matter. | the linters; review |
+| R-ERR-4 | A connection that fails **shall** be closed, and every request waiting on it given that failure; a failed call leaks nothing and leaves nothing waiting. | tests; review |
+
+### R-NUM: integers and numbers
+
+| ID | Rule | Checked by |
+|---|---|---|
+| R-NUM-1 | Every integer of the protocol **shall** be read and written at its width, little-endian, explicitly: never by the platform's byte order, by casting a buffer, or by bitwise operators on numbers wider than the language's operators keep exact. | review; tests |
+| R-NUM-2 | A value out of range for its field, or for the type it is read into, **shall** be refused with the driver's error, never truncated, wrapped or rounded. | tests |
+| R-NUM-3 | An exact number (units `i128`, scale `u32`) and a DECFLOAT **shall** never pass through a binary floating-point type. | review; tests |
+| R-NUM-4 | An approximate number **shall** keep its bits: NaN and -0.0 are read and written as the double they are, and floats are compared bit for bit, never for equality. | tests; review |
+| R-NUM-5 | In a language whose integers are bounded, arithmetic on sizes, counts and offsets **shall** be shown not to overflow before it is done. | the linters; review |
+
+### R-LINT: warnings
+
+| ID | Rule | Checked by |
+|---|---|---|
+| R-LINT-1 | A warning is an error: of the compiler, the linters and the type checker, and of the runtime itself while the tests run. | the checks tool |
+| R-LINT-2 | The strictest standard linters and type checking the language has **shall** be on; a check left off says why in the configuration that leaves it off. | review |
+| R-LINT-3 | A warning **shall** be silenced only on its line, naming its rule and saying why; a suppression no longer needed **shall** be removed. | the linters; review |
+
+### R-DEP: dependencies
+
+| ID | Rule | Checked by |
+|---|---|---|
+| R-DEP-1 | The library **shall** depend on nothing but the language's standard library and runtime, unless a decision here admits a dependency, with its reason, version, license and review. | review |
+| R-DEP-2 | A dependency, of the library or of its tools, **shall** be production-grade by its makers' own claims: a stable release they support. | review |
+| R-DEP-3 | Tools **shall** be pinned by version, with the ecosystem's lock file under version control where it has one; a change of a tool's version is a commit of its own. | review |
+
+### R-SAFE: what a server sends, and secrets
+
+| ID | Rule | Checked by |
+|---|---|---|
+| R-SAFE-1 | A length or count a server, or a file the driver reads, gives **shall** be checked against what follows and the limit taken before anything is held for it, so no reply takes the program's memory without bound. | tests; review |
+| R-SAFE-2 | What a server sends **shall** never be run, loaded or deserialized as code. | the linters; review |
+| R-SAFE-3 | TLS **shall** be used and verified as the settings ask, and a connection **shall not** fall back to less than its mode allows. | tests |
+| R-SAFE-4 | A secret (a password, anything derived from one, a SCRAM key or proof, a cancel key) **shall** never be logged, put in a failure's message or an object's display form, or sent where it was refused; where the language allows, it is cleared from memory once used. | tests; review |
+| R-SAFE-5 | No module-level mutable state: what lasts belongs to an object a program made, such as a connection, a pool or a key cache. | review |
+| R-SAFE-6 | The library **shall** start no thread, timer or task but for an object a program made, and a closed connection, cursor or pool leaves none behind. | tests; review |
+
+### R-PLAT: platforms
+
+| ID | Rule | Checked by |
+|---|---|---|
+| R-PLAT-1 | The driver **shall** run on Linux, macOS and Windows, on every runtime D3 supports; CI checks each (D4). | CI |
+| R-PLAT-2 | Code of one platform, such as a Unix socket or a named pipe, **shall** be chosen by the platform, and elsewhere refused with the driver's error, saying so; never silently something else. | tests; review |
+| R-PLAT-3 | Paths **shall** be made by the language's path functions, and files kept with LF line endings (`.gitattributes`). | review |
+| R-PLAT-4 | Code built for one platform only **shall** say, when handed back, that it was not run on the others. | review |
+
+### R-MEM: memory
+
+| ID | Rule | Checked by |
+|---|---|---|
+| R-MEM-1 | No `strcpy`, `strcat`, `sprintf`, `gets`, `strtok`, `alloca` or `atoi` and their kin; copies are bounded by the destination's size. | the checks tool |
+| R-MEM-2 | Every allocation **shall** be checked, and its failure given as the driver's error, SQLCODE -918, SQLSTATE TB918 (D9). | review; tests |
+| R-MEM-3 | What the library allocates it frees, through its own functions, as a program and a DLL on Windows may not share an allocator (D10). | review; sanitizers |
+| R-MEM-4 | No variable-length arrays, and nothing of C17 that MSVC lacks (D3). | `-Wvla`; MSVC in CI |
+| R-MEM-5 | Every read **shall** be bounded by the bytes available. | AddressSanitizer; fuzzing |
+
+### R-CF: control flow
+
+| ID | Rule | Checked by |
+|---|---|---|
+| R-CF-1 | A boolean decision **should** have at most 4 conditions; else a named predicate. | review |
+| R-CF-2 | A `switch` on an enumeration **shall** list every constant it handles by name. | `-Wswitch-enum` |
+| R-CF-3 | `goto` only jumps forward, to the one cleanup at a function's end. | review |
+| R-CF-4 | Recursion **shall** be bounded by a named depth constant, failing past it. | review; tests |
+
+---
+
+## 4. Test rules
+
+### R-TEST: levels and layout
+
+| ID | Rule | Checked by |
+|---|---|---|
+| R-TEST-1 | A test **shall** sit at the lowest level that shows its requirement: a codec test of bytes, a test of a layer over a stream the test controls, a test of the API, or a live test against a server. | review |
+| R-TEST-2 | Tests **shall** derive from the spec and turborel-client, not from the code: normal cases, boundaries included, and robustness cases with the exact SQLCODE and SQLSTATE expected. | review |
+| R-TEST-3 | A test's name **shall** say the behaviour checked. | review |
+| R-TEST-4 | Test code may assert, print and use literal fixtures; every other rule applies. | the linters' configuration |
+| R-TEST-5 | Tests **shall** be deterministic and independent: no clock, randomness, network beyond loopback, or order between them. A case generator uses a fixed seed. A live test runs against a server on loopback that its own set-up starts, on its own port and data directory. | review |
+| R-TEST-6 | Every fixed defect **shall** get a regression test that fails without the fix, its doc comment saying so. | review |
+| R-TEST-7 | A fixture or helper shared by tests **shall** be written once, in one place. Tests use the one framework D9 or later names, no other. | review |
+| R-TEST-8 | Live tests **shall** run against `ghcr.io/turborel/turborel:nightly` in CI, set up by the repository's own server set-up, with test certificates, SCRAM users and SERVER.TRUST_LOCAL. | CI |
+| R-TEST-9 | SCRAM **shall** be tested by RFC 7677's test vector, and settings by the URI, service file, password file and environment cases of turborel-client's settings tests, so every driver reads settings as turborel-client does. | review |
+
+### R-TRACE: traceability
+
+| ID | Rule | Checked by |
+|---|---|---|
+| R-TRACE-1 | Every test **shall** cite what it verifies, by its doc comment, beginning `Verifies:`, beginning with a tag of D6: `[PROTOCOL <heading>]`, `[CLIENT <heading>]`, `[DESIGN] D<n>` or `[TOOL] R-<id>`. | the checks tool |
+| R-TRACE-2 | A citation **shall** name a heading, decision or rule that exists. | the checks tool |
+| R-TRACE-3 | Code implementing a requirement **shall** cite it (R-DOC-4). | review |
+| R-TRACE-4 | CONFORMANCE.md **shall** change with the change that implements or changes a row. A row is marked done only where the driver's code for it exists and tests citing its section pass, or, of a driver built over another, as CONFORMANCE.md says. | review |
+
+---
+
+## 5. Coverage
+
+| ID | Rule | Checked by |
+|---|---|---|
+| R-COV-1 | Coverage **shall** be measured by `cmake --workflow --preset coverage`, over the library and every test. | the checks tool |
+| R-COV-2 | Coverage **shall not** fall below the floor (D7); a change raising it **should** raise the floor. | the checks tool, in CI |
+| R-COV-3 | A gap is closed by a test derived from a requirement, or by removing dead code; never by a test of no requirement, and never by excluding the code. | review |
+
+---
+
+## 6. Process and tools
+
+| ID | Rule | Checked by |
+|---|---|---|
+| R-PROC-1 | `cmake --workflow --preset verify` **shall** pass before every commit; CI adds every platform, every supported runtime and the coverage floor (D4). | pre-commit hook; CI |
+| R-PROC-2 | Every change **shall** be reviewed against the checklist below. | review |
+| R-PROC-3 | Commits **should** be small and single-purpose, in CONTRIBUTING.md's form (`area: summary`, then why), citing the rules applied or changed. | review |
+| R-PROC-4 | A threshold change **shall** change RULES.md and the configuration that holds it together. | review |
+| R-PROC-5 | Project automation **shall** be written in the language's own tooling, never shell scripts; the git hook only hands over to the checks tool. | review |
+| R-PROC-6 | CI's actions **shall** be pinned by their full commit SHA, with the version in a comment. | review |
+| R-PROC-7 | A release **shall** be published only as VERSIONING.md says, by the owner (D5). | review |
+
+The review checklist:
+
+- the spec or turborel-client cited in code (R-DOC-4) and tests
+  (R-TRACE-1);
+- normal and robustness tests (R-TEST-2), and a failing-first test for a
+  fix (R-TEST-6);
+- every failure the driver's, carrying its condition (R-ERR);
+- no magic numbers or strings, protocol tags named (R-CONST);
+- every length a server sends bounded, no secret disclosed (R-SAFE);
+- comments explain why (R-DOC-2);
+- CONFORMANCE.md (R-TRACE-4), the manual (R-DOC-7) and TODO.md updated
+  where they change.
+
+---
+
+## 7. The decisions
+
+### Shared by every Turborel driver
+
+#### D1. The native protocol, version 1, in layers that follow turborel-client
+
+The driver speaks Turborel's native protocol, version 1, as
+`doc/client/05-protocol.md` in Turborel's repository lays it out,
+itself, in C17, with no Rust code of Turborel's linked in. Where that page and turborel-protocol's code differ,
+the code is right, and the driver follows it; CONFORMANCE.md names each
+such place.
+
+The reference is turborel-client. The driver does all it does before it
+is called done, row by row in CONFORMANCE.md, and is built in the same
+layers as turborel-client's modules, so a reviewer checks one against
+the other. Each layer is a commit area of CONTRIBUTING.md.
+
+| Layer | What it covers | turborel-client |
+|---|---|---|
+| `codec` | the 5-byte frame header; fields; the tail and its tag order; the data types and values; JSON values; zlib `z` frames within the length bound; the 16 MiB body limit | `protocol/src` |
+| `transport` | TCP on 7422; Unix sockets; the Windows named pipe `\\.\pipe\turborel`; TLS begun on the same port; the connect and read timeouts | `target.rs`, `timeouts.rs`, `pipe.rs` |
+| `auth`, `tls` | trust, password, certificate, SCRAM-SHA-256 and -PLUS; secrets refused over plain TCP; the SCRAM key cache; TLS | `mechanism.rs`, `scram.rs`, `tls.rs` |
+| `session` | Hello, Ready, Status, notices, conditions, diagnostics, autocommit, cancel, terminate, ping, reset, change-user, query attributes, multi-statement | `connection.rs`, `session.rs`, `cancel.rs`, `told.rs` |
+| `statements` | queries and streamed queries; prepare, execute, fetch, close, deallocate; numbered cursors; describe; completions | `statements.rs`, `frames.rs` |
+| `lobs`, `copy` | locators, their reads, writes and streams; copy, import and export | `lobs.rs`; `copy.rs`, `import/`, `export.rs` |
+| `settings` | the URI, options, variables, service and password files, several hosts, roles, TLS modes, channel binding | `settings/`, `failover.rs`, `role.rs` |
+| `pipeline`, `pool` | pipelines; pools; the SQL-agent | `pipeline.rs`; `pool/`, `agent.rs` |
+| `api` | the standard API (D2) | the language's own |
+
+The `codec` layer is `src/codec/`; each later layer is a directory of
+`src/` of its own name. Every layer is internal, its symbols hidden
+(D13); the public interface is `include/turborel/turborel.h` alone. TLS,
+SHA-256, HMAC and PBKDF2 come from OpenSSL 3.5 or later, or AWS-LC, and
+compressed frames from zlib (D12). SCRAM-SHA-256-PLUS binds by
+`tls-exporter` over TLS 1.3 and `tls-server-end-point` over TLS 1.2, as
+OpenSSL gives both. turborel-cpp wraps this library's C API and speaks
+no protocol of its own.
+
+#### D2. The language's standard API, over a low-level client of turborel-client's features
+
+The driver's standard interface is a libpq-style C API, and an ODBC 3.x driver over it, so a program, and the
+tools built for C's database interface, use it as they use
+any other driver. It sits over a low-level client that has every feature
+of turborel-client. What the standard interface has no place for, such
+as pipelines, pools, copy, large objects by locator, notices and the
+session's status, is reached through the low-level client or the
+driver's own extensions of the standard interface.
+
+Every failure is the driver's error, carrying its SQLCODE and SQLSTATE
+(R-ERR). The standard interface is built at milestone M7 and checked in
+M8's audit; until then its names may change.
 
 The C API is in the manner of PostgreSQL's libpq, the C interface most
 database programmers know: a connection handle made from settings or a
 URI, results read row by row and column by column, a value as text or by
-a typed accessor, and every call answered by a status (D4). Its names are
-its own, `trl_`, and it has every feature of turborel-client
-(CONFORMANCE.md).
+a typed accessor, and every call answered by a status (D9). Its names
+are its own, `trl_`. An exact number is a `trl_decimal`, its units a
+`trl_int128` of two 64-bit halves and its scale a `uint32_t`, with
+`trl_decimal_text` and `trl_decimal_parse` between it and its text.
 
 An ODBC 3.x driver, `libturborelodbc`, is built over the C API in its own
-CMake target, so that Excel, Power BI, Tableau and LibreOffice, which load
-an ODBC driver as it is, reach turborel. It is written from Microsoft's
-public ODBC reference, the *ODBC Programmer's Reference*. It claims no
-part of ISO/IEC 9075-3 (SQL/CLI) and cites none. It starts once the C API
-reaches M4, its statements, and is built beside the C API's M5 to M8.
+CMake target, so that Excel, Power BI, Tableau and LibreOffice, which
+load an ODBC driver as it is, reach Turborel. It is written from
+Microsoft's public ODBC reference, the *ODBC Programmer's Reference*. It
+claims no part of ISO/IEC 9075-3 (SQL/CLI) and cites none. It starts once
+the C API reaches M4, and is built beside the C API's M5 to M8.
 
-#### D3. C17, built by GCC, Clang and MSVC, with CMake 3.25 or later
+#### D3. The runtime minimum follows the ecosystem's own support
 
-The library is ISO C17, without extensions (`C_EXTENSIONS OFF`). C17 is
-the newest C that GCC, Clang and MSVC all compile entirely; MSVC's C23 is
-not complete. Code that one compiler needs and the others refuse is
-written under `#if` for that compiler alone, and a feature a platform
-lacks is refused there, saying so (R-PLAT-2).
+The driver supports a C17 compiler, GCC, Clang or MSVC, and CMake 3.25 or later. The rule is the ecosystem's own:
+support every release its makers still support, and drop each at its
+end of life. Where a major framework of the language sets a higher
+floor, the driver matches it. The minimum changes in a commit of its
+own, which changes this decision, the package's metadata, CI and
+README.md together.
 
-Within C17, nothing optional is used that MSVC lacks: no variable-length
-arrays (`-Wvla`), and no `_Atomic` or `<threads.h>`. MSVC has no 128-bit
-integer, so the protocol's `i128` is carried as two 64-bit halves.
+The library is ISO C17, without extensions (`C_EXTENSIONS OFF`), built by
+GCC, Clang and MSVC. C17 is the newest C that all three compile
+entirely; MSVC's C23 is not complete. Within C17, nothing optional is
+used that MSVC lacks: no variable-length arrays, no `_Atomic` and no
+`<threads.h>`. MSVC has no 128-bit integer, so the protocol's `i128` is
+two 64-bit halves (D2). CMake 3.25 is the first with workflow presets,
+which run each check from one command (D4). The compilers supported are
+those CI runs: GCC and Clang on Linux, Apple's Clang on macOS, and MSVC
+on Windows.
 
-CMake 3.25 is the first with workflow presets, which run each check from
-one command (D8, D13).
+#### D4. One command runs every check, before each commit and in CI on three platforms
 
-The compilers supported are the versions CI runs: GCC and Clang on Linux,
-Apple's Clang on macOS, and MSVC on Windows (`.github/workflows/verify.yml`).
+`cmake --workflow --preset verify` runs every check a change must pass, stopping at the
+first failure: the formatter, the linters, the type checker where the
+language has one, the checks tool's own rules (lengths a linter does not
+measure, citations and their targets, open-work markers, the manual's
+titles, `[Contents](README.md)` lines and links), and every test.
+`cmake --workflow --preset coverage` measures coverage and holds it to its floor (D7).
 
-#### D9. The version is the turborel release's
+`.githooks/pre-commit` hands over to the same command. It is a script
+only because git runs hooks as scripts. CI runs it on Linux, macOS and
+Windows, over every runtime D3 supports, with the live tests against the
+nightly image and coverage on Linux. Every action is pinned by its full
+commit SHA, its version in a comment, and Dependabot proposes each bump.
 
-A driver's version is the turborel release it is made for, the same
-number as the server's (VERSIONING.md). There is no version scheme of the
-driver's own. The alpha is 0.0.0, as turborel's is, and speaks protocol
-version 1.
+The checks are CMake's: the presets of `CMakePresets.json`, `debug`,
+`release`, `asan-ubsan`, `coverage`, `lint` and `fuzz`, each a workflow
+that configures, builds and tests, and `verify` is the `lint` workflow.
 
-The number is written once, as `TRL_VERSION_MAJOR`, `_MINOR` and `_PATCH`
-in `include/turborel/turborel.h`. CMake reads it from there for the
-project, the shared library's version, the CMake package and the
-pkg-config file, and `trl_version()` gives it at run time, so a program
-can tell a header and a library of different releases apart. The CMake
-package asks for an exact version, as a release's driver goes with that
-release's server.
+- **The formatter** is clang-format, with `.clang-format`, run by the
+  test `rules.format`.
+- **The linters** are the compilers' warnings, every one an error:
+  `-Wall -Wextra -Wpedantic -Werror` and those of
+  `cmake/TrlWarnings.cmake` on GCC and Clang, `/W4 /WX` on MSVC; and
+  clang-tidy, with `.clang-tidy`, its `bugprone`, `cert`,
+  `clang-analyzer`, `concurrency`, `misc`, `performance`, `portability`
+  and `readability` checks, every one an error, as each file compiles.
+  C has no type checker beyond its compilers.
+- **The checks tool** is the CMake scripts of `cmake/`, run as the test
+  `rules.source`: file lengths, doc comments, banned calls, open-work
+  markers, citations and their targets, and the manual's titles,
+  `[Contents](README.md)` lines and links. Being CMake script, it runs
+  the same on every platform with no interpreter beside CMake.
+- **The tests** run under CTest (D14); AddressSanitizer and
+  UndefinedBehaviorSanitizer run them in CI on Linux and macOS; and
+  libFuzzer fuzzes the codec's decoders in CI, built by LLVM's Clang.
+- **The API reference** is built by Doxygen in CI, every warning an
+  error.
 
-### The interface
+clang-format and clang-tidy are pinned by `.github/lint-requirements.txt`,
+installed from the Python Package Index's builds of LLVM's tools into a
+virtual environment, as formatting and lints change from one LLVM to the
+next; they link nothing into the library.
 
-#### D4. Failures are status codes, with a failure object of SQLCODE and SQLSTATE
+#### D5. The version is the Turborel release's: 0.0.0 in the alpha, speaking protocol 1
 
-A function that can fail returns a status code, zero for success, so a
-caller tests every call the same way. What the failure was is a failure
-object the handle keeps: its SQLCODE, its SQLSTATE, its message, the rule
-it cites, its position in the statement, whether a transaction is still
-active, and the diagnostics of tags 7 to 15, as turborel-client's
-`Failure` has them. It is valid until the next call on the same handle.
+The driver has no version scheme of its own. Its version is the number
+of the Turborel release it is made for, the same as the server's: a
+Turborel release and each driver's release for it share the number,
+**MAJOR.MINOR.PATCH**, as Turborel's VERSIONING.md numbers it. The alpha
+is 0.0.0, as Turborel's is, and speaks protocol version 1.
+
+The number is written once, in `TRL_VERSION_MAJOR`, `TRL_VERSION_MINOR` and `TRL_VERSION_PATCH`, in `include/turborel/turborel.h`. Nothing is
+published, and no release is tagged, until every Turborel driver is
+done; then the owner publishes them together (VERSIONING.md).
+
+#### D6. Tests and code cite Turborel's documents by their headings
+
+A test cites what it verifies, and code what it implements, by the
+heading of the section that says it, as printed:
+
+- `[PROTOCOL <heading>]`, a heading of The Native Protocol,
+  `doc/client/05-protocol.md`, as `[PROTOCOL Frames]`;
+- `[CLIENT <heading>]`, a heading of The Client Library,
+  `doc/client/02-library.md`, or of Settings, Pipelines and Pools,
+  `doc/client/02-library-connections.md`, which share no heading, as
+  `[CLIENT Pipelines]`;
+- `[DESIGN] D<n>`, a decision of this file;
+- `[TOOL] R-<id>`, a rule the checks tool holds, for the tool's own
+  tests.
+
+What else a test relies on follows the tag, as an RFC by its section:
+`[PROTOCOL Mechanisms] [RFC 7677 §3]`. The heading `Lob 'L'` is printed
+twice in The Native Protocol, under Requests and under Replies, so a
+citation of it says which it means.
+
+The checks tool keeps the headings of those three documents, copied at
+the Turborel commit CONFORMANCE.md names, and refuses a citation of a
+heading, decision or rule that is not there (R-TRACE-2). In C,
+a test cites by its doc comment, beginning `Verifies:`.
+
+#### D7. A coverage floor, enforced in CI, that only rises
+
+`cmake --workflow --preset coverage` measures the library's coverage over every test,
+and CI fails below the floor. In every Turborel driver the floor is at
+least 90 % of lines, and of branches where the tool measures them. It
+only rises: a change that raises coverage well above it raises it. A
+floor below 100 % says why.
+
+The floor is 95 % of lines and functions, and 90 % of regions and
+branches, of `src/`, as Clang's source-based coverage counts them over
+the tests (`cmake/CoverageFloors.cmake`, `cmake/coverage-report.cmake`).
+It is below 100 % for code of one platform, measured on Linux alone, and
+for the failures of allocation, which a test reaches only in part.
+
+#### D8. Where these rules depart from C's conventions
+
+The driver follows its language's library conventions for layout,
+naming, packaging, documentation and testing. Where one conflicts with a
+rule here, the rule is kept:
+
+- Libraries commonly leave the length of functions and files to taste.
+  These are bounded (R-SIZE).
+- Libraries commonly fail an argument out of range with the language's
+  own error. Here every failure is the driver's, an argument's too, with
+  the SQLCODE and SQLSTATE turborel-client gives it (R-ERR-1), so a
+  program handles one kind of failure.
+
+- A C library commonly uses `assert`; this one never does, nor anything
+  else that ends the process (R-ERR-1), since a library's caller decides
+  what a failure means.
+- libpq answers some calls with a pointer or an integer whose meaning
+  varies; every call here that can fail returns a `trl_status` (D9).
+- C has no namespaces, so every name the library gives the linker begins
+  with `trl_`, the hidden ones too, so a static library clashes with
+  nothing; and a type ends in no `_t`, which POSIX reserves.
+- Doc comments are Doxygen's, the convention of C libraries, checked by
+  Clang's `-Wdocumentation`, by `rules.source` and by Doxygen.
+
+### This driver's own
+
+#### D9. Failures are status codes, with a failure object of SQLCODE and SQLSTATE
+
+A function that can fail returns a `trl_status`, `TRL_OK` for success, so
+a caller tests every call the same way. What the failure was is a
+failure object the handle keeps: its SQLCODE, its SQLSTATE, its message,
+the rule it cites, its position in the statement, whether a transaction
+is still active, and the diagnostics of tags 7 to 15, as
+turborel-client's `Failure` has them. It is valid until the next call on
+the same handle.
 
 The driver's own failures carry the codes turborel-client gives them: a
 connection lost or a malformed reply is SQLCODE -919, SQLSTATE 08006
-[PROTOCOL Frames]; a secret refused over plain TCP is 28000. A failure is
-never a crash, an exit or a message printed (R-ERR-1). A null handle or
-buffer passed in is refused with a status, never dereferenced. Memory not
-had is a status too.
+[PROTOCOL Frames]; a secret refused over plain TCP is 28000; memory not
+had is SQLCODE -918, SQLSTATE TB918, as Turborel reports resources it
+cannot grant. A null handle or buffer passed in is refused with a
+status, never dereferenced.
 
-#### D5. Opaque handles, and ownership said by every function
+#### D10. Opaque handles, and ownership said by every function
 
 Each object the library makes, a connection or a result, is an opaque
 handle: its struct is declared in the header and defined only in `src/`,
@@ -150,29 +498,25 @@ takes a null handle and does nothing.
 Each function's doc comment says what the caller owns afterwards. Unless
 it says otherwise, a string or array the library returns is borrowed,
 valid until the next call on the same handle or until it is freed, and
-what the caller passes in is copied, not kept. What the library allocates
-it frees, as a program and a DLL on Windows may not share an allocator.
-Text is UTF-8, ended by a null byte; binary data comes with its length.
+what the caller passes in is copied, not kept. What the library
+allocates it frees. Text is UTF-8, ended by a null byte; binary data
+comes with its length. Types are named `trl_name`, without `_t`, which
+POSIX reserves.
 
-Types are named `trl_name`, without `_t`, which POSIX reserves.
-
-#### D6. No global mutable state, and one thread at a time on a handle
+#### D11. No global mutable state, and one thread at a time on a handle
 
 The library keeps no global mutable state and needs no initialization
-call. A handle is used by one thread at a time; different handles may be
-used on different threads at once. Where a function departs from that, as
-the cancel of a running statement does by design, its doc comment says
-so. The library starts no thread, and a callback the program gives runs on
-the thread that made the call. A server runs many sessions, and a
-program's threads each hold their own, so no lock in the library is
-shared between handles.
+call (R-SAFE-5). A handle is used by one thread at a time; different
+handles may be used on different threads at once. Where a function
+departs from that, as the cancel of a running statement does by design,
+its doc comment says so. The library starts no thread (R-SAFE-6), and a
+callback the program gives runs on the thread that made the call.
 
-### Build and tooling
-
-#### D7. Dependencies: the C library, OpenSSL 3.5 or AWS-LC, and zlib
+#### D12. Dependencies: the C library, OpenSSL 3.5 or AWS-LC, and zlib
 
 The C standard library comes first. Beyond it the library uses two
-libraries, each production-grade by its own maintainers' account:
+libraries, each production-grade by its own maintainers' account
+(R-DEP-1, R-DEP-2):
 
 | Library | For | Version | License | Why |
 |---|---|---|---|---|
@@ -181,21 +525,11 @@ libraries, each production-grade by its own maintainers' account:
 | zlib | compressed frames, RFC 1950 | 1.2.11 or later | zlib | The reference implementation of the format the protocol's `z` frames carry. |
 
 `TRL_TLS` chooses OpenSSL, AWS-LC or none, and `TRL_ZLIB` whether zlib is
-looked for (`cmake/TrlDependencies.cmake`). Until the code that uses them
-is written, CMake looks for each and reports what it found, and requires
-neither. Then a build without one still builds, and refuses at run time
-what needs it, with a failure saying the library was built without it.
+looked for (`cmake/TrlDependencies.cmake`). A library not found is not
+required: a build without one builds, and refuses at run time what needs
+it, with a failure saying the library was built without it.
 
-Any other library linked needs a decision here first (R-DEP-1). Tools
-that build and check, and link nothing into the library, are D10's and
-D12's.
-
-#### D8. CMake with presets, an installed package, and hidden symbols
-
-The build is CMake's, and its configurations are presets
-(`CMakePresets.json`): `debug`, `release`, `asan-ubsan`, `coverage`,
-`lint` and `fuzz`, each building into `build/<preset>`, and workflows of
-the same names that configure, build and test in one command.
+#### D13. CMake with presets, an installed package, and hidden symbols
 
 The library is `libturborel` on every platform, shared unless
 `BUILD_SHARED_LIBS` is `OFF`; static, it is used with `TRL_STATIC`
@@ -203,323 +537,45 @@ defined, which the CMake package and the pkg-config file define for the
 program. Its interface is one header, `include/turborel/turborel.h`.
 Symbols are hidden by default (`C_VISIBILITY_PRESET hidden`), and only
 those marked `TRL_API` are exported, so what is not in the header cannot
-be linked to.
+be linked to (R-STYLE-4).
 
 `cmake --install` installs the library, the header, a CMake package
-(`find_package(turborel)`, target `turborel::turborel`), a pkg-config
-file (`turborel.pc`) and the license. The `release` preset tests that a
-program outside the tree builds against what was installed, both ways
-(`cmake/test-package.cmake`).
+(`find_package(turborel)`, target `turborel::turborel`), a relocatable
+pkg-config file (`turborel.pc`) and the license. The package asks for an
+exact version, as a release's driver goes with that release's server
+(D5). The `release` preset tests that a program outside the tree builds
+against what was installed, both ways (`cmake/test-package.cmake`).
 
 The library's sources build one object library, `turborel_objects`, of
-which the library is made and which the tests link, so a test reaches the
-internal codec the library hides (`CMakeLists.txt`).
+which the library is made and which the tests link, so a test reaches
+the internal codec the library hides.
 
-#### D10. Warnings as errors, clang-tidy, clang-format, sanitizers, coverage and fuzzing
+#### D14. Tests run by CTest, on one harness of our own
 
-- **Warnings.** GCC and Clang build with `-Wall -Wextra -Wpedantic
-  -Werror` and the warnings of `cmake/TrlWarnings.cmake`, conversions and
-  shadowing among them; MSVC with `/W4 /WX`. Clang checks doc comments
-  against what they document (`-Wdocumentation`).
-- **clang-tidy**, with `.clang-tidy`: the `bugprone`, `cert`,
-  `clang-analyzer`, `concurrency`, `misc`, `performance`, `portability`
-  and `readability` checks, every one an error, run as each file compiles
-  under the `lint` preset.
-- **clang-format**, with `.clang-format`, checked by the test
-  `rules.format` under `lint`.
-- **AddressSanitizer and UndefinedBehaviorSanitizer**, under the
-  `asan-ubsan` preset, in CI on Linux and macOS; MSVC has AddressSanitizer
-  alone.
-- **Coverage**, Clang's source-based coverage, read by `llvm-cov`, under
-  the `coverage` preset, held to the floors of `cmake/CoverageFloors.cmake`
-  (R-COV). GCC's `gcov` is not used, so coverage is one tool's count.
-- **Fuzzing**, libFuzzer targets of the codec under the `fuzz` preset
-  (`fuzz/`), built with LLVM's Clang and the sanitizers, and run in CI for
-  a bounded time. Apple's Clang does not ship libFuzzer.
-- **Documentation**, built by Doxygen in CI, every warning an error, so
-  every public item is documented (R-DOC-1).
-
-#### D11. Tests run by CTest, on one harness of our own
-
-Tests are C programs that CTest runs, one executable for each area, named
-`area.thing` (`codec.frame`), on one harness, `test/harness.h`. No test
-framework is a dependency: the harness is what the tests need, a case's
-checks and a report of each that failed, and nothing more. A case alone
-runs by naming it as its executable's argument.
-
-The rules a tool checks run as tests too, `rules.source` everywhere and
-`rules.format` under `lint`, so `ctest` runs every check a build can make.
-
-#### D12. clang-format and clang-tidy pinned by version
-
-Formatting and lints change from one LLVM to the next, so a contributor
-and CI run the same versions: those `.github/lint-requirements.txt` pins,
-installed from the Python Package Index's builds of LLVM's tools into a
-virtual environment. They link nothing into the library. Dependabot
-proposes each new version, and a change of version is its own commit,
-with the code it reformats.
-
-#### D13. Automation in CMake, never shell scripts
-
-The project's checks are CMake scripts in `cmake/`, run by CTest or by
-`cmake -P`, so they run as they are on Linux, macOS and Windows with no
-shell or interpreter beside CMake. The one script of another kind is
-`.githooks/pre-commit`, which git runs through `sh` (on Windows, the one
-Git for Windows ships), and it only hands over to CMake.
-
-#### D14. Where C's conventions and these rules differ
-
-Where the C libraries of 2026 do one thing and these rules another, the
-rule is kept:
-
-- A C library commonly uses `assert`; this one never does, nor anything
-  else that ends the process (R-ERR-1), since a library's caller decides
-  what a failure means.
-- libpq answers some calls with a pointer or an integer whose meaning
-  varies; every call here that can fail returns a status (D4).
-- Large C files are common; here a file has at most 600 lines and a
-  function 50 (R-SIZE).
-- C has no namespaces, so every name the library gives the linker begins
-  with `trl_`, the hidden ones too, so that a static library clashes with
-  nothing.
-- Doc comments are Doxygen's, the convention of C libraries, and are
-  checked by Clang, by `rules.source` and by Doxygen.
-
----
-
-## 2. Project layout
-
-```
-CMakeLists.txt          the library: objects, target, options (D8)
-CMakePresets.json       the configurations and workflows (D8)
-cmake/                  CMake modules and the check scripts (D13)
-  TrlWarnings.cmake     C17 and the warnings (D3, D10)
-  TrlChecks.cmake       clang-tidy, sanitizers, coverage, fuzzing (D10)
-  TrlDependencies.cmake OpenSSL or AWS-LC, and zlib (D7)
-  TrlInstall.cmake      the installed library, package and pkg-config (D8)
-  CoverageFloors.cmake  the coverage floors (R-COV-2)
-  check-source.cmake    the source rules, as the test rules.source
-  check-format.cmake    formatting, as the test rules.format
-  coverage-report.cmake the coverage report and its floors
-  test-package.cmake    the installed package, as a program uses it
-  ci-run.cmake          a CI step, its failure's output an annotation
-.clang-format           formatting (R-STYLE-1)
-.clang-tidy             lints (R-LINT-2)
-Doxyfile                the API reference, built in CI (R-DOC-1)
-include/turborel/       the public header (D8)
-src/                    the library; one concept per file
-  codec/                the protocol's encoding, without I/O (D1)
-test/                   the tests (D11)
-  harness.h, harness.c  the harness every test uses (R-TEST-6)
-  <area>/               one directory per area, `*_test.c` each
-  package/              a program outside the tree, for the package test
-fuzz/                   libFuzzer targets (D10)
-doc/                    the manual
-README.md               what the driver is; building and a first query
-RULES.md                this file
-CONFORMANCE.md          the parity matrix with turborel-client
-TODO.md                 open work, by milestone
-VERSIONING.md           the version, and how it is published
-CONTRIBUTING.md         changes, commit messages, pull requests, issues
-SECURITY.md             how to report a vulnerability
-TRADEMARK.md            the name and the logos
-AGENTS.md               the guide for coding agents
-CLAUDE.md               points Claude Code to AGENTS.md
-.github/                CI, issue forms, labels, the pull request template
-.githooks/pre-commit    runs `verify` before each commit
-artwork/                the logos
-```
-
----
-
-## 3. Code rules
-
-### R-STYLE: formatting and names
-
-| ID | Rule | Checked by |
-|---|---|---|
-| R-STYLE-1 | Code **shall** be formatted by clang-format with `.clang-format`. | `rules.format` |
-| R-STYLE-2 | Every public name **shall** begin `trl_`, every public macro `TRL_`; every name the linker sees, hidden ones too, begins `trl_` (D14). | review; `nm` |
-| R-STYLE-3 | Functions, variables and types are `lower_case`; macros and enumeration constants `UPPER_CASE`; types end in no `_t` (D5). | `readability-identifier-naming` |
-| R-STYLE-4 | Production code **shall not** print or write to a stream it was not given. | `rules.source` |
-| R-STYLE-5 | A header **shall** compile on its own and include what it uses; internal headers live in `src/`, never in `include/`. | build; review |
-
-### R-SIZE: short functions and files
-
-| ID | Rule | Checked by |
-|---|---|---|
-| R-SIZE-1 | A function **shall** have at most 50 lines. | `readability-function-size` |
-| R-SIZE-2 | A source file **shall** have at most 600 lines; split by the protocol's sections or the layers of D1. | `rules.source` |
-| R-SIZE-3 | A function **shall** take at most 5 parameters; else a struct. | `readability-function-size` |
-| R-SIZE-4 | A file **should** hold one concept, stated in its `@file` comment. | review |
-
-### R-DOC: comments and documentation
-
-| ID | Rule | Checked by |
-|---|---|---|
-| R-DOC-1 | Every public function, type, enumeration constant and macro **shall** have a Doxygen doc comment; a function's says each parameter, what it returns, and what the caller owns after it (D5). | `rules.source`; `-Wdocumentation`; Doxygen |
-| R-DOC-2 | Comments **shall** say *why*: the rule implemented, the choice made, the invariant relied on. | review |
-| R-DOC-3 | Behaviour the spec or turborel-client governs **shall** cite it by heading, as `[PROTOCOL Frames]` or `[CLIENT Pipelines]`; the driver's own choices cite their decision, `RULES.md D4`. | review |
-| R-DOC-4 | Citations **shall** name a heading the document has; none is cited from memory. | `rules.source` for tests; review |
-| R-DOC-5 | No commented-out code, and no `TODO`, `FIXME` or `XXX`: open work goes in TODO.md, and code never cites TODO.md. | `rules.source` |
-| R-DOC-6 | Every source file **shall** open with a doc comment, `@file` and its responsibility. | `rules.source` |
-| R-DOC-7 | A change a program can see **shall** update the manual, `doc/`, in the same commit, its examples run. | review |
-| R-DOC-8 | Every relative link of a document **shall** name a file that exists. | `rules.source` |
-
-### R-CONST: no magic numbers or strings
-
-| ID | Rule | Checked by |
-|---|---|---|
-| R-CONST-1 | Numbers other than `0` and `1` **shall** be named, by a macro or an enumeration constant, documenting the value's source. | `readability-magic-numbers` |
-| R-CONST-2 | Every protocol tag, message kind, capability name and status name **shall** be a named constant, defined once, under the spec heading it comes from. | review |
-| R-CONST-3 | Strings matched or looked up (settings, mechanisms, URI parts) **shall** be named constants. Messages for people are not. | review |
-| R-CONST-4 | Tests may use literal fixtures, such as the spec's bytes; expected values restating a constant **should** use it. | review |
-
-### R-ERR: failures, not crashes
-
-| ID | Rule | Checked by |
-|---|---|---|
-| R-ERR-1 | Library code **shall not** end the process or print: no `abort`, `exit`, `assert`, `printf`, `longjmp` or the like. | `rules.source` |
-| R-ERR-2 | Every failure **shall** be a status code with a failure object of SQLCODE, SQLSTATE, message and the rest (D4). | review; tests |
-| R-ERR-3 | Every status a call returns **shall** be tested, or cast to `(void)` with a comment saying why it cannot matter. | `bugprone-unused-return-value`; review |
-| R-ERR-4 | A failed call **shall** leave its handle usable, or say it is lost (08006), and leak nothing. | tests; sanitizers |
-| R-ERR-5 | Null pointers passed in **shall** be refused, never dereferenced. | tests |
-
-### R-NUM: arithmetic and conversions
-
-| ID | Rule | Checked by |
-|---|---|---|
-| R-NUM-1 | No conversion **shall** lose a value or a sign implicitly; a narrowing cast follows a check that the value fits. | `-Wconversion`, `-Wsign-conversion` |
-| R-NUM-2 | A size or count computed from a peer's bytes **shall** be checked for overflow before use. | review; UBSan; fuzzing |
-| R-NUM-3 | Signed overflow, shifts past a type's width and division by zero **shall** be impossible, shown by checks before the operation. | UBSan; review |
-| R-NUM-4 | Integers on the wire **shall** be read and written byte by byte, little-endian, never by casting a buffer to a wider type. | review |
-| R-NUM-5 | Floats **shall not** be compared for equality except where the protocol's value is compared bit for bit. | review |
-
-### R-MEM: memory
-
-| ID | Rule | Checked by |
-|---|---|---|
-| R-MEM-1 | No `strcpy`, `strcat`, `sprintf`, `gets`, `strtok` or `alloca`; copies are bounded by the destination's size. | `rules.source` |
-| R-MEM-2 | Every allocation **shall** be checked, and its failure reported as a status (D4). | review; tests |
-| R-MEM-3 | A reader **shall** hold what it reads as it goes: a count received never reserves memory before the bytes it counts arrive, and nothing is taken past the body limit [PROTOCOL Values and fields]. | review; fuzzing |
-| R-MEM-4 | Every read **shall** be bounded by the bytes available. | ASan; fuzzing |
-| R-MEM-5 | A secret (a password, a SCRAM key, a cancel key) **shall** be wiped from memory once used, and never written to a message or a log. | review |
-
-### R-CF: control flow
-
-| ID | Rule | Checked by |
-|---|---|---|
-| R-CF-1 | A boolean decision **should** have at most 4 conditions; else a named predicate. | review |
-| R-CF-2 | Cognitive complexity **shall** be at most 15, nesting at most 5. | `readability-function-cognitive-complexity`, `readability-function-size` |
-| R-CF-3 | A `switch` on an enumeration **shall** list every constant, with no `default`. | `-Wswitch-enum` |
-| R-CF-4 | `goto` only jumps forward, to the one cleanup at a function's end. | review |
-| R-CF-5 | Recursion **shall** be bounded by a named depth constant, failing past it. | review; tests |
-
-### R-SAFE: language subset and resources
-
-| ID | Rule | Checked by |
-|---|---|---|
-| R-SAFE-1 | No variable-length arrays, and nothing of C17 MSVC lacks (D3). | `-Wvla`; MSVC in CI |
-| R-SAFE-2 | No global or static mutable state (D6). | review |
-| R-SAFE-3 | No thread **shall** be started by the library (D6). | review |
-| R-SAFE-4 | No undefined behaviour, shown by UBSan and ASan in CI and by fuzzing the codec. | `asan-ubsan`; `fuzz` |
-
-### R-LINT: compilers and linters
-
-| ID | Rule | Checked by |
-|---|---|---|
-| R-LINT-1 | Every target **shall** build with D10's warnings, every one an error, on GCC, Clang and MSVC. | build |
-| R-LINT-2 | Every source **shall** pass clang-tidy with `.clang-tidy`, every check an error. | `lint` preset |
-| R-LINT-3 | A warning or check **shall** be silenced only by `NOLINTNEXTLINE(check)` or a compiler pragma that names it, with a comment giving the rule and the reason. | review |
-| R-LINT-4 | A check is left out of `.clang-tidy` only with its reason written there. | review |
-
-### R-DEP: dependencies
-
-| ID | Rule | Checked by |
-|---|---|---|
-| R-DEP-1 | A library linked into libturborel **shall** have a decision in §1 giving why, its version, its license and its maintainers' own claim of readiness (D7). | review |
-| R-DEP-2 | A tool that builds or checks **shall** be pinned by version where its output depends on it (D12). | review |
-
----
-
-## 4. Test rules
-
-### R-TEST: levels and layout
-
-| ID | Rule | Checked by |
-|---|---|---|
-| R-TEST-1 | Each test **shall** sit at the lowest level showing its requirement: the codec's bytes, then a layer, then the API, then a live server. | review |
-| R-TEST-2 | Tests **shall** derive from the spec and turborel-client, not the code: normal cases, boundaries, and robustness cases with the exact status, SQLCODE and SQLSTATE expected. | review |
-| R-TEST-3 | A case's name **shall** say the behaviour checked: `refuses_a_body_longer_than_taken`. | review |
-| R-TEST-4 | Tests **shall** be deterministic and independent: no clock, randomness or network beyond loopback; a live test runs its own server on its own port and directory. | review |
-| R-TEST-5 | Every fixed defect **shall** get a regression test that fails without the fix, its doc comment saying so. | review |
-| R-TEST-6 | Every test **shall** run on the one harness, `test/harness.h`; a fixture shared by tests is written once beside it. | review |
-| R-TEST-7 | Test code may print, and may use literals as fixtures; every other rule applies. | review |
-
-### R-TRACE: traceability
-
-| ID | Rule | Checked by |
-|---|---|---|
-| R-TRACE-1 | Every test case **shall** have a doc comment beginning `Verifies:` and a citation: `[PROTOCOL <heading>]` of `05-protocol.md`, `[CLIENT <heading>]` of `02-library.md` or `02-library-connections.md`, or `[DESIGN] D<n>` of this file. | `rules.source` |
-| R-TRACE-2 | Code implementing a requirement **shall** cite it (R-DOC-3). | review |
-| R-TRACE-3 | CONFORMANCE.md **shall** change with the change that implements a row of it. | review |
-
----
-
-## 5. Coverage
-
-| ID | Rule | Checked by |
-|---|---|---|
-| R-COV-1 | Coverage **shall** be measured by the `coverage` workflow, over the unit tests, for `src/`. | `coverage` |
-| R-COV-2 | Coverage **shall not** fall below the floors in `cmake/CoverageFloors.cmake`, of lines, functions, regions and branches; the floors only rise. | `coverage`, in CI |
-| R-COV-3 | Gaps are closed by tests of requirements, or by removing dead code; never by tests that check nothing. | review |
-
----
-
-## 6. Platforms
-
-| ID | Rule | Checked by |
-|---|---|---|
-| R-PLAT-1 | Every change **shall** build and pass its tests on Linux, macOS and Windows. | CI |
-| R-PLAT-2 | What one platform alone has (a Unix socket's path, a named pipe) is written under `#if` for it, and refused elsewhere with a failure that says so. | review; CI |
-| R-PLAT-3 | Code built for one platform only **shall** say, when handed back, that it was not built on the others. | review |
-
----
-
-## 7. Process and tools
-
-| ID | Rule | Checked by |
-|---|---|---|
-| R-PROC-1 | `cmake --workflow --preset verify` **shall** pass before every commit: clang-tidy, formatting, the source rules and every test. CI adds every platform, the sanitizers, coverage and fuzzing. | pre-commit hook; CI |
-| R-PROC-2 | Every change **shall** be reviewed against the checklist below. | review |
-| R-PROC-3 | Commits **should** be small and single-purpose, in CONTRIBUTING.md's form. | review |
-| R-PROC-4 | A threshold change **shall** change this file and the file that sets it together. | review |
-| R-TOOL-1 | Project automation **shall** be CMake scripts in `cmake/` (D13). | review |
-| R-CM-1 | The pinned tools (D12) and the actions CI runs, each by its full commit hash, **shall** change only in a commit of their own. | review |
-
-The review checklist:
-
-- requirement cited in code (R-DOC-3) and tests (R-TRACE-1);
-- normal, boundary and robustness tests (R-TEST-2);
-- no magic numbers or strings (R-CONST);
-- every status tested, every allocation checked (R-ERR-3, R-MEM-2);
-- ownership said by each new function (D5);
-- comments explain why (R-DOC-2);
-- CONFORMANCE.md updated (R-TRACE-3), and TODO.md where open work
-  changed.
+Tests are C programs that CTest runs, one executable for each file,
+named `layer.thing` (`codec.frame`), on one harness, `test/harness.h`
+(R-TEST-7). No test framework is a dependency: the harness is what the
+tests need, a case's checks and a report of each that failed, and
+nothing more. A case alone runs by naming it as its executable's
+argument. The checks tool runs as tests too, `rules.source` everywhere
+and `rules.format` under `lint`, so `ctest` runs every check a build can
+make.
 
 ---
 
 ## 8. References
 
-- turborel, `doc/client/05-protocol.md`, *The Native Protocol*, version 1;
-  `doc/client/02-library.md`, *The Client Library*, and
-  `02-library-connections.md`, *Settings, Pipelines and Pools*; and
-  turborel-client's and turborel-protocol's code, which prevails.
-- ISO/IEC 9899:2018, *Programming languages — C* (C17).
-- Microsoft, *ODBC Programmer's Reference* (D2).
-- PostgreSQL, *libpq — C Library*, the manner of the C API (D2).
-- RFC 1950, *ZLIB Compressed Data Format Specification*; RFC 5802 and RFC
-  7677, SCRAM and SCRAM-SHA-256; RFC 9266, *Channel Bindings for TLS 1.3*.
-- CMake's documentation: presets, `install(EXPORT)`, package
-  configuration files.
+- Turborel, `doc/client/05-protocol.md`, *The Native Protocol*,
+  version 1: the requirements of the codec and every message.
+- Turborel, `doc/client/02-library.md`, *The Client Library*, and
+  `doc/client/02-library-connections.md`, *Settings, Pipelines and
+  Pools*, and the crates turborel-client and turborel-protocol: the
+  features to match, and the reference where the spec is silent or
+  differs.
+- Turborel, `RULES.md` D89, the JSON value's binary tree, and D184, the
+  UUID's tag.
+- RFC 1950, *ZLIB Compressed Data Format Specification*; RFC 5802 and
+  RFC 7677, SCRAM and SCRAM-SHA-256; RFC 5929 and RFC 9266, the
+  `tls-server-end-point` and `tls-exporter` channel bindings.
+- The standards of C and of its database interface, named in
+  D2 and D3.

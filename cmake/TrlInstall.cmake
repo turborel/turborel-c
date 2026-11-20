@@ -1,5 +1,5 @@
 # Installs libturborel, its header, a CMake package and a pkg-config file
-# (RULES.md D8), so a program finds it with find_package(turborel) or
+# (RULES.md D13), so a program finds it with find_package(turborel) or
 # `pkg-config --cflags --libs turborel`.
 
 include(CMakePackageConfigHelpers)
@@ -25,7 +25,7 @@ install(
 
 configure_package_config_file(cmake/turborelConfig.cmake.in "${PROJECT_BINARY_DIR}/turborelConfig.cmake"
                               INSTALL_DESTINATION "${TRL_CMAKE_DIR}")
-# A release's driver goes with that release's server alone (RULES.md D9),
+# A release's driver goes with that release's server alone (RULES.md D5),
 # so a program asking for one version takes no other.
 write_basic_package_version_file("${PROJECT_BINARY_DIR}/turborelConfigVersion.cmake" COMPATIBILITY ExactVersion)
 install(FILES "${PROJECT_BINARY_DIR}/turborelConfig.cmake" "${PROJECT_BINARY_DIR}/turborelConfigVersion.cmake"

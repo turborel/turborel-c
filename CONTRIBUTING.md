@@ -1,14 +1,15 @@
 # Contributing to turborel-c
 
-turborel-c carries the data of programs that depend on it, and the
-secrets that open a database. So a change is judged first on whether it
-keeps values exact, secrets private and the program it runs in safe, and
-then on what it adds. The process follows the Linux kernel's, adapted to
-pull requests and to a database driver.
+turborel-c carries a program's data to and from a database people depend
+on, and its passwords and keys with it. A value sent or read wrongly may
+be stored wrongly for good. So a change is judged first on whether every
+value arrives as it was sent, every failure is told, and no secret
+leaks, and then on what it adds. The process follows the Linux kernel's,
+adapted to pull requests and to a database driver.
 
 [Before you start](#before-you-start) · [Setting up](#setting-up) ·
 [Making a change](#making-a-change) ·
-[Changes that touch the wire](#changes-that-touch-the-wire) ·
+[Changes that touch the protocol](#changes-that-touch-the-protocol) ·
 [Commit messages](#commit-messages) · [Pull requests](#pull-requests) ·
 [Review](#review) · [Reporting issues](#reporting-issues) ·
 [Security](#security) · [License](#license)
@@ -17,97 +18,106 @@ pull requests and to a database driver.
 
 ## Before you start
 
-Read [RULES.md](RULES.md) §3 (code), §4 (tests), §7 (process) and the
+Read [RULES.md](RULES.md) §3 (code), §4 (tests), §6 (process) and the
 decisions for your area. Every rule applies to every change, and
 `cmake --workflow --preset verify` checks those a tool can.
-[CONFORMANCE.md](CONFORMANCE.md) says what the driver implements of the
-protocol and of turborel-client, and [TODO.md](TODO.md) lists open work.
+[CONFORMANCE.md](CONFORMANCE.md) says what is implemented of the protocol
+and of turborel-client, row by row, and [TODO.md](TODO.md) lists open
+work.
 
 Open an issue first for anything larger than a fix. That covers new
-features, changes to the C API, changes to a decision in RULES.md, and
-new dependencies (R-DEP-1). Agreeing on the design first saves everyone a
-rewrite.
+features, changes to the public API, changes to a decision in RULES.md,
+and new dependencies (R-DEP-1). Agreeing on the design first saves
+everyone a rewrite.
 
-The protocol starts from its spec, turborel's
-[`doc/client/05-protocol.md`](https://github.com/turborel/turborel/blob/main/doc/client/05-protocol.md),
-and from turborel-client, whose code prevails where the two differ. Cite
-the spec by its headings, as `[PROTOCOL Frames]`, and turborel-client's
-manual as `[CLIENT Pipelines]`. Never cite from memory.
+The protocol starts from its spec, The Native Protocol
+(`doc/client/05-protocol.md` in Turborel's repository), and from
+turborel-client, the reference client (`client/src/` and
+`protocol/src/`). Where they differ, the code is right. Read the section
+before writing code, and cite it by its heading, as in
+`[PROTOCOL Frames]` (RULES.md D6). Never cite from memory.
 
 ## Setting up
 
-You need a C17 compiler (GCC, Clang or MSVC), CMake 3.25 or later, and,
-for the `verify` workflow, the clang-format and clang-tidy versions
-`.github/lint-requirements.txt` pins (D12), in a virtual environment of
-their own:
-
 ```
-python3 -m venv .venv-lint
-.venv-lint/bin/pip install -r .github/lint-requirements.txt
-export PATH="$PWD/.venv-lint/bin:$PATH"     # on Windows: .venv-lint\Scripts
-git config core.hooksPath .githooks         # run verify before each commit
-cmake --workflow --preset verify            # every check a change must pass
-```
-
-The other workflows are each one command:
-
-```
-cmake --workflow --preset debug         # build and test, warnings as errors
-cmake --workflow --preset release       # the same optimized, and the installed package tested
-cmake --workflow --preset asan-ubsan    # the tests under AddressSanitizer and UBSan
-cmake --workflow --preset coverage      # Clang's coverage, held to its floors
-cmake --workflow --preset fuzz          # the libFuzzer targets (LLVM's Clang)
-ctest --preset debug -R codec.frame     # one test executable
-build/debug/test/codec.frame needs_five_bytes   # one case of it
+python3 -m venv .venv-lint                                   # the pinned clang-format and clang-tidy
+.venv-lint/bin/pip install -r .github/lint-requirements.txt  # on Windows: .venv-lint\Scripts
+git config core.hooksPath .githooks                          # run verify before each commit
+cmake --workflow --preset verify                             # every check a change must pass
+cmake --workflow --preset coverage                           # coverage, held to its floor
+cmake --workflow --preset asan-ubsan                         # the tests under the sanitizers
+cmake --workflow --preset fuzz                               # the libFuzzer targets (LLVM's Clang)
+ctest --preset debug -R codec.frame                          # one test executable, after the debug workflow
+cmake --workflow --preset release                            # the package, built, installed and tested
 ```
 
-CI runs the tests on Linux (GCC and Clang), macOS (Clang) and Windows
-(MSVC), and clang-tidy, formatting, the sanitizers, coverage and fuzzing
-on Linux. A change that passes on one platform and fails on another isn't
-done.
+CI runs `cmake --workflow --preset verify` on Linux, macOS and Windows, on each supported
+runtime, and coverage on Linux (RULES.md D4, D7). A change that passes on
+one platform and fails on another isn't done.
 
 ## Making a change
 
-Keep one logical change per commit, and make each commit pass `verify` on
-its own, because anyone bisecting may land on it. Move code in one commit
-and change it in another. Don't mix a reformat or rename with a change of
-behaviour.
+Keep one logical change per commit, and make each commit pass
+`cmake --workflow --preset verify` on its own, because anyone bisecting may land on it.
+Move code in one commit and change it in another. Don't mix a reformat or
+rename with a change of behaviour.
 
-Tests come with the change, at the lowest level that shows it
-(R-TEST-1): the codec's bytes before a live server. Cover normal cases,
-boundaries, and robustness cases with the exact status, SQLCODE and
-SQLSTATE expected (R-TEST-2). Each case's doc comment starts with
-`Verifies:` and its citation (R-TRACE-1). A fixed defect gets a test that
-fails without the fix (R-TEST-5).
+Tests come with the change, at the lowest level that shows it (R-TEST-1):
+codec tests against the bytes the spec gives, tests of a layer over a
+stream the test controls, and live tests against a server on loopback.
+Cover normal cases, boundaries, and robustness cases with the exact
+SQLCODE and SQLSTATE expected (R-TEST-2). Each test cites what it
+verifies, by its doc comment, beginning `Verifies:` (R-TRACE-1). A fixed defect gets a test that
+fails without the fix (R-TEST-6).
 
-Documents change in the same commit. Update CONFORMANCE.md for a row
-implemented or changed (R-TRACE-3), RULES.md for a decision made or
-changed, TODO.md for open work done or found, and `doc/` for anything a
-program sees (R-DOC-7). Code never cites TODO.md.
+Documents change in the same commit. Update CONFORMANCE.md for each row
+implemented (R-TRACE-4), RULES.md for a decision made or changed, and
+TODO.md for open work done or found. Code never cites TODO.md.
+
+The manual changes in the same commit too (R-DOC-7). A change to what a
+program sees updates each page of [doc/](doc/README.md) that states it,
+with its examples run again. The manual is laid out as Turborel's,
+since turborel.com's documentation site reads it from every repository:
+a chapter begins with its `# Title` and a line `[Contents](README.md)`,
+links between its pages are relative `.md` links, a link out of `doc/`
+is a full URL, and each volume's README.md lists its chapters.
 
 Some rules deserve a reminder.
 
-- No `assert`, `abort` or `exit`, and no printing, in the library
-  (R-ERR-1); every failure is a status with its failure object (D4).
-- Every allocation is checked (R-MEM-2), and nothing a server sends
-  makes the library reserve memory before the bytes arrive (R-MEM-3).
-- No dependency without a decision in RULES.md (R-DEP-1).
-- Coverage floors only rise (R-COV-2).
+- Every failure is the driver's error, carrying its SQLCODE and SQLSTATE
+  (R-ERR-1, R-ERR-2), and no dependency is added without a decision in
+  RULES.md (R-DEP-1).
+- Performance claims cite measurements, with the numbers and their
+  costs in memory and latency. Numbers go in the commit message, never in
+  the code or the manual.
+- The coverage floor only rises (R-COV-2).
 
-## Changes that touch the wire
+## Changes that touch the protocol
 
 These need more than passing tests. Say in the commit message what was
 done for each that applies.
 
-For the codec, test every new message or value at its edges, and its
-malformed forms, which must fail the connection (SQLCODE -919, SQLSTATE
-08006), and add it to a fuzz target.
+A codec change is tested byte by byte against the spec's layout, both
+ways, at each field's bounds, the spec's worked example among them.
+Bytes a server sends are read with every length and count checked
+before anything is held for it (R-SAFE-1). A malformed frame fails the
+connection with SQLCODE -919 and SQLSTATE 08006, never with another
+failure, and is never read as something else.
 
-For authentication and TLS, say what an attacker on the network, or a
-server of their own, could learn or change, and show it refused.
+A change to authentication or TLS says what an attacker in the middle
+of the connection, or a server of their own, could do before and after
+it, and shows that a secret is never sent where it was refused
+(R-SAFE-3, R-SAFE-4). It is tested against a live server with the
+mechanism concerned.
 
-For a capability, say what a server that does not grant it sees, and
-that a client not granted it never sends what it adds.
+A change to what the driver asks for or sends says what a server of
+another build sees. The protocol grows by capabilities, and the driver
+never sends a request or a tail field of a capability it was not
+granted.
+
+A change that departs from turborel-client, in a value's mapping, an
+error's SQLSTATE, a default or the reading of a setting, is refused
+unless a decision in RULES.md says why.
 
 ## Commit messages
 
@@ -117,15 +127,15 @@ The form is Linux's.
 area: summary in the imperative, at most 75 characters
 
 The problem: what goes wrong, or is missing, and who it affects. A
-wrong value, a secret disclosed, a crash or a refusal is said first,
-with the call that shows it.
+wrong value, a crash, a hang or a secret let out is said first, with
+the program that shows it.
 
 Why this change, and how it solves the problem. Mention the choices
-made and the alternatives rejected, the rules and headings applied
-(RULES.md D4, R-MEM-3, [PROTOCOL Frames]), and what was measured,
+made and the alternatives rejected, the rules and sections applied
+(RULES.md D6, R-ERR-2, [PROTOCOL Frames]), and what was measured,
 with numbers.
 
-Fixes: 54a4f0239f2e ("codec: refuse a frame longer than the limit")
+Fixes: 54a4f0239f2e ("codec: refuse a tail tag out of order")
 Closes: <link to the issue>
 Reported-by: A Reporter <reporter@example.org>
 ```
@@ -134,32 +144,36 @@ The subject is `area: summary`, at most 75 characters, in the imperative
 ("refuse a frame...", not "refused"), with no full stop. It says what
 changes, isn't a file name, and isn't reused within a series.
 
-The body is wrapped at 75 columns and written for someone reading `git log`
-years later with no context. Say what the change does in plain prose, since
-the diff shows how. Don't write "as discussed" or "v2".
+The body is wrapped at 75 columns and written for someone reading
+`git log` years later with no context. Say what the change does in plain
+prose, since the diff shows how. Don't write "as discussed" or "v2".
 
-Pick the area where most of the change is.
+Pick the area where most of the change is. The areas down to `build` are
+the same in every Turborel driver; those after them are this driver's
+own.
 
 | Area | Covers |
 |---|---|
-| `codec` | `src/codec/`: frames, fields, the tail, types and values, JSON, compression |
-| `transport` | TCP, Unix sockets, named pipes, timeouts |
+| `codec` | frames, fields, the tail, data types and values, JSON, compression |
+| `transport` | TCP, Unix sockets, Windows named pipes, timeouts |
 | `auth` | the mechanisms, SCRAM and its key cache |
-| `tls` | TLS, its modes, channel binding |
-| `session` | Hello, Ready, Status, notices, cancel, terminate, ping, reset, change-user |
+| `tls` | TLS, its modes and channel binding |
+| `session` | Hello to Ready, capabilities, status, notices, cancel, terminate, ping, reset, change-user |
 | `statements` | queries, prepared statements, cursors, describe, completions |
-| `lobs` | large objects, locators and streams |
+| `lobs` | large objects by locator, and their streams |
 | `copy` | copy, import and export |
-| `settings` | the URI, options, variables, the service and password files, several hosts |
+| `settings` | the URI, options, environment, service and password files, several hosts and roles |
 | `pipeline` | pipelines |
-| `pool` | pools |
-| `api` | `include/turborel/turborel.h` and what it declares |
-| `odbc` | the ODBC driver |
-| `test` | the harness and tests that change alone |
-| `doc` | `doc/`, README.md, RULES.md, CONFORMANCE.md, TODO.md, AGENTS.md, CLAUDE.md, this file |
-| `ci` | `.github/`, `.githooks/` |
-| `build` | CMakeLists.txt, CMakePresets.json, `cmake/`, `.clang-format`, `.clang-tidy`, `fuzz/` |
+| `pool` | pools and the SQL-agent |
+| `api` | the standard API, the public interface and the driver's error |
+| `doc` | `doc/`, README.md, RULES.md, CONFORMANCE.md, TODO.md, VERSIONING.md, SECURITY.md, AGENTS.md, CLAUDE.md, this file |
+| `ci` | `.github/`: workflows, issue forms, labels, Dependabot |
+| `build` | the package's manifest, lock files, the checks tool and its configuration, `.githooks/`, `.gitattributes`, `.gitignore` |
+| `odbc` | the ODBC driver, `libturborelodbc` |
+| `test` | the test harness, `test/harness.h`, and the package test |
 | `treewide` | a mechanical change across many areas |
+
+A test goes with the code it tests, in that code's area.
 
 Trailers go at the end, one per line, never wrapped.
 
@@ -175,66 +189,72 @@ Trailers go at the end, one per line, never wrapped.
 | `Acked-by:` | a maintainer of the area who approves it without a full review |
 | `Tested-by:` | someone who tested it, saying where if that matters |
 
-`Reported-by:` and `Suggested-by:` may be added without asking. The others
-name someone who said so on the record. `git config core.abbrev 12` gives
-12-digit hashes, and `git log -1 --pretty='Fixes: %h ("%s")' <commit>` writes
-the `Fixes:` line.
+`Reported-by:` and `Suggested-by:` may be added without asking. The
+others name someone who said so on the record.
+`git log -1 --abbrev=12 --pretty='Fixes: %h ("%s")' <commit>` writes the
+`Fixes:` line.
 
-No trailer or line credits an AI or a coding agent: no `Co-authored-by:`
-for one, no "Generated with", and no `Signed-off-by:`, which this project
-does not use. Whoever submits a change answers for it.
+No commit or pull request carries AI or agent attribution: no
+`Co-authored-by:` of an agent, no "Generated with" line, and no
+`Signed-off-by:`. Whoever submits a change answers for it.
 
-Stage a commit by an explicit list of its paths, as
+Stage a commit by an explicit list of its paths,
 `git add -- <path> ...`, never `git add -A` or `git add .` on the whole
-tree, so nothing unintended goes in.
+tree, so nothing comes along unasked.
 
 ## Pull requests
 
-A pull request is a patch series, and its description is the cover letter.
-The template asks for what and why, the series commit by commit, testing,
-compatibility and performance. Each commit message still stands alone.
+A pull request is a patch series, and its description is the cover
+letter. The template asks for what and why, the series commit by commit,
+testing, compatibility and performance. Each commit message still stands
+alone.
 
-Base it on `main` and keep it rebased, without merging `main` into it. When
-revising, rewrite the commits so the series is again what should be merged,
-with no "fix review comments" commits. Force-push, and say in a comment what
-changed since the last version.
+Base it on `main` and keep it rebased, without merging `main` into it.
+When revising, rewrite the commits so the series is again what should be
+merged, with no "fix review comments" commits. Force-push, and say in a
+comment what changed since the last version.
 
-Trailers given in review go into the commits they cover. Drop them from a
-commit that later changes substantially, and say so.
+Trailers given in review go into the commits they cover. Drop them from
+a commit that later changes substantially, and say so.
 
-Keep a series to about 15 commits. Split a larger one into series that each
-stand alone.
+Keep a series to about 15 commits. Split a larger one into series that
+each stand alone.
 
 ## Review
 
-Reviewers check each commit against RULES.md §7's checklist, and that the
-manual is updated (R-DOC-7). For
-[changes that touch the wire](#changes-that-touch-the-wire), they also
-check that the malformed forms, the attacker's view and the capability
-checks were done. Review comments are about the change, never the person.
-A reviewer who is satisfied gives `Reviewed-by:`.
+Reviewers check each commit against RULES.md §6's checklist, and that
+the manual is updated (R-DOC-7). For
+[changes that touch the protocol](#changes-that-touch-the-protocol),
+they also check that the byte-level, security and parity checks were
+done. Review comments are about the change, never the person. A
+reviewer who is satisfied gives `Reviewed-by:`.
 
 ## Reporting issues
 
 Use the issue forms, **Bug**, **Conformance**, **Performance** or
-**Feature**. Try the latest `main` first, and add to an existing issue that
-matches rather than opening another.
+**Feature**. Conformance means departing from the protocol's spec or
+from turborel-client. Try the latest `main` first, and add to an
+existing issue that matches rather than opening another.
 
-Reproduce with the smallest program that shows it, with the server's
-schema and data it needs, and the settings it connects with (never a real
-password).
+Reproduce with the smallest program that shows it, with the statements,
+the schema and the data it needs. A problem of the server itself, which
+turborel-client shows too, goes to
+[turborel](https://github.com/turborel/turborel/issues).
 
-State the impact first. Put it in the title's first word when it is severe.
+State the impact first. Put it in the title's first word when it is
+severe.
 
 | Tag | Meaning |
 |---|---|
-| `[WRONG VALUE]` | a value read or sent differs from what the server holds or was given |
-| `[CRASH]` | a crash, an abort or a hang of the program |
+| `[DATA LOSS]` | data sent or stored wrongly through the driver, or lost |
+| `[WRONG RESULT]` | a value or row read or sent differs from what the server holds or was given |
+| `[CRASH]` | a failure that is not the driver's error, or the program brought down |
+| `[HANG]` | a call that never returns, or a connection never released |
 | `[REGRESSION]` | worked in an earlier commit (give the last good commit and, if you can, the first bad one) |
 
-Give the commit (`git rev-parse --short=12 HEAD`), the platform and
-architecture, the compiler and its version, the TLS library and its
-version, and the turborel server's release or commit.
+Give the commit (`git rev-parse --short=12 HEAD`), the runtime or
+compiler and its version, the platform and architecture, the server's
+version, and the connection's settings, with any password left out.
 
 ## Security
 

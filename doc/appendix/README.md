@@ -1,6 +1,6 @@
 # Appendices
 
-Tables to look a thing up in: types, errors, settings and versions.
+Tables to look things up in.
 
 [The documentation set](../README.md)
 

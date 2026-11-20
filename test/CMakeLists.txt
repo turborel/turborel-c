@@ -1,4 +1,4 @@
-# The tests (RULES.md D11): one executable for each area, on the shared
+# The tests (RULES.md D14): one executable for each area, on the shared
 # harness, each a CTest test; and the rules a tool checks, as tests too.
 
 add_library(trl_test_harness STATIC harness.c)

@@ -80,7 +80,7 @@
   description: "CMakeLists.txt, CMakePresets.json, cmake/, .clang-format, .clang-tidy, Doxyfile"
 - name: "dependencies"
   color: "#0366d6"
-  description: "A dependency, a pinned tool or an action changes (R-DEP, R-CM-1)"
+  description: "A dependency, a pinned tool or an action changes (R-DEP, R-PROC-6)"
 
 # Triage
 - name: "duplicate"

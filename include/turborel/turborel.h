@@ -28,7 +28,7 @@
 #define TRL_TURBOREL_H
 
 /*
- * Symbols are hidden unless marked TRL_API (RULES.md D8): only what this
+ * Symbols are hidden unless marked TRL_API (RULES.md D13): only what this
  * header declares is part of the library's interface.
  */
 #ifdef TRL_STATIC

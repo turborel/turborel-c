@@ -1,6 +1,6 @@
 /**
  * @file frame_fuzz.c
- * @brief libFuzzer target of the codec (RULES.md D10): any bytes read as a
+ * @brief libFuzzer target of the codec (RULES.md D4): any bytes read as a
  * frame header.
  *
  * A header read is written back and must give the same bytes; one refused

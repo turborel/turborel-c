@@ -1,7 +1,7 @@
-# libturborel, the C driver for turborel (RULES.md D1, D8).
+# libturborel, the C driver for turborel (RULES.md D1, D13).
 cmake_minimum_required(VERSION 3.25)
 
-# The version is read from the public header, its one source (RULES.md D9).
+# The version is read from the public header, its one source (RULES.md D5).
 file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/include/turborel/turborel.h" trl_version_lines
      REGEX "^#define TRL_VERSION_(MAJOR|MINOR|PATCH) [0-9]+$")
 foreach(trl_part IN ITEMS MAJOR MINOR PATCH)
@@ -40,7 +40,7 @@ include(TrlChecks)
 include(TrlDependencies)
 
 # One set of objects makes the library and is linked into the tests, which
-# reach the internal codec the library hides (RULES.md D8, D11).
+# reach the internal codec the library hides (RULES.md D13, D14).
 add_library(turborel_objects OBJECT src/version.c src/codec/frame.c)
 target_include_directories(
   turborel_objects

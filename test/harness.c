@@ -1,7 +1,7 @@
 /**
  * @file harness.c
  * @brief Runs a test executable's cases and reports what failed
- * (RULES.md D11).
+ * (RULES.md D14).
  */
 #include "harness.h"
 

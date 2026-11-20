@@ -1,4 +1,4 @@
-# The libFuzzer targets of the codec (RULES.md D10). TRL_FUZZ builds
+# The libFuzzer targets of the codec (RULES.md D4). TRL_FUZZ builds
 # everything instrumented and sanitized (cmake/TrlChecks.cmake); these
 # targets link libFuzzer, which LLVM's Clang ships and Apple's does not.
 

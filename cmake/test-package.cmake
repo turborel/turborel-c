@@ -1,5 +1,5 @@
 # The installed package, used as a program outside the tree uses it
-# (RULES.md D8), run by CTest as `package.install` in a build configured
+# (RULES.md D13), run by CTest as `package.install` in a build configured
 # with TRL_TEST_PACKAGE: the build installed to a directory of its own,
 # then test/package/ configured against it by find_package(turborel),
 # built and run; and, where pkg-config is, but for Windows, the program

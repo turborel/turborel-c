@@ -1,4 +1,4 @@
-# The libraries libturborel will use (RULES.md D7): OpenSSL 3.5 or later,
+# The libraries libturborel will use (RULES.md D12): OpenSSL 3.5 or later,
 # or AWS-LC, for TLS and hashes, and zlib, for compressed frames. Each is
 # looked for and reported, and none is required: no code uses them yet.
 # The codec takes zlib with compressed frames, and the connection takes

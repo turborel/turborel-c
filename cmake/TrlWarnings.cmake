@@ -1,5 +1,5 @@
 # The language level and the warnings every target of ours is built with
-# (RULES.md D3, D10, R-LINT-1): C17 without extensions, every warning
+# (RULES.md D3, D4, R-LINT-1): C17 without extensions, every warning
 # listed here an error.
 
 # Warnings beyond -Wall -Wextra -Wpedantic that every GCC and Clang we

@@ -1,7 +1,7 @@
 # Each new version of an action CI runs, and of the pinned clang-format
-# and clang-tidy (RULES.md D12), proposed as a pull request of its own
-# (R-CM-1). C has no package manager here: OpenSSL, AWS-LC and zlib are
-# the platform's or the builder's (D7).
+# and clang-tidy (RULES.md D4), proposed as a pull request of its own
+# (R-DEP-3). C has no package manager here: OpenSSL, AWS-LC and zlib are
+# the platform's or the builder's (D12).
 version: 2
 updates:
   - package-ecosystem: github-actions
