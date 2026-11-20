@@ -264,6 +264,8 @@ static SQLRETURN connected(trl_odbc_dbc *dbc, asked *a) {
         dbc->canceller = NULL;
     }
     dbc->conn = conn;
+    /* A new session has the server's statement time, none. */
+    dbc->timeout_ms = 0U;
     return SQL_SUCCESS;
 }
 

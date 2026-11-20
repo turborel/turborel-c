@@ -19,8 +19,8 @@
 /**
  * Verifies: [DESIGN] D2 connection attributes set and read: autocommit,
  * turned on committing what was begun; the login timeout, access mode,
- * isolation, catalog, whether the connection is dead; one the driver takes
- * another value of changed (01S02); one that is none refused (HY092).
+ * isolation, catalog, whether the connection is dead; one that is none
+ * refused (HY092).
  */
 static void connection_attributes_are_set_and_read(trl_test *test) {
     odbc_opened o;
@@ -51,8 +51,9 @@ static void connection_attributes_are_set_and_read(trl_test *test) {
     TRL_CHECK(test,
               SQLGetInfo(o.dbc, SQL_DATA_SOURCE_READ_ONLY, text, (SQLSMALLINT)sizeof text, &length) == SQL_SUCCESS);
     TRL_CHECK(test, strcmp((const char *)text, "Y") == 0);
-    TRL_CHECK(test, SQLSetConnectAttr(o.dbc, SQL_ATTR_TXN_ISOLATION, (SQLPOINTER)SQL_TXN_READ_COMMITTED, 0) ==
-                        SQL_SUCCESS_WITH_INFO);
+    TRL_CHECK(test, SQLSetConnectAttr(o.dbc, SQL_ATTR_ACCESS_MODE, (SQLPOINTER)SQL_MODE_READ_WRITE, 0) == SQL_SUCCESS);
+    TRL_CHECK(test,
+              SQLSetConnectAttr(o.dbc, SQL_ATTR_TXN_ISOLATION, (SQLPOINTER)SQL_TXN_READ_COMMITTED, 0) == SQL_SUCCESS);
     TRL_CHECK(test, SQLSetConnectAttr(o.dbc, SQL_ATTR_METADATA_ID, (SQLPOINTER)SQL_TRUE, 0) == SQL_SUCCESS);
     TRL_CHECK(test, SQLSetConnectAttr(o.dbc, SQL_ATTR_LOGIN_TIMEOUT, (SQLPOINTER)5, 0) == SQL_SUCCESS);
     TRL_CHECK(test, SQLSetConnectAttr(o.dbc, SQL_ATTR_PACKET_SIZE, (SQLPOINTER)5, 0) == SQL_SUCCESS);
@@ -388,6 +389,121 @@ static void info_and_functions_are_told(trl_test *test) {
     odbc_close(&o);
 }
 
+/* Whether running `sql` fails with SQLSTATE `state`. */
+static bool fails_with(SQLHSTMT stmt, const char *sql, const char *state) {
+    SQLRETURN ran = SQLExecDirect(stmt, sql_text(sql), SQL_NTS);
+    bool failed = ran == SQL_ERROR && strcmp(odbc_state(SQL_HANDLE_STMT, stmt, NULL), state) == 0;
+    (void)SQLFreeStmt(stmt, SQL_CLOSE);
+    return failed;
+}
+
+/**
+ * Verifies: [DESIGN] D2 the isolation level, each of ODBC's four, set by
+ * SET TRANSACTION as each transaction begins and read back, READ
+ * UNCOMMITTED's transactions READ ONLY as the server makes them, one that is
+ * none refused (HY024), and none set while a transaction is open (HY011);
+ * the access mode READ ONLY making each transaction READ ONLY, so one that
+ * writes fails (25000), under autocommit and without it, READ WRITE
+ * writing again.
+ */
+static void transaction_modes_are_the_servers(trl_test *test) {
+    odbc_opened o;
+    TRL_CHECK(test, odbc_open(&o) && odbc_run(o.stmt, "CREATE TABLE M (K INTEGER)"));
+    static const SQLULEN levels[] = {
+        SQL_TXN_READ_UNCOMMITTED,
+        SQL_TXN_READ_COMMITTED,
+        SQL_TXN_REPEATABLE_READ,
+        SQL_TXN_SERIALIZABLE,
+    };
+    for (size_t i = 0U; i < sizeof levels / sizeof levels[0]; ++i) {
+        SQLUINTEGER level = 0U;
+        // NOLINTNEXTLINE(performance-no-int-to-ptr): ODBC passes an attribute's number as a pointer.
+        TRL_CHECK(test, SQLSetConnectAttr(o.dbc, SQL_ATTR_TXN_ISOLATION, (SQLPOINTER)levels[i], 0) == SQL_SUCCESS);
+        TRL_CHECK(test, SQLGetConnectAttr(o.dbc, SQL_ATTR_TXN_ISOLATION, &level, 0, NULL) == SQL_SUCCESS &&
+                            level == levels[i]);
+        /* READ UNCOMMITTED is READ ONLY unless said otherwise, as SET TRANSACTION has it. */
+        TRL_CHECK(test, levels[i] == SQL_TXN_READ_UNCOMMITTED ? fails_with(o.stmt, "INSERT INTO M VALUES (1)", "25000")
+                                                              : odbc_run(o.stmt, "INSERT INTO M VALUES (1)"));
+    }
+    TRL_CHECK(test, SQLSetConnectAttr(o.dbc, SQL_ATTR_TXN_ISOLATION, (SQLPOINTER)99, 0) == SQL_ERROR &&
+                        strcmp(odbc_state(SQL_HANDLE_DBC, o.dbc, NULL), "HY024") == 0);
+    TRL_CHECK(test, SQLSetConnectAttr(o.dbc, SQL_ATTR_ACCESS_MODE, (SQLPOINTER)SQL_MODE_READ_ONLY, 0) == SQL_SUCCESS);
+    TRL_CHECK(test, fails_with(o.stmt, "INSERT INTO M VALUES (2)", "25000") && odbc_run(o.stmt, "SELECT K FROM M"));
+    (void)SQLSetConnectAttr(o.dbc, SQL_ATTR_AUTOCOMMIT, (SQLPOINTER)SQL_AUTOCOMMIT_OFF, 0);
+    TRL_CHECK(test, odbc_run(o.stmt, "SELECT K FROM M") && fails_with(o.stmt, "INSERT INTO M VALUES (3)", "25000"));
+    TRL_CHECK(test,
+              SQLSetConnectAttr(o.dbc, SQL_ATTR_TXN_ISOLATION, (SQLPOINTER)SQL_TXN_READ_COMMITTED, 0) == SQL_ERROR &&
+                  strcmp(odbc_state(SQL_HANDLE_DBC, o.dbc, NULL), "HY011") == 0);
+    TRL_CHECK(test, SQLEndTran(SQL_HANDLE_DBC, o.dbc, SQL_ROLLBACK) == SQL_SUCCESS);
+    (void)SQLSetConnectAttr(o.dbc, SQL_ATTR_ACCESS_MODE, (SQLPOINTER)SQL_MODE_READ_WRITE, 0);
+    TRL_CHECK(test, odbc_run(o.stmt, "INSERT INTO M VALUES (4)"));
+    TRL_CHECK(test, SQLEndTran(SQL_HANDLE_DBC, o.dbc, SQL_COMMIT) == SQL_SUCCESS);
+    (void)SQLSetConnectAttr(o.dbc, SQL_ATTR_AUTOCOMMIT, (SQLPOINTER)SQL_AUTOCOMMIT_ON, 0);
+    TRL_CHECK(test, odbc_run(o.stmt, "DROP TABLE M CASCADE"));
+    odbc_close(&o);
+}
+
+/**
+ * Verifies: [DESIGN] D2 SQL_ATTR_QUERY_TIMEOUT is the session's
+ * STATEMENT.TIMEOUT_MS as the statement runs, so the server cancels one
+ * that runs out of it, which fails as its timeout's (HYT00), the
+ * connection kept; a statement of none then runs whole.
+ */
+static void a_query_timeout_cancels_on_the_server(trl_test *test) {
+    odbc_opened o;
+    TRL_CHECK(test, odbc_open(&o));
+    (void)SQLSetStmtAttr(o.stmt, SQL_ATTR_QUERY_TIMEOUT, (SQLPOINTER)1, 0);
+    TRL_CHECK(test, fails_with(o.stmt,
+                               "WITH RECURSIVE T(N) AS (SELECT CAST(1 AS BIGINT) FROM (VALUES (1)) AS V(X) UNION ALL "
+                               "SELECT N + 1 FROM T WHERE N < 100000) SELECT COUNT(*) FROM T A, T B",
+                               "HYT00"));
+    (void)SQLSetStmtAttr(o.stmt, SQL_ATTR_QUERY_TIMEOUT, (SQLPOINTER)0, 0);
+    TRL_CHECK(test, odbc_run(o.stmt, "VALUES 1"));
+    odbc_close(&o);
+}
+
+/**
+ * Verifies: [DESIGN] D2 the modes at their edges: an isolation level set
+ * before connecting held once connected; READ ONLY set alone, no level
+ * with it; a statement failing otherwise under a query timeout its own
+ * failure, not the timeout's; an environment's diagnostics read.
+ */
+static void modes_at_their_edges(trl_test *test) {
+    SQLHENV env = SQL_NULL_HANDLE;
+    SQLHDBC dbc = SQL_NULL_HANDLE;
+    SQLHSTMT stmt = SQL_NULL_HANDLE;
+    (void)SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &env);
+    TRL_CHECK(test, SQLSetEnvAttr(env, SQL_ATTR_ODBC_VERSION, (SQLPOINTER)99, 0) == SQL_ERROR);
+    TRL_CHECK(test, strcmp(odbc_state(SQL_HANDLE_ENV, env, NULL), "HY024") == 0);
+    (void)SQLSetEnvAttr(env, SQL_ATTR_ODBC_VERSION, (SQLPOINTER)SQL_OV_ODBC3, 0);
+    (void)SQLAllocHandle(SQL_HANDLE_DBC, env, &dbc);
+    TRL_CHECK(test,
+              SQLSetConnectAttr(dbc, SQL_ATTR_TXN_ISOLATION, (SQLPOINTER)SQL_TXN_REPEATABLE_READ, 0) == SQL_SUCCESS);
+    TRL_CHECK(test, SQL_SUCCEEDED(SQLDriverConnect(dbc, NULL, sql_text(odbc_connection_string), SQL_NTS, NULL, 0, NULL,
+                                                   SQL_DRIVER_NOPROMPT)));
+    SQLUINTEGER level = 0U;
+    TRL_CHECK(test, SQLGetConnectAttr(dbc, SQL_ATTR_TXN_ISOLATION, &level, 0, NULL) == SQL_SUCCESS &&
+                        level == SQL_TXN_REPEATABLE_READ);
+    (void)SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt);
+    TRL_CHECK(test, odbc_run(stmt, "CREATE TABLE E (K INTEGER)") && odbc_run(stmt, "INSERT INTO E VALUES (1)"));
+    (void)SQLSetStmtAttr(stmt, SQL_ATTR_QUERY_TIMEOUT, (SQLPOINTER)30, 0);
+    TRL_CHECK(test, fails_with(stmt, "SELECT FROM", "2A000"));
+    (void)SQLFreeHandle(SQL_HANDLE_STMT, stmt);
+    (void)SQLDisconnect(dbc);
+    (void)SQLFreeHandle(SQL_HANDLE_DBC, dbc);
+    (void)SQLFreeHandle(SQL_HANDLE_ENV, env);
+    odbc_opened o;
+    TRL_CHECK(test, odbc_open(&o));
+    TRL_CHECK(test, SQLSetConnectAttr(o.dbc, SQL_ATTR_ACCESS_MODE, (SQLPOINTER)SQL_MODE_READ_ONLY, 0) == SQL_SUCCESS);
+    TRL_CHECK(test, fails_with(o.stmt, "INSERT INTO E VALUES (2)", "25000") && odbc_run(o.stmt, "SELECT K FROM E"));
+    SQLUINTEGER told = 0U;
+    TRL_CHECK(test, SQLGetConnectAttr(o.dbc, SQL_ATTR_TXN_ISOLATION, &told, 0, NULL) == SQL_SUCCESS &&
+                        told == SQL_TXN_READ_COMMITTED);
+    (void)SQLSetConnectAttr(o.dbc, SQL_ATTR_ACCESS_MODE, (SQLPOINTER)SQL_MODE_READ_WRITE, 0);
+    TRL_CHECK(test, odbc_run(o.stmt, "DROP TABLE E CASCADE"));
+    odbc_close(&o);
+}
+
 int main(int argc, char **argv) {
     bool skip = false;
     if (!odbc_start("live-odbc-handles", &skip)) {
@@ -396,6 +512,9 @@ int main(int argc, char **argv) {
     static const trl_test_case cases[] = {
         TRL_TEST_CASE(connection_attributes_are_set_and_read),
         TRL_TEST_CASE(connection_attributes_the_driver_takes),
+        TRL_TEST_CASE(transaction_modes_are_the_servers),
+        TRL_TEST_CASE(a_query_timeout_cancels_on_the_server),
+        TRL_TEST_CASE(modes_at_their_edges),
         TRL_TEST_CASE(statement_attributes_are_set_and_read),
         TRL_TEST_CASE(statement_attributes_the_driver_takes),
         TRL_TEST_CASE(diagnostics_tell_each_field),

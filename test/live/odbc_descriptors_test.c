@@ -278,6 +278,91 @@ static void each_column_attribute_is_told(trl_test *test) {
     odbc_close(&o);
 }
 
+/**
+ * Verifies: [PROTOCOL Declared types] a table's SMALLINT, INTEGER and
+ * BIGINT columns are told by their declared types, as `declared-types`
+ * gives them: SQLDescribeCol's SQL_SMALLINT, SQL_INTEGER and SQL_BIGINT,
+ * SQLColAttribute's SQL_DESC_CONCISE_TYPE the same and its
+ * SQL_DESC_TYPE_NAME the names declared, where their tags alone say
+ * NUMERIC of 5, 10 and 19 digits.
+ */
+static void declared_integers_are_odbcs(trl_test *test) {
+    odbc_opened o;
+    TRL_CHECK(test, odbc_open(&o) && odbc_run(o.stmt, "CREATE TABLE W (S SMALLINT, I INTEGER, B BIGINT)"));
+    TRL_CHECK(test, SQLExecDirect(o.stmt, sql_text("SELECT S, I, B FROM W"), SQL_NTS) == SQL_SUCCESS);
+    static const SQLSMALLINT types[] = {SQL_SMALLINT, SQL_INTEGER, SQL_BIGINT};
+    static const char *const names[] = {"SMALLINT", "INTEGER", "BIGINT"};
+    for (SQLUSMALLINT i = 0U; i < 3U; ++i) {
+        SQLCHAR name[ODBC_TEXT_BYTES];
+        SQLSMALLINT type = 0;
+        SQLULEN size = 0U;
+        TRL_CHECK(test, SQLDescribeCol(o.stmt, (SQLUSMALLINT)(i + 1U), name, (SQLSMALLINT)sizeof name, NULL, &type,
+                                       &size, NULL, NULL) == SQL_SUCCESS &&
+                            type == types[i]);
+        SQLLEN concise = 0;
+        TRL_CHECK(test, SQLColAttribute(o.stmt, (SQLUSMALLINT)(i + 1U), SQL_DESC_CONCISE_TYPE, NULL, 0, NULL,
+                                        &concise) == SQL_SUCCESS &&
+                            concise == types[i]);
+        TRL_CHECK(test, SQLColAttribute(o.stmt, (SQLUSMALLINT)(i + 1U), SQL_DESC_TYPE_NAME, name,
+                                        (SQLSMALLINT)sizeof name, NULL, NULL) == SQL_SUCCESS &&
+                            strcmp((const char *)name, names[i]) == 0);
+    }
+    (void)SQLFreeStmt(o.stmt, SQL_CLOSE);
+    TRL_CHECK(test, odbc_run(o.stmt, "DROP TABLE W CASCADE"));
+    odbc_close(&o);
+}
+
+/* A result column's SQL type, column size and display size, as SQLColAttribute tells them. */
+typedef struct told {
+    SQLLEN type;
+    SQLLEN size;
+    SQLLEN display;
+} told;
+
+/* What SQLColAttribute tells of column `column`. */
+static told told_of(SQLHSTMT stmt, SQLUSMALLINT column) {
+    told t = {0, 0, 0};
+    (void)SQLColAttribute(stmt, column, SQL_DESC_CONCISE_TYPE, NULL, 0, NULL, &t.type);
+    (void)SQLColAttribute(stmt, column, SQL_DESC_LENGTH, NULL, 0, NULL, &t.size);
+    (void)SQLColAttribute(stmt, column, SQL_DESC_DISPLAY_SIZE, NULL, 0, NULL, &t.display);
+    return t;
+}
+
+/**
+ * Verifies: [DESIGN] D2 each of Turborel's types told as ODBC's: a time
+ * and a timestamp of fractional seconds, their sizes counting them; JSON,
+ * an array, a row and a multiset as long text; a binary string's display
+ * twice its octets; BOOLEAN as SQL_BIT, UUID as SQL_GUID of 36
+ * characters; a type ODBC has none of, an interval, as text.
+ */
+static void each_type_is_odbcs(trl_test *test) {
+    odbc_opened o;
+    TRL_CHECK(test, odbc_open(&o));
+    static SQLCHAR sql[] =
+        "VALUES (CAST('01:02:03.123' AS TIME(3)), CAST('2020-01-01 01:02:03.5' AS TIMESTAMP(6)), "
+        "CAST('[1]' AS JSON), ARRAY[1, 2], ROW(1, 'a'), MULTISET[1], "
+        "CAST(X'01' AS BINARY VARYING(3)), TRUE, CAST('12345678-9abc-def0-1234-56789abcdef0' AS UUID), "
+        "INTERVAL '1' DAY)";
+    TRL_CHECK(test, odbc_said(o.stmt, SQLExecDirect(o.stmt, sql, SQL_NTS)) == SQL_SUCCESS);
+    told t = told_of(o.stmt, 1);
+    TRL_CHECK(test, t.type == SQL_TYPE_TIME && t.size == 12);
+    t = told_of(o.stmt, 2);
+    TRL_CHECK(test, t.type == SQL_TYPE_TIMESTAMP && t.size == 26);
+    bool every = true;
+    for (SQLUSMALLINT c = 3U; c <= 6U; ++c) {
+        every = every && told_of(o.stmt, c).type == SQL_LONGVARCHAR;
+    }
+    TRL_CHECK(test, every);
+    t = told_of(o.stmt, 7);
+    TRL_CHECK(test, t.type == SQL_VARBINARY && t.size == 3 && t.display == 6);
+    TRL_CHECK(test, told_of(o.stmt, 8).type == SQL_BIT);
+    t = told_of(o.stmt, 9);
+    TRL_CHECK(test, t.type == SQL_GUID && t.size == 36);
+    TRL_CHECK(test, told_of(o.stmt, 10).type == SQL_VARCHAR);
+    (void)SQLFreeStmt(o.stmt, SQL_CLOSE);
+    odbc_close(&o);
+}
+
 int main(int argc, char **argv) {
     bool skip = false;
     if (!odbc_start("live-odbc-desc", &skip)) {
@@ -288,6 +373,8 @@ int main(int argc, char **argv) {
         TRL_TEST_CASE(the_implementation_descriptor_is_read),
         TRL_TEST_CASE(each_descriptor_field_is_read_and_set),
         TRL_TEST_CASE(each_column_attribute_is_told),
+        TRL_TEST_CASE(declared_integers_are_odbcs),
+        TRL_TEST_CASE(each_type_is_odbcs),
     };
     int run_result = trl_test_main(argc, argv, cases, TRL_TEST_COUNT(cases));
     odbc_stop();

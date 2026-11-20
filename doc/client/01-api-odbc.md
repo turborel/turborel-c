@@ -144,11 +144,19 @@ with the first statement and ends with SQLEndTran, and SQLDisconnect
 refuses to end a connection whose transaction is open (25000). Setting
 autocommit back on commits an open transaction.
 
-Turborel's transactions are serializable. SQL_ATTR_TXN_ISOLATION takes
-SQL_TXN_SERIALIZABLE, and any other level is changed to it (01S02).
-SQL_ATTR_ACCESS_MODE is kept and reported by SQLGetInfo's
-SQL_DATA_SOURCE_READ_ONLY, but it does not stop a statement that
-writes. SQL_ATTR_CURRENT_CATALOG reports the session's catalog; setting
+SQL_ATTR_TXN_ISOLATION takes each of ODBC's four levels, READ
+UNCOMMITTED, READ COMMITTED, REPEATABLE READ and SERIALIZABLE, and
+SQL_ATTR_ACCESS_MODE READ ONLY or READ WRITE. As each transaction
+begins, before its first statement, the driver sends SET TRANSACTION
+with the level and access mode the application set, so the server keeps
+them for that transaction: a READ ONLY transaction's statement that
+writes fails (25000), and a READ UNCOMMITTED transaction is READ ONLY
+unless the server is told otherwise. A level not set is the session's,
+READ COMMITTED unless the database's TRANSACTION.ISOLATION says
+another. The level is not set while a transaction is open (HY011); the
+access mode, set then, holds from the next transaction. SQLGetInfo
+reports all four levels, READ COMMITTED the default, and
+SQL_DATA_SOURCE_READ_ONLY the access mode. SQL_ATTR_CURRENT_CATALOG reports the session's catalog; setting
 it is accepted and changes nothing. SQL_ATTR_CONNECTION_DEAD reports
 whether the connection was lost.
 
@@ -158,7 +166,9 @@ another concurrency or sensitivity, or for bookmarks is changed to what
 the driver has (01S02). The rowset size, binding by row or by column,
 bind offsets, the row status and rows-fetched arrays, SQL_ATTR_MAX_ROWS
 and SQL_ATTR_NOSCAN all work as ODBC describes. SQL_ATTR_QUERY_TIMEOUT
-is kept and reported but not acted on; a statement is stopped by
+is the session's STATEMENT.TIMEOUT_MS while the statement runs, so the
+server cancels a statement that runs past it, which then fails as its
+timeout's (HYT00), the connection kept. A statement is also stopped by
 SQLCancel from another thread, which cancels it on the server
 [PROTOCOL Cancel 'Z'].
 
@@ -258,7 +268,10 @@ unless SQL_ATTR_NOSCAN is on. SQLNativeSql shows what they become.
 | `{fn CONVERT(x, SQL_INTEGER)}` | `CAST(x AS INTEGER)`, with each SQL type written as Turborel's |
 | `{fn F(...)}` for any other function | `F(...)` |
 
-Escapes may be nested. Text in quotes and in comments is kept as it is.
+CONCAT, LTRIM, RTRIM and CONVERT given other arguments than those
+shown, and NOW, CURDATE, CURTIME and USER given any, are written as they
+are, as any other function is. Escapes may be nested. Text in quotes
+and in comments is kept as it is.
 An escape the driver does not know, or one that is not closed, is
 refused (42000).
 
@@ -309,6 +322,7 @@ describes each class. The driver's own failures, whose messages begin
 | HY003 | A C type the driver does not take |
 | HY009 | A null pointer where none is allowed |
 | HY010 | Function sequence error |
+| HY011 | An isolation level set while a transaction is open |
 | HY012 | Invalid transaction operation code |
 | HY016 | The implementation row descriptor cannot be set |
 | HY017 | An implicit descriptor cannot be freed |
@@ -317,6 +331,7 @@ describes each class. The driver's own failures, whose messages begin
 | HY092 | Invalid attribute identifier |
 | HY096 | Information type out of range |
 | HY106 | Fetch type out of range, or a scroll of a forward-only cursor |
+| HYT00 | Timeout expired: the statement ran past its query timeout |
 | HYC00 | Optional feature not implemented: output parameters, arrays of parameters, data at execution, positioned operations |
 
 ## EXAMPLES

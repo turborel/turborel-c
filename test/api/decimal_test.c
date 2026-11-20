@@ -81,11 +81,38 @@ static void bad_text_and_arguments_fail(trl_test *test) {
     TRL_CHECK(test, trl_decimal_text(&short_number, text, sizeof text) == TRL_OK && strcmp(text, "125") == 0);
 }
 
+/**
+ * Verifies: [PROTOCOL Values] a number's text into each buffer too short
+ * by any byte, its sign, digits, point, zeros or exponent, refused as an
+ * argument wrongly given; into one of room enough, written whole.
+ */
+static void every_short_buffer_is_refused(trl_test *test) {
+    static const struct {
+        trl_decimal number;
+        const char *text;
+    } numbers[] = {
+        {{{UINT64_MAX - 49U, -1}, 3U}, "-0.050"}, {{{1250U, 0}, 2U}, "12.50"}, {{{UINT64_MAX - 4U, -1}, 40U}, "-5E-40"},
+        {{{UINT64_MAX - 124U, -1}, 0U}, "-125"},  {{{5U, 0}, 4U}, "0.0005"},
+    };
+    bool every = true;
+    for (size_t i = 0U; i < TRL_TEST_COUNT(numbers); ++i) {
+        size_t length = strlen(numbers[i].text);
+        char text[TRL_DECIMAL_TEXT_BYTES];
+        for (size_t capacity = 0U; capacity <= length; ++capacity) {
+            every = every && trl_decimal_text(&numbers[i].number, text, capacity) == TRL_INVALID_ARGUMENT;
+        }
+        every = every && trl_decimal_text(&numbers[i].number, text, length + 1U) == TRL_OK &&
+                strcmp(text, numbers[i].text) == 0;
+    }
+    TRL_CHECK(test, every);
+}
+
 int main(int argc, char **argv) {
     static const trl_test_case cases[] = {
         TRL_TEST_CASE(numbers_are_written_as_turborel_writes_them),
         TRL_TEST_CASE(the_full_range_round_trips),
         TRL_TEST_CASE(bad_text_and_arguments_fail),
+        TRL_TEST_CASE(every_short_buffer_is_refused),
     };
     return trl_test_main(argc, argv, cases, TRL_TEST_COUNT(cases));
 }

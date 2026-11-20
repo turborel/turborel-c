@@ -319,12 +319,59 @@ static void a_values_nodes(trl_test *test) {
     trl_xml_free(NULL);
 }
 
+/* Whether `text` parses, its first element's first child, if any, of value `value`. */
+static bool reads_as(const char *text, const char *value) {
+    trl_status status = TRL_OK;
+    trl_xml *xml = parsed(text, &status);
+    const trl_xml_node *element = trl_xml_node_child(trl_xml_root(xml), 0U);
+    const trl_xml_node *child = trl_xml_node_child(element, 0U);
+    bool is = status == TRL_OK && (value == NULL || (child != NULL && strcmp(trl_xml_node_value(child), value) == 0));
+    trl_xml_free(xml);
+    return is;
+}
+
+/**
+ * Verifies: [CLIENT XML values] a declaration at its edges: its version
+ * spaced about read; a version of no VersionNum, of no equals sign or
+ * quote, its quote not closed, or none named, refused; line ends of XML
+ * 1.1, CR NEL, NEL and U+2028, and a CR last, each one line feed; a
+ * restricted character refused, a character reference to one taken;
+ * character references of hexadecimal digits in either case read, of a
+ * capital X, no digits, no semicolon or no character refused; a name
+ * begun by a digit refused, by a letter past ASCII read.
+ */
+static void declarations_and_references_at_their_edges(trl_test *test) {
+    TRL_CHECK(test, reads_as("<?xml version = \"1.0\" ?><a/>", NULL));
+    TRL_CHECK(test, refused("<?xml version='1.x'?><a/>", "no VersionNum") &&
+                        refused("<?xml version='1.'?><a/>", "no VersionNum") &&
+                        refused("<?xml version 1.0?><a/>", "no VersionNum") &&
+                        refused("<?xml version=1.0?><a/>", "no VersionNum") &&
+                        refused("<?xml version='1.0?><a/>", "no VersionNum") &&
+                        refused("<?xml  versio='1.0'?><a/>", "names no version"));
+    TRL_CHECK(test, reads_as("<?xml version='1.1'?><a>x\r\xc2\x85y\xe2\x80\xa8z\xc2\x85</a>", "x\ny\nz\n") &&
+                        reads_as("<?xml version='1.1'?><a>\r</a>", "\n") &&
+                        reads_as("<?xml version='1.1'?><a>\r\n</a>", "\n"));
+    TRL_CHECK(test, refused("<?xml version='1.1'?><a>\xc2\x80</a>", "restricted character") &&
+                        refused("<?xml version='1.1'?><a>\x7f</a>", "restricted character") &&
+                        reads_as("<?xml version='1.0'?><a>\xc2\x80</a>", "\xc2\x80") &&
+                        reads_as("<?xml version='1.1'?><a>&#x1;</a>", "\x01"));
+    TRL_CHECK(test, reads_as("<a>&#65;&#x4a;&#xaB;</a>", "AJ\xc2\xab") && refused("<a>&#X41;</a>", "malformed") &&
+                        refused("<a>&#xG;</a>", "malformed") && refused("<a>&#;</a>", "malformed") &&
+                        refused("<a>&#x41</a>", "malformed") && refused("<a>&#x", "malformed") &&
+                        refused("<a>&#x110000;</a>", "names no character") &&
+                        refused("<a>&#xFFFE;</a>", "names no Char") && refused("<a>&#x1;</a>", "names no Char"));
+    TRL_CHECK(test, refused("<a>\xef\xbf\xbf</a>", "no XML Char") && refused("<a>\xef\xbf\xbe</a>", "no XML Char"));
+    TRL_CHECK(test, refused("<1a/>", "a name was expected") && refused("<a 1b='x'/>", "a name was expected") &&
+                        reads_as("<\xc3\xa9/>", NULL));
+}
+
 int main(int argc, char **argv) {
     static const trl_test_case cases[] = {
         TRL_TEST_CASE(nodes_are_parsed_from_text),        TRL_TEST_CASE(namespaces_are_resolved),
         TRL_TEST_CASE(malformed_content_is_refused),      TRL_TEST_CASE(references_names_and_long_text),
         TRL_TEST_CASE(more_malformed_content_is_refused), TRL_TEST_CASE(a_values_nodes),
-        TRL_TEST_CASE(xml_1_1_is_read_by_its_rules),      TRL_TEST_CASE(trees_past_the_limits_are_refused),
+        TRL_TEST_CASE(xml_1_1_is_read_by_its_rules),      TRL_TEST_CASE(declarations_and_references_at_their_edges),
+        TRL_TEST_CASE(trees_past_the_limits_are_refused),
     };
     return trl_test_main(argc, argv, cases, TRL_TEST_COUNT(cases));
 }

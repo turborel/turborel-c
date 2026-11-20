@@ -117,8 +117,12 @@ struct trl_odbc_dbc {
     trl_odbc_desc *descriptors;
     /** @brief SQL_ATTR_METADATA_ID, the default of its statements. */
     bool metadata_id;
-    /** @brief SQL_ATTR_ACCESS_MODE: whether the application said it only reads. */
+    /** @brief SQL_ATTR_ACCESS_MODE: whether each transaction is READ ONLY. */
     bool read_only;
+    /** @brief SQL_ATTR_TXN_ISOLATION as the application set it; 0 until it does. */
+    SQLUINTEGER isolation;
+    /** @brief The STATEMENT.TIMEOUT_MS the session was last given, in milliseconds. */
+    uint64_t timeout_ms;
     /** @brief The next connection of its environment. */
     trl_odbc_dbc *next;
 };
@@ -231,7 +235,7 @@ struct trl_odbc_stmt {
     SQLULEN cursor_type;
     /** @brief SQL_ATTR_NOSCAN: whether escape sequences are sent as they are. */
     bool noscan;
-    /** @brief SQL_ATTR_QUERY_TIMEOUT, in seconds; kept, as the server bounds no statement by it. */
+    /** @brief SQL_ATTR_QUERY_TIMEOUT, in seconds, the session's STATEMENT.TIMEOUT_MS as it runs; 0 for none. */
     SQLULEN query_timeout;
     /** @brief The cursor's name SQLSetCursorName gave, owned; null for the one the driver makes. */
     char *cursor_name;
@@ -419,5 +423,22 @@ SQLRETURN trl_odbc_set_stmt_attr(trl_odbc_stmt *stmt, SQLINTEGER attribute, SQLP
 
 /** @brief SQLGetStmtAttr's work. */
 SQLRETURN trl_odbc_get_stmt_attr(trl_odbc_stmt *stmt, SQLINTEGER attribute, SQLPOINTER value, SQLINTEGER *length);
+
+/** @brief Sets SQL_ATTR_TXN_ISOLATION: one of ODBC's four levels, set by SET TRANSACTION as each transaction begins. */
+SQLRETURN trl_odbc_isolation_set(trl_odbc_dbc *dbc, SQLULEN number);
+
+/** @brief SQL_ATTR_TXN_ISOLATION: as set, else the session's TRANSACTION.ISOLATION as the server told it, else READ
+ * COMMITTED. */
+SQLUINTEGER trl_odbc_isolation(const trl_odbc_dbc *dbc);
+
+/**
+ * @brief Readies the session before `stmt` runs: STATEMENT.TIMEOUT_MS as
+ * its query timeout says, and, as a transaction begins, the isolation
+ * level and access mode its connection asks, by SET TRANSACTION.
+ */
+SQLRETURN trl_odbc_modes_applied(trl_odbc_stmt *stmt);
+
+/** @brief The failure of a statement run: its timeout's (HYT00) if it ran out, else the connection's. */
+SQLRETURN trl_odbc_run_failed(trl_odbc_stmt *stmt);
 
 #endif

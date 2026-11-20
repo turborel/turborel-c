@@ -113,6 +113,45 @@ static SQLRETURN connected_by(SQLHDBC dbc, const char *string) {
     return SQLDriverConnect(dbc, NULL, sql_text(string), SQL_NTS, out, 4, &length, SQL_DRIVER_NOPROMPT);
 }
 
+/* The rows SQLTables gave of `catalog`, `schema`, `table` and `types`, each given or null. */
+static long tables_of(SQLHSTMT stmt, const char *catalog, const char *schema, const char *table, const char *types) {
+    SQLCHAR given[4][ODBC_TEXT_BYTES];
+    const char *const texts[] = {catalog, schema, table, types};
+    SQLCHAR *args[4] = {NULL, NULL, NULL, NULL};
+    for (size_t i = 0U; i < 4U; ++i) {
+        if (texts[i] != NULL) {
+            trl_format((char *)given[i], sizeof given[i], "%s", texts[i]);
+            args[i] = given[i];
+        }
+    }
+    return rows_of(stmt, SQLTables(stmt, args[0], SQL_NTS, args[1], SQL_NTS, args[2], SQL_NTS, args[3], SQL_NTS));
+}
+
+/**
+ * Verifies: [DESIGN] D2 SQLTables at its edges: an identifier quoted, a
+ * quote in it written twice, or a lone quote, as SQL_ATTR_METADATA_ID
+ * takes them; every catalog, every schema or every type asked of with a
+ * name given beside, searched as names; a list of types quoted, spaced
+ * and holding an empty entry, or of nothing but commas.
+ */
+static void tables_at_their_edges(trl_test *test) {
+    odbc_opened o;
+    TRL_CHECK(test, odbc_open(&o));
+    TRL_CHECK(test, odbc_run(o.stmt, "CREATE TABLE \"a\"\"b\" (K INTEGER)"));
+    (void)SQLSetStmtAttr(o.stmt, SQL_ATTR_METADATA_ID, (SQLPOINTER)SQL_TRUE, 0);
+    TRL_CHECK(test, tables_of(o.stmt, NULL, "ann", "\"a\"\"b\"", NULL) == 1L);
+    TRL_CHECK(test, tables_of(o.stmt, NULL, "ann", "\"", NULL) == 0L);
+    (void)SQLSetStmtAttr(o.stmt, SQL_ATTR_METADATA_ID, (SQLPOINTER)SQL_FALSE, 0);
+    TRL_CHECK(test, tables_of(o.stmt, SQL_ALL_CATALOGS, "ANN", "", NULL) == 0L);
+    TRL_CHECK(test, tables_of(o.stmt, "", SQL_ALL_SCHEMAS, "a\"b", NULL) == 0L);
+    TRL_CHECK(test, tables_of(o.stmt, "", "", "a\"b", SQL_ALL_TABLE_TYPES) == 0L);
+    TRL_CHECK(test, tables_of(o.stmt, NULL, SQL_ALL_SCHEMAS, "a\"b", SQL_ALL_TABLE_TYPES) == 1L);
+    TRL_CHECK(test, tables_of(o.stmt, NULL, "ANN", "a\"b", " 'TABLE'  , , 'VIEW' ") == 1L);
+    TRL_CHECK(test, tables_of(o.stmt, NULL, "ANN", "a\"b", ", ,") == 0L);
+    TRL_CHECK(test, odbc_run(o.stmt, "DROP TABLE \"a\"\"b\" CASCADE"));
+    odbc_close(&o);
+}
+
 /**
  * Verifies: [DESIGN] D2 a connection by a data source's name, its
  * attributes from odbc.ini, by SQLConnect and SQLConnectW; by a
@@ -242,6 +281,7 @@ int main(int argc, char **argv) {
     }
     static const trl_test_case cases[] = {
         TRL_TEST_CASE(catalog_functions_take_sqlwchar_and_identifiers),
+        TRL_TEST_CASE(tables_at_their_edges),
         TRL_TEST_CASE(connections_are_made_each_way),
         TRL_TEST_CASE(rowsets_are_bound_row_wise_and_scrolled),
     };

@@ -234,7 +234,8 @@ static bool rewritten(const call *c, text *out) {
         return true;
     }
     bool left = begins(c->name, "LTRIM");
-    if ((left || begins(c->name, "RTRIM")) && c->count == 1U) {
+    bool empty = strspn(c->args, " ") == c->args_length;
+    if ((left || begins(c->name, "RTRIM")) && c->count == 1U && !empty) {
         put_text(out, left ? "TRIM(LEADING FROM " : "TRIM(TRAILING FROM ");
         put(out, c->args, c->args_length);
         put_text(out, ")");

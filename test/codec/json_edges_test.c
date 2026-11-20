@@ -74,8 +74,58 @@ static void what_does_not_read(trl_test *test) {
     fixture_free(&f);
 }
 
+/**
+ * Verifies: [PROTOCOL JSON values] numbers at their edges: trailing and
+ * leading zeros of a fraction, more digits than an exact number holds as
+ * a decimal floating-point one, an exponent signed or capital, negative
+ * zero, read; more digits than either holds, an exponent past 32 bits or
+ * past a double's range either way, a leading zero, an escape of a digit
+ * not hexadecimal, a literal or a member misspelled, a trailing comma,
+ * not.
+ */
+static void numbers_and_escapes_at_their_edges(trl_test *test) {
+    fixture f;
+    fixture_init(&f);
+    static const char *const read[] = {
+        "1.500",
+        "0.000123",
+        "123456789012345678901234567890.5e3",
+        "0.0000000000000000000000000000000000000000001",
+        "100000000000000000000000000000000000000000",
+        "-0",
+        "0e0",
+        "1.25E+2",
+    };
+    bool every = true;
+    for (size_t i = 0U; i < sizeof read / sizeof read[0]; ++i) {
+        every = every && reads(&f, read[i]);
+    }
+    TRL_CHECK(test, every);
+    static const char *const unread[] = {
+        "12345678901234567890123456789012345678901234567890",
+        "1e2147483648",
+        "1e-2147483649",
+        "1e-400",
+        "\"\\u00G0\"",
+        "\"\\u00g0\"",
+        "\"\\u00:0\"",
+        "00",
+        "[nul]",
+        "tru",
+        "{\"a\" 1}",
+        "{\"a\":1,}",
+        "[1,]",
+    };
+    for (size_t i = 0U; i < sizeof unread / sizeof unread[0]; ++i) {
+        every = every && !reads(&f, unread[i]);
+    }
+    TRL_CHECK(test, every);
+    fixture_free(&f);
+}
+
 int main(int argc, char **argv) {
     static const trl_test_case cases[] = {
+        TRL_TEST_CASE(numbers_and_escapes_at_their_edges),
         TRL_TEST_CASE(what_reads),
         TRL_TEST_CASE(what_does_not_read),
     };

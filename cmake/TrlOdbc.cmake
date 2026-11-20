@@ -59,6 +59,7 @@ function(trl_odbc_targets)
     src/odbc/fetch.c
     src/odbc/handles.c
     src/odbc/info.c
+    src/odbc/modes.c
     src/odbc/params.c
     src/odbc/text.c
     src/odbc/types.c

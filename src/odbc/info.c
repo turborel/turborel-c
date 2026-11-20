@@ -105,8 +105,12 @@ static const number_info numbers[] = {
     {.type = SQL_GROUP_BY, .number = SQL_GB_GROUP_BY_CONTAINS_SELECT, .small = true},
     {.type = SQL_FILE_USAGE, .number = SQL_FILE_NOT_SUPPORTED, .small = true},
     {.type = SQL_CATALOG_LOCATION, .number = SQL_CL_START, .small = true},
-    {.type = SQL_TXN_ISOLATION_OPTION, .number = SQL_TXN_SERIALIZABLE, .small = false},
-    {.type = SQL_DEFAULT_TXN_ISOLATION, .number = SQL_TXN_SERIALIZABLE, .small = false},
+    {
+        .type = SQL_TXN_ISOLATION_OPTION,
+        .number = SQL_TXN_READ_UNCOMMITTED | SQL_TXN_READ_COMMITTED | SQL_TXN_REPEATABLE_READ | SQL_TXN_SERIALIZABLE,
+        .small = false,
+    },
+    {.type = SQL_DEFAULT_TXN_ISOLATION, .number = SQL_TXN_READ_COMMITTED, .small = false},
     {.type = SQL_GETDATA_EXTENSIONS, .number = SQL_GD_ANY_COLUMN | SQL_GD_ANY_ORDER | SQL_GD_BOUND, .small = false},
     {.type = SQL_SCROLL_OPTIONS, .number = SQL_SO_FORWARD_ONLY | SQL_SO_STATIC, .small = false},
     {

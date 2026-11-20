@@ -573,10 +573,6 @@ Where the standard API departs from its models, libpq and ODBC 3.x:
 - Its cursor is the client's: a query's rows are read as it runs, so a
   forward-only cursor and a static one are the same rows, and a
   keyset-driven or dynamic one is changed to static, SQLSTATE 01S02.
-- Its transactions are serializable, as Turborel's are: another
-  isolation level is changed to it, SQLSTATE 01S02. SQL_ATTR_ACCESS_MODE
-  and SQL_ATTR_QUERY_TIMEOUT are kept and told, and stop nothing; a
-  statement is stopped by SQLCancel.
 - A type ODBC has none of, a datetime with a time zone, an interval,
   DECFLOAT, JSON, XML and the composite types, is given as its text, of
   SQL type SQL_VARCHAR, or SQL_LONGVARCHAR for those of no bound; an

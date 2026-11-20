@@ -43,6 +43,10 @@ trl_add_test(codec.limits codec/limits_test.c codec/fixture.c codec/corpus.c)
 # commit CONFORMANCE.md names.
 trl_add_test(codec.samples_decoded codec/samples_decoded_test.c codec/samples.c codec/samples_expected.c
              codec/render.c codec/fixture.c)
+if(TRL_FAULTS)
+  target_sources(codec.samples_decoded PRIVATE api/faults.c)
+  target_include_directories(codec.samples_decoded PRIVATE api)
+endif()
 trl_add_test(codec.samples codec/samples_test.c codec/samples.c codec/samples_encoded.c codec/fixture.c)
 foreach(trl_samples IN ITEMS codec.samples codec.samples_decoded)
   target_compile_definitions(${trl_samples}
@@ -160,7 +164,7 @@ if(TRL_HAVE_TLS AND NOT WIN32)
     target_include_directories(live.odbc PRIVATE server)
     target_link_libraries(live.odbc PRIVATE turborelodbc_objects)
     set_tests_properties(live.odbc PROPERTIES LABELS live SKIP_RETURN_CODE 77 RESOURCE_LOCK turboreld TIMEOUT 300)
-    foreach(trl_odbc_part IN ITEMS types handles descriptors catalog)
+    foreach(trl_odbc_part IN ITEMS types handles descriptors edges catalog)
       trl_add_test(live.odbc_${trl_odbc_part} live/odbc_${trl_odbc_part}_test.c live/odbc_live.c live/live.c
                    server/server.c server/certs.c)
       target_include_directories(live.odbc_${trl_odbc_part} PRIVATE server)

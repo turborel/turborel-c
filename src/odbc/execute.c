@@ -72,7 +72,7 @@ static SQLRETURN finished(trl_odbc_stmt *stmt, trl_status ran, trl_result *resul
         return trl_odbc_no_memory(&stmt->diag);
     }
     if (ran != TRL_OK) {
-        return trl_odbc_failed(&stmt->diag, trl_conn_failure(conn));
+        return trl_odbc_run_failed(stmt);
     }
     uint64_t rows = 0U;
     bool counted = trl_conn_rows_affected(conn, &rows);
@@ -121,6 +121,11 @@ static SQLRETURN executed(trl_odbc_stmt *stmt, const trl_statement *statement, c
     if (bound != SQL_SUCCESS) {
         return bound;
     }
+    SQLRETURN ready = trl_odbc_modes_applied(stmt);
+    if (ready != SQL_SUCCESS) {
+        trl_params_free(params);
+        return ready;
+    }
     trl_result *result = NULL;
     trl_status ran = trl_execute(stmt->dbc->conn, statement, params, &result);
     trl_params_free(params);
@@ -139,9 +144,10 @@ SQLRETURN trl_odbc_exec_direct(trl_odbc_stmt *stmt, const char *sql) {
     trl_conn *conn = stmt->dbc->conn;
     SQLRETURN returned = SQL_SUCCESS;
     if (stmt->apd->count == 0) {
+        returned = trl_odbc_modes_applied(stmt);
         trl_result *result = NULL;
-        trl_status ran = trl_query(conn, text, &result);
-        returned = finished(stmt, ran, result, text);
+        trl_status ran = returned == SQL_SUCCESS ? trl_query(conn, text, &result) : TRL_OK;
+        returned = returned == SQL_SUCCESS ? finished(stmt, ran, result, text) : returned;
     } else {
         trl_statement *statement = NULL;
         trl_status prepared = trl_prepare(conn, text, &statement);

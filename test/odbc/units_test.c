@@ -69,6 +69,26 @@ static void escape_sequences_are_written_as_sql(trl_test *test) {
 }
 
 /**
+ * Verifies: [DESIGN] D2 scalar functions at their edges: a function
+ * written as it is where its arguments are not those it is rewritten for,
+ * three arguments or one, a function whose name only begins as another's,
+ * one named bare given arguments; arguments holding quotes, commas and
+ * parentheses; a type spaced about; a comment that runs to the text's end.
+ */
+static void escapes_at_their_edges(trl_test *test) {
+    TRL_CHECK(test, escaped_as("VALUES {fn CONCAT('a', 'b', 'c')}", "VALUES CONCAT('a', 'b', 'c')"));
+    TRL_CHECK(test, escaped_as("VALUES {fn CONCAT('a')}", "VALUES CONCAT('a')"));
+    TRL_CHECK(test, escaped_as("VALUES {fn LTRIM('a', 'b')}, {fn RTRIM()}", "VALUES LTRIM('a', 'b'), RTRIM()"));
+    TRL_CHECK(test, escaped_as("VALUES {fn CONVERT(1)}", "VALUES CONVERT(1)"));
+    TRL_CHECK(test, escaped_as("VALUES {fn NOW_X()}, {fn NOW(1)}", "VALUES NOW_X(), NOW(1)"));
+    TRL_CHECK(test, escaped_as("VALUES {fn CONCAT('(a,'', b', f(1, (2)))}", "VALUES ('(a,'', b' ||  f(1, (2)))"));
+    TRL_CHECK(test, escaped_as("VALUES {fn CONVERT(1,   SQL_INTEGER   )}", "VALUES CAST(1 AS INTEGER)"));
+    TRL_CHECK(test, escaped_as("VALUES 1 -- {fn UCASE('a')}", "VALUES 1 -- {fn UCASE('a')}"));
+    TRL_CHECK(test, escaped_as("VALUES \"a\"\"b\", 'c''", "VALUES \"a\"\"b\", 'c''"));
+    TRL_CHECK(test, escaped_as("VALUES {fn UCASE}", "VALUES UCASE"));
+}
+
+/**
  * Verifies: [DESIGN] D2 text turned to SQLWCHAR and back: characters
  * past the first plane as surrogate pairs where SQLWCHAR has two bytes,
  * text cut short at a whole character, a malformed one taken as U+FFFD.
@@ -341,6 +361,7 @@ static void environment_attributes_are_set_and_read(trl_test *test) {
 int main(int argc, char **argv) {
     static const trl_test_case cases[] = {
         TRL_TEST_CASE(escape_sequences_are_written_as_sql),
+        TRL_TEST_CASE(escapes_at_their_edges),
         TRL_TEST_CASE(text_is_turned_to_and_from_sqlwchar),
         TRL_TEST_CASE(handles_are_allocated_in_order),
         TRL_TEST_CASE(every_entry_point_refuses_an_invalid_handle),

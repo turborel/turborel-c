@@ -234,6 +234,12 @@ SQLRETURN trl_odbc_catalog_run(trl_odbc_stmt *stmt, trl_odbc_sql *sql) {
     }
     trl_result *result = NULL;
     trl_conn *conn = stmt->dbc->conn;
+    SQLRETURN ready = trl_odbc_modes_applied(stmt);
+    if (ready != SQL_SUCCESS) {
+        free(sql->data);
+        sql->data = NULL;
+        return ready;
+    }
     trl_status ran = trl_query(conn, sql->data, &result);
     free(sql->data);
     sql->data = NULL;
@@ -286,7 +292,8 @@ static void types_put(trl_odbc_sql *sql, const char *types_listed) {
             trl_format(head, sizeof head, "%s", type);
         }
     }
-    trl_odbc_sql_put(sql, head[0] == '\0' ? "''" : ", ");
+    /* A list of no type is two empty ones, which no table's type is. */
+    trl_odbc_sql_put(sql, head[0] == '\0' ? "'', " : ", ");
     trl_odbc_sql_literal(sql, head);
 }
 

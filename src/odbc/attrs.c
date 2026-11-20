@@ -58,7 +58,7 @@ SQLRETURN trl_odbc_set_connect_attr(trl_odbc_dbc *dbc, SQLINTEGER attribute, SQL
         dbc->metadata_id = number == SQL_TRUE;
         return SQL_SUCCESS;
     case SQL_ATTR_TXN_ISOLATION:
-        return number == SQL_TXN_SERIALIZABLE ? SQL_SUCCESS : changed(&dbc->diag);
+        return trl_odbc_isolation_set(dbc, number);
     case SQL_ATTR_CONNECTION_TIMEOUT:
     case SQL_ATTR_PACKET_SIZE:
     case SQL_ATTR_QUIET_MODE:
@@ -90,7 +90,7 @@ static bool connect_number(const trl_odbc_dbc *dbc, SQLINTEGER attribute, SQLUIN
         *out = dbc->read_only ? SQL_MODE_READ_ONLY : SQL_MODE_READ_WRITE;
         return true;
     case SQL_ATTR_TXN_ISOLATION:
-        *out = SQL_TXN_SERIALIZABLE;
+        *out = trl_odbc_isolation(dbc);
         return true;
     case SQL_ATTR_CONNECTION_DEAD:
         *out = dbc->conn == NULL || trl_conn_is_lost(dbc->conn) ? SQL_CD_TRUE : SQL_CD_FALSE;
