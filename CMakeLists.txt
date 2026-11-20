@@ -83,6 +83,7 @@ add_library(
   src/data/params.c
   src/data/text.c
   src/data/type_text.c
+  src/settings/access.c
   src/settings/connect.c
   src/settings/files.c
   src/settings/options.c

@@ -4,6 +4,11 @@
  * (RULES.md R-TEST-9): the URI, the service file, the password file, the
  * environment, and the order the layers are laid in.
  */
+#if !defined(_WIN32) && !defined(__APPLE__)
+// NOLINTNEXTLINE(bugprone-reserved-identifier,cert-dcl37-c,cert-dcl51-cpp,readability-identifier-naming)
+#define _POSIX_C_SOURCE 200809L
+#endif
+
 #include "failure.h"
 #include "harness.h"
 #include "settings/settings.h"

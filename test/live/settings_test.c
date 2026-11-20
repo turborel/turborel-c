@@ -8,6 +8,11 @@
  * required; a client certificate; a Unix socket; and `prefer` falling
  * back to plain TCP where a server's handshake fails.
  */
+#if !defined(_WIN32) && !defined(__APPLE__)
+// NOLINTNEXTLINE(bugprone-reserved-identifier,cert-dcl37-c,cert-dcl51-cpp,readability-identifier-naming)
+#define _POSIX_C_SOURCE 200809L
+#endif
+
 #include "harness.h"
 #include "live.h"
 #include "server.h"

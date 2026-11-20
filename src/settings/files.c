@@ -9,6 +9,13 @@
  * if it is a regular file, or a link to one, and its owner answers for
  * the rest.
  */
+#if !defined(_WIN32) && !defined(__APPLE__)
+/* POSIX's file status, which C17 alone does not declare; the feature
+   macro is the C library's name, reserved and so spelled. */
+// NOLINTNEXTLINE(bugprone-reserved-identifier,cert-dcl37-c,cert-dcl51-cpp,readability-identifier-naming)
+#define _POSIX_C_SOURCE 200809L
+#endif
+
 #include "codec/buffer.h"
 #include "failure.h"
 #include "format.h"
@@ -323,7 +330,7 @@ char *trl_read_regular(const char *path) {
     bool regular = _stat(path, &status) == 0 && (status.st_mode & _S_IFMT) == _S_IFREG;
 #else
     struct stat status;
-    bool regular = stat(path, &status) == 0 && (status.st_mode & S_IFMT) == S_IFREG;
+    bool regular = stat(path, &status) == 0 && S_ISREG(status.st_mode);
 #endif
     // NOLINTEND(misc-include-cleaner)
     if (!regular) {
@@ -333,13 +340,43 @@ char *trl_read_regular(const char *path) {
     return read_whole(path, &why);
 }
 
+char *trl_variable_copy(const char *name) {
+#ifdef _WIN32
+    char *value = NULL;
+    size_t length = 0U;
+    if (_dupenv_s(&value, &length, name) != 0 || value == NULL) {
+        return NULL;
+    }
+    /* The C library's, freed by free(); copied so it is the library's own. */
+    char *copy = trl_malloc(length == 0U ? 1U : length);
+    if (copy != NULL) {
+        trl_format(copy, length == 0U ? 1U : length, "%s", value);
+    }
+    free(value);
+    return copy;
+#else
+    /* Read on the thread that asks; the library sets no variable. */
+    const char *value = getenv(name); // NOLINT(concurrency-mt-unsafe)
+    if (value == NULL) {
+        return NULL;
+    }
+    size_t length = strlen(value) + 1U;
+    char *copy = trl_malloc(length);
+    if (copy != NULL) {
+        memcpy(copy, value, length);
+    }
+    return copy;
+#endif
+}
+
 char *trl_at_home(const char *name) {
 #ifdef _WIN32
-    const char *home = getenv("USERPROFILE"); // NOLINT(concurrency-mt-unsafe)
+    char *home = trl_variable_copy("USERPROFILE");
 #else
-    const char *home = getenv("HOME"); // NOLINT(concurrency-mt-unsafe)
+    char *home = trl_variable_copy("HOME");
 #endif
     if (home == NULL || home[0] == '\0') {
+        free(home);
         return NULL;
     }
     size_t length = strlen(home) + 1U + strlen(name) + 1U;
@@ -347,5 +384,6 @@ char *trl_at_home(const char *name) {
     if (path != NULL) {
         trl_format(path, length, "%s/%s", home, name);
     }
+    free(home);
     return path;
 }

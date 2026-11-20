@@ -136,6 +136,9 @@ bool trl_password_find(const char *text, const char *host, const char *port, con
 /** @brief The text of the regular file at `path`, the caller's to free; null if it is none, or cannot be read. */
 char *trl_read_regular(const char *path);
 
+/** @brief A copy of the process's variable `name`, the caller's to free; null if it is not set. */
+char *trl_variable_copy(const char *name);
+
 /** @brief The file `name` in the home directory, the caller's to free; null if there is none. */
 char *trl_at_home(const char *name);
 

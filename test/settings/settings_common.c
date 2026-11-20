@@ -2,6 +2,11 @@
  * @file settings_common.c
  * @brief What the settings tests share.
  */
+#if !defined(_WIN32) && !defined(__APPLE__)
+// NOLINTNEXTLINE(bugprone-reserved-identifier,cert-dcl37-c,cert-dcl51-cpp,readability-identifier-naming)
+#define _POSIX_C_SOURCE 200809L
+#endif
+
 #include "settings_common.h"
 
 #include "codec/buffer.h"
