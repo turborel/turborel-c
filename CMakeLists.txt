@@ -16,7 +16,7 @@ project(
   turborel
   VERSION "${trl_version_MAJOR}.${trl_version_MINOR}.${trl_version_PATCH}"
   DESCRIPTION "The C driver for turborel, over its native protocol"
-  HOMEPAGE_URL "https://github.com/turborel/turborel-c"
+  HOMEPAGE_URL "https://turborel.com/docs/drivers/c/"
   LANGUAGES C)
 
 include(GNUInstallDirs)
