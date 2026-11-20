@@ -358,7 +358,7 @@ static void malformed_hosts_and_words_are_refused(trl_test *test) {
         TRL_SETTING_TLS_SYSTEM_ROOTS,
     };
     for (size_t i = 0U; i < sizeof words / sizeof words[0]; ++i) {
-        const char *pair[][2] = {{words[i], "sometimes"}};
+        const char *const pair[][2] = {{words[i], "sometimes"}};
         TRL_CHECK(test, !hosts_laid(pair, 1U, &hosts));
     }
     static const char *const one_port[][2] = {{TRL_SETTING_HOST, "a,b,[::1]"}, {TRL_SETTING_PORT, "9"}};
