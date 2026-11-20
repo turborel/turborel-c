@@ -95,7 +95,7 @@ static bool read_lob_typed(trl_reader *reader, trl_value *out) {
     if (form != 0U) {
         return trl_reader_fail(reader, "a large object kept in a database cannot be read by a client");
     }
-    out->as.lob.kind = out->tag == TRL_TAG_CLOB ? TRL_LOB_CHARACTER : TRL_LOB_BINARY;
+    out->as.lob.kind = (uint8_t)(out->tag == TRL_TAG_CLOB ? TRL_LOB_CHARACTER : TRL_LOB_BINARY);
     if (!trl_read_bytes(reader, &out->as.lob.octets)) {
         return false;
     }
@@ -162,13 +162,14 @@ static bool read_constructed(trl_reader *reader, trl_value *out) {
         }
         return out->as.list.count <= TRL_MAX_MULTISET_CARDINALITY ||
                trl_reader_fail(reader, "a multiset has more elements than its maximum cardinality");
-    case TRL_TAG_STRUCTURED:
+    case TRL_TAG_STRUCTURED: {
         if (!trl_reader_enter(reader)) {
             return false;
         }
         bool read = read_structured(reader, out);
         trl_reader_leave(reader);
         return read;
+    }
     default:
         return trl_reader_fail(reader, "no value has this tag");
     }

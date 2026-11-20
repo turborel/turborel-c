@@ -8,6 +8,8 @@
  * `_strtod_l`; glibc declares `strtod_l` for `_GNU_SOURCE` alone.
  */
 #if !defined(_WIN32) && !defined(__APPLE__)
+/* The feature macro is the C library's name, reserved and so spelled. */
+// NOLINTNEXTLINE(bugprone-reserved-identifier,cert-dcl37-c,readability-identifier-naming)
 #define _GNU_SOURCE
 #endif
 
