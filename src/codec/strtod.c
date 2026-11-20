@@ -9,7 +9,7 @@
  */
 #if !defined(_WIN32) && !defined(__APPLE__)
 /* The feature macro is the C library's name, reserved and so spelled. */
-// NOLINTNEXTLINE(bugprone-reserved-identifier,cert-dcl37-c,readability-identifier-naming)
+// NOLINTNEXTLINE(bugprone-reserved-identifier,cert-dcl37-c,cert-dcl51-cpp,readability-identifier-naming)
 #define _GNU_SOURCE
 #endif
 
