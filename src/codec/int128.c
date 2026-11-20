@@ -9,6 +9,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <string.h>
 
 /* The decimal radix. */
 #define TRL_TEN 10U
@@ -163,5 +164,8 @@ int32_t trl_bits_i32(uint32_t bits) {
 }
 
 int16_t trl_bits_i16(uint16_t bits) {
-    return bits > (uint16_t)INT16_MAX ? (int16_t)(-(int32_t)(uint16_t)(~bits) - 1) : (int16_t)bits;
+    /* int16_t is two's complement, so its bits are the u16's, copied. */
+    int16_t value = 0;
+    memcpy(&value, &bits, sizeof value);
+    return value;
 }

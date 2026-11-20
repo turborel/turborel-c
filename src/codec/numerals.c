@@ -64,7 +64,7 @@ static void split_numeral(const char *text, numeral *out) {
 
 /* The numeral of `x` to `digits` significant digits, correctly rounded. */
 static void numeral_of(double x, int digits, numeral *out) {
-    char text[TRL_NUMERAL_BYTES];
+    char text[TRL_NUMERAL_BYTES] = "";
     (void)snprintf(text, sizeof text, "%.*e", digits - 1, x);
     split_numeral(text, out);
 }
@@ -73,6 +73,9 @@ static void numeral_of(double x, int digits, numeral *out) {
    read in the "C" locale. */
 static bool reads_back(const numeral *n, uint64_t bits) {
     char text[TRL_NUMERAL_BYTES];
+    if (n->count == 0U) {
+        return false;
+    }
     int written = snprintf(text, sizeof text, "%s%c.%.*se%d", (bits & TRL_DOUBLE_SIGN) != 0U ? "-" : "", n->digits[0],
                            (int)(n->count - 1U), n->digits + 1, n->exponent);
     double back = 0.0;
@@ -90,6 +93,7 @@ bool trl_put_approximate_numeral(trl_buffer *buffer, uint64_t bits) {
         return true;
     }
     numeral n;
+    memset(&n, 0, sizeof n);
     for (int digits = 1; digits <= TRL_DOUBLE_DIGITS; ++digits) {
         numeral_of(x, digits, &n);
         if (reads_back(&n, bits)) {
