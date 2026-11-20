@@ -13,6 +13,15 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* Writes `text`, its null not among it, at `to`; the bytes written. */
+static size_t put(char *to, const char *text) {
+    size_t length = strlen(text);
+    for (size_t i = 0U; i < length; ++i) {
+        to[i] = text[i];
+    }
+    return length;
+}
+
 /* Parses `text`; the tree, made either way. */
 static trl_xml *parsed(const char *text, trl_status *status) {
     trl_xml *xml = NULL;
@@ -153,18 +162,20 @@ static void references_names_and_long_text(trl_test *test) {
                            "A\xc3\xa9\xe2\x82\xac\xf0\x9f\x98\x80\xc2\xab") == 0);
     trl_xml_free(xml);
     char text[2048];
-    memcpy(text, "<a>", 3U);
+    (void)put(text, "<a>");
     memset(text + 3, 'x', 1500U);
-    memcpy(text + 1503, "</a>", 5U);
+    (void)put(text + 1503, "</a>");
+    text[1507] = '\0';
     xml = parsed(text, &status);
     TRL_CHECK(test, status == TRL_OK &&
                         strlen(trl_xml_node_value(trl_xml_node_child(trl_xml_node_child(trl_xml_root(xml), 0U), 0U))) ==
                             1500U);
     trl_xml_free(xml);
     char attribute[2048];
-    memcpy(attribute, "<a b='", 6U);
+    (void)put(attribute, "<a b='");
     memset(attribute + 6, 'y', 1500U);
-    memcpy(attribute + 1506, "'/>", 4U);
+    (void)put(attribute + 1506, "'/>");
+    attribute[1509] = '\0';
     xml = parsed(attribute, &status);
     TRL_CHECK(test, status == TRL_OK);
     trl_xml_free(xml);
@@ -254,26 +265,24 @@ static void trees_past_the_limits_are_refused(trl_test *test) {
     static char deep[(513U * 7U) + 8U];
     size_t at = 0U;
     for (size_t i = 0U; i < 512U; ++i) {
-        memcpy(deep + at, "<a>", 3U);
-        at += 3U;
+        at += put(deep + at, "<a>");
     }
     for (size_t i = 0U; i < 512U; ++i) {
-        memcpy(deep + at, "</a>", 4U);
-        at += 4U;
+        at += put(deep + at, "</a>");
     }
     trl_xml *xml = NULL;
     TRL_CHECK(test, trl_xml_parse(deep, at, &xml) == TRL_OK);
     trl_xml_free(xml);
     memmove(deep + 3, deep, at);
-    memcpy(deep, "<a>", 3U);
-    memcpy(deep + at + 3U, "</a>", 4U);
+    (void)put(deep, "<a>");
+    (void)put(deep + at + 3U, "</a>");
     TRL_CHECK(test, beyond(deep, at + 7U));
     size_t many = (1U << 20U) + 1U;
     char *comments = malloc(many * 7U);
     TRL_CHECK(test, comments != NULL);
     if (comments != NULL) {
         for (size_t i = 0U; i < many; ++i) {
-            memcpy(comments + (i * 7U), "<!---->", 7U);
+            (void)put(comments + (i * 7U), "<!---->");
         }
         TRL_CHECK(test, beyond(comments, many * 7U));
         free(comments);
