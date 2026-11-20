@@ -34,17 +34,17 @@ static bool run(trl_conn *conn, const char *sql) {
     return ran == TRL_OK;
 }
 
-/* Connects to `server`, a host and a port, or for none the test's server,
-   as `user`, or ann, by trust. */
-static trl_status dial(void *context, const char *server, const char *user, trl_conn **out) {
+/* Connects to the server `named`, a host and a port, or for none the
+   test's server, as `user`, or ann, by trust. */
+static trl_status dial(void *context, const char *named, const char *user, trl_conn **out) {
     (void)context;
     char host[HOST_BYTES] = "127.0.0.1";
     unsigned long port = SERVER_PORT;
-    const char *colon = server != NULL ? strrchr(server, ':') : NULL;
-    if (server != NULL) {
-        size_t length = colon != NULL ? (size_t)(colon - server) : strlen(server);
+    const char *colon = named != NULL ? strrchr(named, ':') : NULL;
+    if (named != NULL) {
+        size_t length = colon != NULL ? (size_t)(colon - named) : strlen(named);
         length = length < sizeof host - 1U ? length : sizeof host - 1U;
-        memcpy(host, server, length);
+        memcpy(host, named, length);
         host[length] = '\0';
         port = colon != NULL ? strtoul(colon + 1, NULL, DECIMAL) : SERVER_PORT;
     }

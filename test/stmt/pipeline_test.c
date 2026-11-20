@@ -4,6 +4,7 @@
  * skipping batch settled, and a run that fails as its connection is lost
  * or its batch cannot be undone.
  */
+#include "format.h"
 #include "harness.h"
 #include "script.h"
 #include "serving.h"
@@ -94,11 +95,11 @@ static void a_skipping_batch_is_settled(trl_test *test) {
     trl_pipeline *pipeline = NULL;
     (void)trl_pipeline_new(conn, &pipeline);
     (void)trl_pipeline_on_error(pipeline, TRL_ON_ERROR_SKIP);
+    char xs[101];
+    memset(xs, 'x', 100U);
+    xs[100] = '\0';
     char sql[128];
-    memset(sql, 0, sizeof sql);
-    (void)memcpy(sql, "VALUES '", 8U);
-    memset(sql + 8U, 'x', 100U);
-    sql[108] = '\'';
+    trl_format(sql, sizeof sql, "VALUES '%s'", xs);
     for (size_t i = 0U; i < MANY; ++i) {
         (void)trl_pipeline_query(pipeline, sql);
     }

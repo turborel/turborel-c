@@ -8,6 +8,7 @@
 #include "codec/error.h"
 #include "conn/conn.h"
 #include "failure.h"
+#include "format.h"
 #include "harness.h"
 #include "script.h"
 #include "serving.h"
@@ -58,8 +59,8 @@ static trl_status make(void *context, const char *server, const char *user, trl_
     maker *m = context;
     m->had_server = server != NULL;
     m->had_user = user != NULL;
-    (void)strncpy(m->server, server != NULL ? server : "", sizeof m->server - 1U);
-    (void)strncpy(m->user, user != NULL ? user : "", sizeof m->user - 1U);
+    trl_format(m->server, sizeof m->server, "%s", server != NULL ? server : "");
+    trl_format(m->user, sizeof m->user, "%s", user != NULL ? user : "");
     switch (m->how) {
     case MAKING_LOST:
         *out = failed_of("08006");
