@@ -714,6 +714,17 @@ looked for (`cmake/TrlDependencies.cmake`). A library not found is not
 required: a build without one builds, and refuses at run time what needs
 it, with a failure saying the library was built without it.
 
+zlib is in every build of every platform, so compressed frames are too
+(R-PLAT): where none is found, and `TRL_ZLIB_FETCH` asks, as it does by
+default on Windows, which has no zlib of its own, CMake's FetchContent
+takes zlib 1.3.2, the latest of its long-settled 1.3 line, from its
+release on GitHub, its archive checked by its SHA-256, and its
+compression's sources are compiled into libturborel with the library's
+own. Its names are prefixed `z_` (Z_PREFIX) and hidden, so they meet no
+other zlib a program links, and its users need find none. A vcpkg in CI
+alone was not taken, as it would leave a Windows build of the program's
+own without compression.
+
 #### D13. CMake with presets, an installed package, and hidden symbols
 
 The library is `libturborel` on every platform, shared unless

@@ -28,7 +28,8 @@ install(
 set(TRL_CONFIG_DEPENDENCIES "")
 set(trl_pc_modules "")
 set(TRL_PC_LIBS_PRIVATE "")
-if(TRL_HAVE_ZLIB)
+# A zlib built in is the library's own, which its users need not find.
+if(TRL_HAVE_ZLIB AND NOT TRL_ZLIB_BUILT)
   string(APPEND TRL_CONFIG_DEPENDENCIES "find_dependency(ZLIB)\n")
   list(APPEND trl_pc_modules zlib)
 endif()

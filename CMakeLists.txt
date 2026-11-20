@@ -34,6 +34,7 @@ cmake_dependent_option(TRL_TEST_PACKAGE "Test the installed package from a progr
 set(TRL_TLS "OpenSSL" CACHE STRING "The TLS and hash library: OpenSSL (3.5 or later), AWS-LC, or none")
 set_property(CACHE TRL_TLS PROPERTY STRINGS OpenSSL AWS-LC none)
 option(TRL_ZLIB "Look for zlib, for compressed frames" ON)
+option(TRL_ZLIB_FETCH "Where zlib is not found, build it into libturborel from a pinned release" ${WIN32})
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(TrlWarnings)
@@ -157,10 +158,15 @@ if(TRL_FAULTS)
   target_compile_definitions(turborel_objects PUBLIC TRL_FAULTS)
 endif()
 
-# zlib for compressed frames, where it was found (RULES.md D12).
+# zlib for compressed frames, where it was found, or built in from its
+# pinned release (RULES.md D12).
 if(TRL_HAVE_ZLIB)
   target_compile_definitions(turborel_objects PRIVATE TRL_HAVE_ZLIB)
-  target_link_libraries(turborel_objects PUBLIC ZLIB::ZLIB)
+  if(TRL_ZLIB_BUILT)
+    trl_zlib_built_into(turborel_objects)
+  else()
+    target_link_libraries(turborel_objects PUBLIC ZLIB::ZLIB)
+  endif()
 endif()
 
 # The TLS library, for TLS and SCRAM's hashes, where it was found (D12).
@@ -182,7 +188,7 @@ endif()
 target_link_libraries(turborel_objects PUBLIC ${trl_system_libraries})
 
 add_library(turborel $<TARGET_OBJECTS:turborel_objects>)
-if(TRL_HAVE_ZLIB)
+if(TRL_HAVE_ZLIB AND NOT TRL_ZLIB_BUILT)
   target_link_libraries(turborel PRIVATE ZLIB::ZLIB)
 endif()
 if(TRL_HAVE_TLS)

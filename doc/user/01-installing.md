@@ -18,7 +18,9 @@ built from its source.
   macOS or Windows.
 - For TLS and SCRAM, OpenSSL 3.5 or later, or AWS-LC. A driver built
   without either refuses TLS and SCRAM, saying which library it lacks.
-- For compressed frames, zlib.
+- For compressed frames, zlib. Where none is found, as on Windows, the
+  build takes zlib's release 1.3.2 from GitHub, checked by its SHA-256,
+  and builds it into the library.
 - For the ODBC driver, ODBC's headers and installer library: unixODBC's
   or iODBC's on Linux and macOS, the Windows SDK's on Windows.
 - A Turborel server of the same release, which speaks protocol
@@ -44,6 +46,7 @@ change what is built:
 | `BUILD_SHARED_LIBS` | ON | `libturborel` as a shared library; OFF, a static one |
 | `TRL_TLS` | `OpenSSL` | TLS and hashes by OpenSSL, `AWS-LC`, or `none` |
 | `TRL_ZLIB` | ON | compressed frames, where zlib is found |
+| `TRL_ZLIB_FETCH` | ON on Windows | zlib built into the library from its pinned release, where none is found |
 | `TRL_ODBC` | ON | the ODBC driver, `libturborelodbc`, where ODBC's headers are found |
 | `TRL_BUILD_TESTS` | ON in the driver's own tree | the tests |
 

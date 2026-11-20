@@ -42,7 +42,8 @@ what is open.
 ## Requirements
 
 - a C17 compiler, GCC, Clang or MSVC, and CMake 3.25 or later, on Linux, macOS or Windows ([RULES.md](RULES.md) D3).
-- For TLS and SCRAM, OpenSSL 3.5 or later, or AWS-LC; for compressed frames, zlib.
+- For TLS and SCRAM, OpenSSL 3.5 or later, or AWS-LC; for compressed frames, zlib, which the
+  build takes from its pinned release and builds in where none is found, as on Windows.
 - A Turborel server of the same release, which speaks protocol version 1
   ([running the server](https://github.com/turborel/turborel/blob/main/doc/operator/02-turboreld.md)).
 
