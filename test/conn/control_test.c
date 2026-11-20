@@ -4,6 +4,7 @@
  * edges [PROTOCOL Conversations]: ChangeUser's exchange, Reset's
  * completion, query attributes' bounds, and no request before Ready.
  */
+#include "auth/crypto.h"
 #include "codec/buffer.h"
 #include "harness.h"
 #include "scram_server.h"
@@ -42,6 +43,10 @@ static void change_user_takes_ready(trl_test *test) {
  * the failure.
  */
 static void change_user_answers_challenges(trl_test *test) {
+    /* A build without hashes has no SCRAM to answer with. */
+    if (!trl_crypto_built()) {
+        return;
+    }
     scram_server server;
     memset(&server, 0, sizeof server);
     script s;

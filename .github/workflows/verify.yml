@@ -42,9 +42,12 @@ jobs:
       matrix:
         include:
           # GCC 13 and 14, each built at -O3 by its Release workflow, every
-          # warning an error, as at -O0 by its Debug one.
+          # warning an error, as at -O0 by its Debug one. Ubuntu 24.04's
+          # OpenSSL is older than 3.5, so these build without TLS, and its
+          # live tests are run by the newest Ubuntu's GCC, the third.
           - { os: ubuntu-24.04, cc: gcc-13 }
           - { os: ubuntu-24.04, cc: gcc-14 }
+          - { os: ubuntu-latest, cc: gcc }
           - { os: ubuntu-latest, cc: clang }
           - { os: macos-latest, cc: clang }
           - { os: windows-latest, cc: cl }

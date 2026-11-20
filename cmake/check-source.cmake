@@ -66,7 +66,11 @@ function(trl_doc_before lines index out)
   set(text "")
   while(at GREATER_EQUAL 0)
     list(GET lines ${at} line)
-    string(REGEX REPLACE "^[ \t]*(/\\*\\*|\\*/|\\*)?[ \t]?" "" stripped "${line}")
+    # The text after its leader, read by a match that always holds: a
+    # REPLACE whose expression can match nothing fails on older CMake, as
+    # that of Ubuntu 24.04's runners.
+    string(REGEX MATCH "^[ \t]*(/\\*\\*|\\*/|\\*)?[ \t]?(.*)$" leader "${line}")
+    set(stripped "${CMAKE_MATCH_2}")
     string(REGEX REPLACE "\\*/[ \t]*$" "" stripped "${stripped}")
     set(text "${stripped} ${text}")
     if(line MATCHES "^[ \t]*/\\*\\*")
