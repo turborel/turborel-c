@@ -27,6 +27,12 @@
 #define TRL_SQLSTATE_INVALID_JSON_TEXT "22032"
 /** @brief The SQLSTATE of a number no type of turborel's holds exactly. */
 #define TRL_SQLSTATE_OUT_OF_RANGE "22003"
+/** @brief The SQLSTATE of a value the protocol cannot carry. */
+#define TRL_SQLSTATE_DATA "22000"
+/** @brief The SQLSTATE of text not UTF-8, of characters not in its repertoire. */
+#define TRL_SQLSTATE_NOT_UTF8 "22021"
+/** @brief The SQLSTATE of an interval's field out of range. */
+#define TRL_SQLSTATE_INTERVAL_OVERFLOW "22015"
 /** @brief The SQLCODE of a limit passed, as turborel's. */
 #define TRL_SQLCODE_UNSUPPORTED (-900)
 /** @brief The SQLSTATE of a limit passed, as turborel's. */

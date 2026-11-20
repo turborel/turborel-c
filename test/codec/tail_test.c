@@ -133,7 +133,7 @@ static void attributes_cut_or_malformed_fail(trl_test *test) {
     const trl_attribute bad_value = {{(const uint8_t *)"n", 1U}, {bad, sizeof bad}};
     TRL_CHECK(test, !trl_write_attributes(&f.buffer, &bad_name, 1U, &f.error));
     TRL_CHECK(test, !trl_write_attributes(&f.buffer, &bad_value, 1U, &f.error));
-    TRL_CHECK(test, failed_with(&f, TRL_SQLCODE_API, TRL_SQLSTATE_API));
+    TRL_CHECK(test, failed_with(&f, TRL_SQLCODE_CONNECTION, TRL_SQLSTATE_CONNECTION_FAILURE));
     fixture_free(&f);
 }
 

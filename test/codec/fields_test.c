@@ -244,7 +244,7 @@ static void a_frame_is_framed(trl_test *test) {
     TRL_CHECK(test, buffer_is(&f.buffer, expected, sizeof expected));
     trl_put_count(&f.buffer, (size_t)UINT32_MAX + 1U);
     TRL_CHECK(test, !trl_buffer_ok(&f.buffer, &f.error));
-    TRL_CHECK(test, failed_with(&f, TRL_SQLCODE_API, TRL_SQLSTATE_API));
+    TRL_CHECK(test, failed_with(&f, TRL_SQLCODE_UNSUPPORTED, TRL_SQLSTATE_UNSUPPORTED));
     fixture_free(&f);
 }
 

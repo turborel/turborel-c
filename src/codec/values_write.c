@@ -18,17 +18,30 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* A value the program gave that cannot be sent: SQLCODE -910, as turborel
-   gives a call made wrongly. */
+/* A call made wrongly, as a value of no tag: SQLCODE -910, SQLSTATE
+   TB910, as the drivers give a misuse turborel-client has no case for. */
 static bool refuse(trl_codec_error *error, const char *why) {
     trl_codec_fail(error, TRL_SQLCODE_API, TRL_SQLSTATE_API, why);
+    return false;
+}
+
+/* A value the protocol cannot carry: SQLCODE -301, of `sqlstate`, a
+   state of class 22, as the drivers' table of their own failures has it. */
+static bool refuse_data(trl_codec_error *error, const char *sqlstate, const char *why) {
+    trl_codec_fail(error, TRL_SQLCODE_DATA, sqlstate, why);
+    return false;
+}
+
+/* A value past turborel's limits: SQLCODE -900, SQLSTATE 0A000. */
+static bool refuse_limit(trl_codec_error *error, const char *why) {
+    trl_codec_fail(error, TRL_SQLCODE_UNSUPPORTED, TRL_SQLSTATE_UNSUPPORTED, why);
     return false;
 }
 
 /* Writes a string, refused unless UTF-8. */
 static bool write_string(trl_buffer *buffer, trl_slice text, trl_codec_error *error) {
     if (!trl_utf8_valid(text.bytes, text.length)) {
-        return refuse(error, "a string to send is not UTF-8");
+        return refuse_data(error, TRL_SQLSTATE_NOT_UTF8, "a string to send is not UTF-8");
     }
     trl_put_bytes(buffer, text);
     return true;
@@ -46,7 +59,7 @@ static void write_datetime(trl_buffer *buffer, trl_datetime datetime) {
 static bool write_interval(trl_buffer *buffer, const trl_interval *interval, trl_codec_error *error) {
     const trl_interval_qualifier *q = &interval->qualifier;
     if (q->start > TRL_FIELD_SECOND || q->end > TRL_FIELD_SECOND) {
-        return refuse(error, "an interval's field is out of range");
+        return refuse_data(error, TRL_SQLSTATE_INTERVAL_OVERFLOW, "an interval's field is out of range");
     }
     trl_put_u32(buffer, q->start);
     trl_put_u32(buffer, q->end);
@@ -59,7 +72,7 @@ static bool write_interval(trl_buffer *buffer, const trl_interval *interval, trl
 /* Writes a DECFLOAT, refused unless canonical, as a server reads one. */
 static bool write_decfloat(trl_buffer *buffer, trl_decfloat value, trl_codec_error *error) {
     if (!trl_decfloat_canonical(value)) {
-        return refuse(error, "a DECFLOAT to send is not canonical or is out of range");
+        return refuse_data(error, TRL_SQLSTATE_OUT_OF_RANGE, "a DECFLOAT to send is not canonical or is out of range");
     }
     trl_put_i128(buffer, value.coefficient);
     trl_put_u32(buffer, (uint32_t)value.exponent);
@@ -73,7 +86,7 @@ static bool write_lob(trl_buffer *buffer, const trl_value *value, trl_codec_erro
     }
     if (value->as.lob.kind == TRL_LOB_CHARACTER &&
         !trl_utf8_valid(value->as.lob.octets.bytes, value->as.lob.octets.length)) {
-        return refuse(error, "a character large object to send is not UTF-8");
+        return refuse_data(error, TRL_SQLSTATE_NOT_UTF8, "a character large object to send is not UTF-8");
     }
     trl_put_u8(buffer, value->as.lob.kind);
     trl_put_bytes(buffer, value->as.lob.octets);
@@ -84,7 +97,7 @@ static bool write_lob(trl_buffer *buffer, const trl_value *value, trl_codec_erro
    a CLOB's UTF-8. */
 static bool write_lob_typed(trl_buffer *buffer, const trl_value *value, trl_codec_error *error) {
     if (value->tag == TRL_TAG_CLOB && !trl_utf8_valid(value->as.lob.octets.bytes, value->as.lob.octets.length)) {
-        return refuse(error, "a character large object to send is not UTF-8");
+        return refuse_data(error, TRL_SQLSTATE_NOT_UTF8, "a character large object to send is not UTF-8");
     }
     trl_put_u8(buffer, 0U);
     trl_put_bytes(buffer, value->as.lob.octets);
@@ -109,7 +122,7 @@ static bool write_value(trl_buffer *buffer, const trl_value *value, trl_codec_er
 static bool write_list(trl_buffer *buffer, const trl_value *items, uint32_t count, trl_codec_error *error,
                        unsigned int depth) {
     if (depth >= TRL_MAX_NESTING) {
-        return refuse(error, "a value's arrays and rows are nested too deep");
+        return refuse_limit(error, "a value's arrays and rows are nested too deep");
     }
     if (count > 0U && items == NULL) {
         return refuse(error, "a list of values has none");
@@ -131,7 +144,7 @@ static bool write_constructed(trl_buffer *buffer, const trl_value *value, trl_co
         return write_list(buffer, value->as.list.items, value->as.list.count, error, depth);
     case TRL_TAG_MULTISET:
         if (value->as.list.count > TRL_MAX_MULTISET_CARDINALITY) {
-            return refuse(error, "a multiset has more elements than its maximum cardinality");
+            return refuse_limit(error, "a multiset has more elements than its maximum cardinality");
         }
         return write_list(buffer, value->as.list.items, value->as.list.count, error, depth);
     case TRL_TAG_STRUCTURED:
@@ -157,13 +170,14 @@ static bool write_octets(trl_buffer *buffer, const trl_value *value, trl_codec_e
         return true;
     case TRL_TAG_JSON:
         if (!trl_json_valid(value->as.bytes.bytes, value->as.bytes.length)) {
-            return refuse(error, "a JSON value to send is no document of its stored form");
+            return refuse_data(error, TRL_SQLSTATE_INVALID_JSON_TEXT,
+                               "a JSON value to send is no document of its stored form");
         }
         trl_put_bytes(buffer, value->as.bytes);
         return true;
     case TRL_TAG_UUID:
         if (value->as.bytes.length != TRL_UUID_OCTETS) {
-            return refuse(error, "a UUID is 16 octets");
+            return refuse_data(error, TRL_SQLSTATE_DATA, "a UUID is 16 octets");
         }
         trl_put_bytes(buffer, value->as.bytes);
         return true;

@@ -46,7 +46,7 @@ bool trl_buffer_ok(const trl_buffer *buffer, trl_codec_error *error) {
     if (buffer->state == TRL_BUFFER_NO_MEMORY) {
         trl_codec_no_memory(error);
     } else if (buffer->state == TRL_BUFFER_TOO_LONG) {
-        trl_codec_fail(error, TRL_SQLCODE_API, TRL_SQLSTATE_API,
+        trl_codec_fail(error, TRL_SQLCODE_UNSUPPORTED, TRL_SQLSTATE_UNSUPPORTED,
                        "a field or a message is longer than the protocol's lengths hold");
     }
     return buffer->state == TRL_BUFFER_OK;

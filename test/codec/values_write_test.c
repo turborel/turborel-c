@@ -12,11 +12,21 @@
 
 #include <stdint.h>
 
-/* Whether writing `value` is refused as a call made wrongly. */
-static bool refused(fixture *f, const trl_value *value) {
+/* Whether writing `value` is refused with `sqlcode` and `sqlstate`. */
+static bool refused_as(fixture *f, const trl_value *value, int32_t sqlcode, const char *sqlstate) {
     fixture_reset(f);
     bool written = trl_write_value(&f->buffer, value, &f->error);
-    return !written && failed_with(f, TRL_SQLCODE_API, TRL_SQLSTATE_API);
+    return !written && failed_with(f, sqlcode, sqlstate);
+}
+
+/* Whether writing `value` is refused as a call made wrongly. */
+static bool refused(fixture *f, const trl_value *value) {
+    return refused_as(f, value, TRL_SQLCODE_API, TRL_SQLSTATE_API);
+}
+
+/* Whether writing `value` is refused as a value the protocol cannot carry, of `sqlstate`. */
+static bool refused_data(fixture *f, const trl_value *value, const char *sqlstate) {
+    return refused_as(f, value, TRL_SQLCODE_DATA, sqlstate);
 }
 
 /**
@@ -32,9 +42,9 @@ static void strings_to_send_are_utf8(trl_test *test) {
     trl_value lob = {TRL_TAG_LOB_WHOLE, {{NULL, 0U}}};
     lob.as.lob.kind = TRL_LOB_CHARACTER;
     lob.as.lob.octets = bytes_of(bad, sizeof bad);
-    TRL_CHECK(test, refused(&f, &text));
-    TRL_CHECK(test, refused(&f, &xml));
-    TRL_CHECK(test, refused(&f, &lob));
+    TRL_CHECK(test, refused_data(&f, &text, TRL_SQLSTATE_NOT_UTF8));
+    TRL_CHECK(test, refused_data(&f, &xml, TRL_SQLSTATE_NOT_UTF8));
+    TRL_CHECK(test, refused_data(&f, &lob, TRL_SQLSTATE_NOT_UTF8));
     lob.as.lob.kind = TRL_LOB_BINARY;
     fixture_reset(&f);
     TRL_CHECK(test, trl_write_value(&f.buffer, &lob, &f.error));
@@ -51,19 +61,19 @@ static void malformed_values_are_refused(trl_test *test) {
     fixture_init(&f);
     const uint8_t octets[15] = {0};
     trl_value uuid = {TRL_TAG_UUID, {bytes_of(octets, sizeof octets)}};
-    TRL_CHECK(test, refused(&f, &uuid));
+    TRL_CHECK(test, refused_data(&f, &uuid, TRL_SQLSTATE_DATA));
     trl_value locator = {TRL_TAG_LOB_LOCATOR, {{NULL, 0U}}};
     locator.as.locator.kind = 2U;
     TRL_CHECK(test, refused(&f, &locator));
     trl_value interval = {TRL_TAG_INTERVAL, {{NULL, 0U}}};
     interval.as.interval.qualifier.start = 6U;
-    TRL_CHECK(test, refused(&f, &interval));
+    TRL_CHECK(test, refused_data(&f, &interval, TRL_SQLSTATE_INTERVAL_OVERFLOW));
     trl_value decfloat = {TRL_TAG_DECFLOAT, {{NULL, 0U}}};
     decfloat.as.decfloat.coefficient.low = 100U;
-    TRL_CHECK(test, refused(&f, &decfloat));
+    TRL_CHECK(test, refused_data(&f, &decfloat, TRL_SQLSTATE_OUT_OF_RANGE));
     trl_value multiset = {TRL_TAG_MULTISET, {{NULL, 0U}}};
     multiset.as.list.count = 65536U;
-    TRL_CHECK(test, refused(&f, &multiset));
+    TRL_CHECK(test, refused_as(&f, &multiset, TRL_SQLCODE_UNSUPPORTED, TRL_SQLSTATE_UNSUPPORTED));
     trl_value unknown = {28U, {{NULL, 0U}}};
     TRL_CHECK(test, refused(&f, &unknown));
     TRL_CHECK(test, f.buffer.length <= 1U);
@@ -84,7 +94,7 @@ static void nesting_to_send_is_bounded(trl_test *test) {
         chain[i].as.list.items = &chain[i + 1U];
         chain[i].as.list.count = 1U;
     }
-    TRL_CHECK(test, refused(&f, &chain[0]));
+    TRL_CHECK(test, refused_as(&f, &chain[0], TRL_SQLCODE_UNSUPPORTED, TRL_SQLSTATE_UNSUPPORTED));
     fixture_reset(&f);
     TRL_CHECK(test, trl_write_value(&f.buffer, &chain[1], &f.error));
     fixture_free(&f);
@@ -102,7 +112,7 @@ static void json_to_send_is_whole(trl_test *test) {
     trl_value good = {TRL_TAG_JSON, {bytes_of(document, sizeof document)}};
     trl_value bad = {TRL_TAG_JSON, {bytes_of(damaged, sizeof damaged)}};
     TRL_CHECK(test, trl_write_value(&f.buffer, &good, &f.error));
-    TRL_CHECK(test, refused(&f, &bad));
+    TRL_CHECK(test, refused_data(&f, &bad, TRL_SQLSTATE_INVALID_JSON_TEXT));
     fixture_free(&f);
 }
 

@@ -272,7 +272,7 @@ static void attributes_out_of_bounds_are_refused(trl_test *test) {
     bad.attributes = &no_name;
     fixture_reset(&f);
     TRL_CHECK(test, !trl_encode_query(&f.buffer, &bad, &f.error));
-    TRL_CHECK(test, failed_with(&f, TRL_SQLCODE_API, TRL_SQLSTATE_API));
+    TRL_CHECK(test, failed_with(&f, TRL_SQLCODE_CONNECTION, TRL_SQLSTATE_CONNECTION_FAILURE));
     fixture_free(&f);
 }
 
@@ -300,7 +300,7 @@ static void fields_that_cannot_be_sent_are_refused(trl_test *test) {
     trl_value value = {TRL_TAG_CHARACTER, {not_utf8}};
     trl_execute execute = {1U, &value, 1U, 0U, false, NULL, 0U, 0U};
     TRL_CHECK(test, !trl_encode_execute(&f.buffer, &execute, &f.error));
-    TRL_CHECK(test, f.buffer.length == 0U && failed_with(&f, TRL_SQLCODE_API, TRL_SQLSTATE_API));
+    TRL_CHECK(test, f.buffer.length == 0U && failed_with(&f, TRL_SQLCODE_DATA, TRL_SQLSTATE_NOT_UTF8));
     fixture_free(&f);
 }
 

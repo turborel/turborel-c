@@ -43,7 +43,7 @@ bool trl_read_strings(trl_reader *reader, trl_strings *out) {
 
 bool trl_write_string(trl_buffer *buffer, trl_slice text, trl_codec_error *error) {
     if (!trl_utf8_valid(text.bytes, text.length)) {
-        trl_codec_fail(error, TRL_SQLCODE_API, TRL_SQLSTATE_API, "a string to send is not UTF-8");
+        trl_codec_fail(error, TRL_SQLCODE_DATA, TRL_SQLSTATE_NOT_UTF8, "a string to send is not UTF-8");
         return false;
     }
     trl_put_bytes(buffer, text);

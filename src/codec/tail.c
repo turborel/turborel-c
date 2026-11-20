@@ -68,7 +68,10 @@ bool trl_write_attributes(trl_buffer *buffer, const trl_attribute *attributes, s
         return true;
     }
     if (count > TRL_MAX_ATTRIBUTES || attributes == NULL) {
-        trl_codec_fail(error, TRL_SQLCODE_API, TRL_SQLSTATE_API, "more attributes than the 32 a message takes");
+        /* Refused before it is sent, the connection kept, with the code the
+           server would fail the connection with. */
+        trl_codec_fail(error, TRL_SQLCODE_CONNECTION, TRL_SQLSTATE_CONNECTION_FAILURE,
+                       "more attributes than the 32 a message takes");
         return false;
     }
     trl_put_u8(buffer, TRL_TAIL_ATTRIBUTES);
@@ -78,7 +81,7 @@ bool trl_write_attributes(trl_buffer *buffer, const trl_attribute *attributes, s
         trl_slice value = attributes[i].value;
         if (!attribute_fits(name, value) || !trl_utf8_valid(name.bytes, name.length) ||
             !trl_utf8_valid(value.bytes, value.length)) {
-            trl_codec_fail(error, TRL_SQLCODE_API, TRL_SQLSTATE_API,
+            trl_codec_fail(error, TRL_SQLCODE_CONNECTION, TRL_SQLSTATE_CONNECTION_FAILURE,
                            "an attribute's name is 1 to 64 bytes and its value at most 1024, UTF-8");
             return false;
         }
