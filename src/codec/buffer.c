@@ -8,6 +8,7 @@
 #include "codec/error.h"
 #include "codec/frame.h"
 #include "codec/int128.h"
+#include "memory.h"
 #include "turborel/turborel.h"
 
 #include <stdbool.h>
@@ -77,7 +78,7 @@ static bool reserve(trl_buffer *buffer, size_t more) {
     if (buffer->limit != 0U && capacity > buffer->limit) {
         capacity = buffer->limit;
     }
-    uint8_t *grown = realloc(buffer->data, capacity);
+    uint8_t *grown = trl_realloc(buffer->data, capacity);
     if (grown == NULL) {
         buffer->state = TRL_BUFFER_NO_MEMORY;
         return false;

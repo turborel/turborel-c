@@ -1,4 +1,4 @@
-# Installs libturborel, its header, a CMake package and a pkg-config file
+# Installs libturborel, its headers, a CMake package and a pkg-config file
 # (RULES.md D13), so a program finds it with find_package(turborel) or
 # `pkg-config --cflags --libs turborel`.
 
@@ -14,7 +14,7 @@ install(
   ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
   INCLUDES
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
-install(FILES include/turborel/turborel.h DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/turborel")
+install(DIRECTORY include/turborel DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}" FILES_MATCHING PATTERN "*.h")
 install(FILES LICENSE DESTINATION "${CMAKE_INSTALL_DATADIR}/licenses/turborel")
 
 install(

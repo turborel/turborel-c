@@ -5,6 +5,8 @@
  */
 #include "codec/arena.h"
 
+#include "memory.h"
+
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -77,7 +79,7 @@ static trl_arena_block *grow(trl_arena *arena, size_t bytes) {
     if (capacity > SIZE_MAX - sizeof(trl_arena_block)) {
         return NULL;
     }
-    trl_arena_block *block = malloc(sizeof(trl_arena_block) + capacity);
+    trl_arena_block *block = trl_malloc(sizeof(trl_arena_block) + capacity);
     if (block == NULL) {
         return NULL;
     }

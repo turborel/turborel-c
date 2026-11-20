@@ -2,12 +2,12 @@
 cmake_minimum_required(VERSION 3.25)
 
 # The version is read from the public header, its one source (RULES.md D5).
-file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/include/turborel/turborel.h" trl_version_lines
+file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/include/turborel/base.h" trl_version_lines
      REGEX "^#define TRL_VERSION_(MAJOR|MINOR|PATCH) [0-9]+$")
 foreach(trl_part IN ITEMS MAJOR MINOR PATCH)
   string(REGEX MATCH "TRL_VERSION_${trl_part} ([0-9]+)" trl_match "${trl_version_lines}")
   if(NOT trl_match)
-    message(FATAL_ERROR "include/turborel/turborel.h defines no TRL_VERSION_${trl_part}")
+    message(FATAL_ERROR "include/turborel/base.h defines no TRL_VERSION_${trl_part}")
   endif()
   set(trl_version_${trl_part} "${CMAKE_MATCH_1}")
 endforeach()
@@ -28,6 +28,7 @@ option(TRL_LINT "Run clang-tidy as each file compiles, and check formatting with
 option(TRL_SANITIZE "Build with AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
 option(TRL_COVERAGE "Build with Clang's source-based coverage, and add the coverage target" OFF)
 option(TRL_FUZZ "Build the libFuzzer targets (Clang only)" OFF)
+option(TRL_FAULTS "Let the tests make an allocation fail on purpose (never in a shipped library)" OFF)
 cmake_dependent_option(TRL_TEST_PACKAGE "Test the installed package from a program outside the tree" OFF
                        "TRL_BUILD_TESTS" OFF)
 set(TRL_TLS "OpenSSL" CACHE STRING "The TLS and hash library: OpenSSL (3.5 or later), AWS-LC, or none")
@@ -45,6 +46,8 @@ add_library(
   turborel_objects OBJECT
   src/version.c
   src/decimal.c
+  src/failure.c
+  src/memory.c
   src/codec/arena.c
   src/codec/buffer.c
   src/codec/compress.c
@@ -78,6 +81,11 @@ if(BUILD_SHARED_LIBS)
   target_compile_definitions(turborel_objects PRIVATE TRL_BUILDING)
 else()
   target_compile_definitions(turborel_objects PUBLIC TRL_STATIC)
+endif()
+
+# Allocation faults, for the tests alone (RULES.md D14).
+if(TRL_FAULTS)
+  target_compile_definitions(turborel_objects PUBLIC TRL_FAULTS)
 endif()
 
 # zlib for compressed frames, where it was found (RULES.md D12).

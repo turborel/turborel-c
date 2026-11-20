@@ -12,7 +12,7 @@
       "name": "debug",
       "displayName": "Debug, with the tests",
       "inherits": "base",
-      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug", "TRL_FAULTS": "ON" }
     },
     {
       "name": "release",
@@ -24,19 +24,19 @@
       "name": "asan-ubsan",
       "displayName": "Debug under AddressSanitizer and UndefinedBehaviorSanitizer",
       "inherits": "base",
-      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug", "TRL_SANITIZE": "ON" }
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug", "TRL_SANITIZE": "ON", "TRL_FAULTS": "ON" }
     },
     {
       "name": "coverage",
       "displayName": "Clang's source-based coverage, held to its floors",
       "inherits": "base",
-      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug", "CMAKE_C_COMPILER": "clang", "TRL_COVERAGE": "ON" }
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug", "CMAKE_C_COMPILER": "clang", "TRL_COVERAGE": "ON", "TRL_FAULTS": "ON" }
     },
     {
       "name": "lint",
       "displayName": "Debug, with clang-tidy on each file and clang-format checked",
       "inherits": "base",
-      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug", "CMAKE_C_COMPILER": "clang", "TRL_LINT": "ON" }
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug", "CMAKE_C_COMPILER": "clang", "TRL_LINT": "ON", "TRL_FAULTS": "ON" }
     },
     {
       "name": "fuzz",

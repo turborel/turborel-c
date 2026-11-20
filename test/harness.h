@@ -57,7 +57,7 @@ void trl_test_check(trl_test *test, int passed, const char *expression, const ch
 int trl_test_main(int argc, char **argv, const trl_test_case *cases, size_t count);
 
 /** @brief Checks that `condition` holds, in the case `test`. */
-#define TRL_CHECK(test, condition) trl_test_check((test), (condition) ? 1 : 0, #condition, __FILE__, __LINE__)
+#define TRL_CHECK(test, condition) trl_test_check((test), !!(condition), #condition, __FILE__, __LINE__)
 
 /** @brief An entry of a cases array, named after its function. */
 #define TRL_TEST_CASE(function) {#function, function}

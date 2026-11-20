@@ -8,6 +8,7 @@
 #include "codec/json.h"
 #include "codec/json_nodes.h"
 #include "codec/utf8.h"
+#include "memory.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -132,7 +133,7 @@ static bool check_object(checker *check, trl_json_span node, unsigned int depth)
     if (!trl_json_container_at(node, &container)) {
         return damaged(check);
     }
-    size_t *starts = malloc((container.count == 0U ? 1U : container.count) * sizeof(size_t));
+    size_t *starts = trl_malloc((container.count == 0U ? 1U : container.count) * sizeof(size_t));
     if (starts == NULL) {
         check->result = TRL_JSON_NO_MEMORY;
         return false;
