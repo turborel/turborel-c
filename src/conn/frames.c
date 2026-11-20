@@ -143,13 +143,19 @@ static bool take_body(trl_conn *conn, size_t length) {
     return true;
 }
 
-/* Fails as the codec failed, losing the connection if that ends it. */
-static bool codec_failed(trl_conn *conn, const trl_codec_error *error) {
-    trl_failure failure;
-    trl_failure_init(&failure);
-    trl_failure_from_codec(&failure, error);
-    trl_conn_failed(conn, &failure);
-    trl_failure_clear(&failure);
+/* Loses the connection: a reply that cannot be inflated or decoded leaves
+   the rest of the statement's replies unread, so the conversation is out
+   of step (RULES.md D8); SQLCODE -919, SQLSTATE 08006, or memory not had. */
+static bool undecoded(trl_conn *conn, const trl_codec_error *error) {
+    if (error->sqlcode == TRL_SQLCODE_RESOURCES) {
+        trl_failure failure;
+        trl_failure_init(&failure);
+        trl_failure_no_memory(&failure);
+        trl_conn_lose(conn, &failure);
+        trl_failure_clear(&failure);
+        return false;
+    }
+    trl_conn_lose_by(conn, error->message);
     return false;
 }
 
@@ -208,7 +214,7 @@ static bool next_reply(trl_conn *conn, trl_reply *out) {
     if (kind == TRL_KIND_COMPRESSED && conn->compressed) {
         trl_buffer_free(&conn->inflated);
         if (!trl_decompress_frame(body, conn->max_body, &kind, &conn->inflated, &error)) {
-            return codec_failed(conn, &error);
+            return undecoded(conn, &error);
         }
         body.bytes = conn->inflated.data;
         body.length = conn->inflated.length;
@@ -221,7 +227,7 @@ static bool next_reply(trl_conn *conn, trl_reply *out) {
     } else {
         arena = conn->keep;
     }
-    return trl_decode_reply(kind, body, arena, out, &error) || codec_failed(conn, &error);
+    return trl_decode_reply(kind, body, arena, out, &error) || undecoded(conn, &error);
 }
 
 /* A copy of `text`, null-ended, or null if memory cannot be had. */

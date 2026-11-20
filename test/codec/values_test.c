@@ -448,7 +448,7 @@ static void large_objects(trl_test *test) {
 /**
  * Verifies: [PROTOCOL Values] the types' own tags read as turborel's
  * reader takes them though no server sends them: 5 a string, 7 bytes, 10
- * and 12 datetimes, 18 and 19 a large object held whole.
+ * and 12 datetimes.
  */
 static void type_tags_as_values(trl_test *test) {
     fixture f;
@@ -460,31 +460,25 @@ static void type_tags_as_values(trl_test *test) {
     trl_value zoned = {TRL_TAG_TIMESTAMP_ZONED, {{NULL, 0U}}};
     zoned.as.datetime.zoned = true;
     trl_value time = {TRL_TAG_TIME_ZONED, {{NULL, 0U}}};
-    trl_value clob = {TRL_TAG_CLOB, {{NULL, 0U}}};
-    clob.as.lob.octets = text_of("tea");
-    trl_value blob = {TRL_TAG_BLOB, {{NULL, 0U}}};
-    blob.as.lob.octets = text_of("\xff");
     TRL_CHECK(test, round_trips(&f, &varying, &back) && slice_is(back.as.bytes, "v"));
     TRL_CHECK(test, round_trips(&f, &bytes, &back) && slice_is(back.as.bytes, "b"));
     TRL_CHECK(test, round_trips(&f, &zoned, &back) && back.as.datetime.zoned);
     TRL_CHECK(test, round_trips(&f, &time, &back) && back.tag == TRL_TAG_TIME_ZONED);
-    TRL_CHECK(test, round_trips(&f, &clob, &back) && back.as.lob.kind == TRL_LOB_CHARACTER);
-    TRL_CHECK(test, round_trips(&f, &blob, &back) && back.as.lob.kind == TRL_LOB_BINARY);
     fixture_free(&f);
 }
 
 /**
- * Verifies: [PROTOCOL Values] a large object under its type's tag kept in
- * a database, or a character one not UTF-8, and a tag no value has, fail
- * the connection; a character one to send not UTF-8 is refused.
+ * Verifies: [PROTOCOL Values] a value under tag 18 or 19, a large
+ * object's stored form, and a tag no value has, fail the connection
+ * (RULES.md D8); one to send under them is refused.
  */
 static void type_tags_malformed_fail(trl_test *test) {
     fixture f;
     fixture_init(&f);
     trl_value back;
     memset(&back, 0, sizeof back);
-    const uint8_t kept[] = {TRL_TAG_CLOB, 1, 1, 0, 0, 0, 0, 0, 0, 0};
-    const uint8_t not_utf8[] = {TRL_TAG_CLOB, 0, 1, 0, 0, 0, 0xFF};
+    const uint8_t kept[] = {TRL_TAG_CLOB, 0, 1, 0, 0, 0, 'a'};
+    const uint8_t not_utf8[] = {TRL_TAG_BLOB, 0, 1, 0, 0, 0, 0xFF};
     const uint8_t unknown[] = {28U, 99U};
     fixture_reset(&f);
     trl_put_raw(&f.buffer, kept, sizeof kept);
@@ -498,9 +492,9 @@ static void type_tags_malformed_fail(trl_test *test) {
         TRL_CHECK(test, !read_one(&f, &back) && failed_connection(&f));
     }
     trl_value clob = {TRL_TAG_CLOB, {{NULL, 0U}}};
-    clob.as.lob.octets = text_of("\xff");
+    clob.as.lob.octets = text_of("tea");
     fixture_reset(&f);
-    TRL_CHECK(test, !trl_write_value(&f.buffer, &clob, &f.error));
+    TRL_CHECK(test, !trl_write_value(&f.buffer, &clob, &f.error) && f.error.sqlcode == -910);
     fixture_free(&f);
 }
 

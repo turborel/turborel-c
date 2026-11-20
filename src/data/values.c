@@ -53,7 +53,6 @@ const char *trl_value_text(const trl_value *value, size_t *length) {
         return (const char *)give(value->as.bytes, length);
     case TRL_TAG_PLUGIN:
         return (const char *)give(value->as.plugin.text, length);
-    case TRL_TAG_CLOB:
     case TRL_TAG_LOB_WHOLE:
         return value->as.lob.kind == TRL_LOB_CHARACTER ? (const char *)give(value->as.lob.octets, length) : NULL;
     default:
@@ -71,7 +70,6 @@ const uint8_t *trl_value_bytes(const trl_value *value, size_t *length) {
     case TRL_TAG_JSON:
     case TRL_TAG_UUID:
         return give(value->as.bytes, length);
-    case TRL_TAG_BLOB:
     case TRL_TAG_LOB_WHOLE:
         return value->as.lob.kind == TRL_LOB_BINARY ? give(value->as.lob.octets, length) : NULL;
     case TRL_TAG_PLUGIN:

@@ -84,26 +84,6 @@ static bool read_lob_whole(trl_reader *reader, trl_value *out) {
            trl_reader_fail(reader, "a character large object is not UTF-8");
 }
 
-/* Reads a large object under its type's tag, as turborel's reader takes
-   one though no server sends it: a form byte, 0 for its octets held
-   whole; 1, a large object kept in a database, has no meaning to a client
-   and is refused. */
-static bool read_lob_typed(trl_reader *reader, trl_value *out) {
-    uint8_t form = 0U;
-    if (!trl_read_u8(reader, &form)) {
-        return false;
-    }
-    if (form != 0U) {
-        return trl_reader_fail(reader, "a large object kept in a database cannot be read by a client");
-    }
-    out->as.lob.kind = (uint8_t)(out->tag == TRL_TAG_CLOB ? TRL_LOB_CHARACTER : TRL_LOB_BINARY);
-    if (!trl_read_bytes(reader, &out->as.lob.octets)) {
-        return false;
-    }
-    return out->as.lob.kind == TRL_LOB_BINARY || trl_utf8_valid(out->as.lob.octets.bytes, out->as.lob.octets.length) ||
-           trl_reader_fail(reader, "a character large object is not UTF-8");
-}
-
 /* Reads a large object by its locator. */
 static bool read_lob_locator(trl_reader *reader, trl_value *out) {
     return read_lob_kind(reader, &out->as.locator.kind) && trl_read_u32(reader, &out->as.locator.locator) &&
@@ -226,7 +206,9 @@ bool trl_read_value(trl_reader *reader, trl_value *out) {
         return read_lob_whole(reader, out);
     case TRL_TAG_CLOB:
     case TRL_TAG_BLOB:
-        return read_lob_typed(reader, out);
+        /* The server's stored form of a large object, which no server
+           sends, though turborel-protocol's reader takes it (RULES.md D8). */
+        return trl_reader_fail(reader, "value tags 18 and 19 are a large object's stored form, which no server sends");
     case TRL_TAG_LOB_LOCATOR:
         return read_lob_locator(reader, out);
     default:

@@ -94,17 +94,6 @@ static bool write_lob(trl_buffer *buffer, const trl_value *value, trl_codec_erro
     return true;
 }
 
-/* Writes a large object under its type's tag: form 0, then its octets,
-   a CLOB's UTF-8. */
-static bool write_lob_typed(trl_buffer *buffer, const trl_value *value, trl_codec_error *error) {
-    if (value->tag == TRL_TAG_CLOB && !trl_utf8_valid(value->as.lob.octets.bytes, value->as.lob.octets.length)) {
-        return refuse_data(error, TRL_SQLSTATE_NOT_UTF8, "a character large object to send is not UTF-8");
-    }
-    trl_put_u8(buffer, 0U);
-    trl_put_bytes(buffer, value->as.lob.octets);
-    return true;
-}
-
 /* Writes a large object by its locator. */
 static bool write_locator(trl_buffer *buffer, const trl_value *value, trl_codec_error *error) {
     if (value->as.locator.kind > TRL_LOB_BINARY) {
@@ -237,7 +226,7 @@ static bool write_value(trl_buffer *buffer, const trl_value *value, trl_codec_er
         return write_lob(buffer, value, error);
     case TRL_TAG_CLOB:
     case TRL_TAG_BLOB:
-        return write_lob_typed(buffer, value, error);
+        return refuse(error, "value tags 18 and 19 are a large object's stored form, which no client sends");
     case TRL_TAG_LOB_LOCATOR:
         return write_locator(buffer, value, error);
     default:

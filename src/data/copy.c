@@ -68,8 +68,6 @@ bool trl_value_copy(trl_arena *arena, const trl_value *from, trl_value *out, uns
         return copy_slice(arena, &out->as.plugin.type_name) && copy_slice(arena, &out->as.plugin.text) &&
                copy_slice(arena, &out->as.plugin.bytes);
     case TRL_TAG_LOB_WHOLE:
-    case TRL_TAG_CLOB:
-    case TRL_TAG_BLOB:
         return copy_slice(arena, &out->as.lob.octets);
     case TRL_TAG_ARRAY:
     case TRL_TAG_ROW:

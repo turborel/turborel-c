@@ -474,7 +474,27 @@ rule here, the rule is kept:
 - Doc comments are Doxygen's, the convention of C libraries, checked by
   Clang's `-Wdocumentation`, by `rules.source` and by Doxygen.
 
-Where the driver departs from turborel-client itself:
+Where the driver departs from turborel-client itself, each decided for
+every Turborel driver alike, and reported to the owner:
+
+- A reply that cannot be decoded loses the connection, SQLCODE -919,
+  SQLSTATE 08006: a character or large object units byte, or a truth
+  byte, other than 0 or 1; a damaged JSON document, or one nested past
+  128 or over 256 MiB; a condition in Complete's tag 17 that cannot be
+  read. turborel-client gives SQLSTATE TB916 or 0A000 on some of these
+  and keeps the connection with the rest of the reply unread, out of
+  step. A reply that cannot be inflated is lost the same way; one whose
+  decoding wants memory not had loses the connection too, with SQLCODE
+  -918.
+- Value tags 18 and 19, a large object's stored form, which no server
+  sends, are refused as malformed, SQLCODE -919, SQLSTATE 08006, though
+  turborel-protocol's reader takes them; a value to send under them is
+  refused, SQLCODE -910.
+- Query attributes past their bounds are refused before sending, SQLCODE
+  -919, SQLSTATE 08006, the connection kept, where turborel-client sends
+  them and the server then fails the connection (D9).
+
+Where it departs from turborel-client on its own:
 
 - turborel-client parses an XML value's serialization with Turborel's
   own XML parser, which reads a document type declaration and expands

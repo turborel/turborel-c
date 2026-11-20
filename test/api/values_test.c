@@ -299,13 +299,12 @@ static void null_arguments_are_refused(trl_test *test) {
 static void large_objects_and_types(trl_test *test) {
     trl_value clob;
     memset(&clob, 0, sizeof clob);
-    clob.tag = TRL_TAG_CLOB;
+    clob.tag = TRL_TAG_LOB_WHOLE;
     clob.as.lob.kind = TRL_LOB_CHARACTER;
     clob.as.lob.octets.bytes = (const uint8_t *)"text";
     clob.as.lob.octets.length = 4U;
     size_t length = 0U;
     TRL_CHECK(test, trl_value_text(&clob, &length) != NULL && length == 4U && trl_value_bytes(&clob, NULL) == NULL);
-    clob.tag = TRL_TAG_BLOB;
     clob.as.lob.kind = TRL_LOB_BINARY;
     TRL_CHECK(test, trl_value_bytes(&clob, &length) != NULL && trl_value_text(&clob, NULL) == NULL);
     trl_value json = of_bytes(TRL_TAG_JSON, "\x7f\x7f");
