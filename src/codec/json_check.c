@@ -9,6 +9,7 @@
 #include "codec/json_nodes.h"
 #include "codec/utf8.h"
 #include "memory.h"
+#include "turborel/turborel.h"
 
 #include <stdbool.h>
 #include <stddef.h>

@@ -68,6 +68,13 @@ add_library(
   src/conn/options.c
   src/conn/session.c
   src/conn/target.c
+  src/data/copy.c
+  src/data/params.c
+  src/data/values.c
+  src/data/xml_lex.c
+  src/data/xml_parse.c
+  src/data/xml_text.c
+  src/data/xml_tree.c
   src/net/tls.c
   src/net/tls_settings.c
   src/net/transport.c

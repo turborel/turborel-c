@@ -55,6 +55,10 @@ void trl_failure_clear(trl_failure *failure);
  */
 void trl_failure_set(trl_failure *failure, int32_t sqlcode, const char *sqlstate, const char *message);
 
+/** @brief Sets a failure as trl_failure_set() does, citing `rule` rather than DESIGN. */
+void trl_failure_cite(trl_failure *failure, int32_t sqlcode, const char *sqlstate, const char *message,
+                      const char *rule);
+
 /** @brief Sets a connection failure (SQLCODE -919, SQLSTATE 08006) of `message`. */
 void trl_failure_broken(trl_failure *failure, const char *message);
 

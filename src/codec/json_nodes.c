@@ -5,8 +5,8 @@
  */
 #include "codec/json_nodes.h"
 
-#include "codec/decfloat.h"
 #include "codec/int128.h"
+#include "turborel/turborel.h"
 
 #include <stdbool.h>
 #include <stddef.h>

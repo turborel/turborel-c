@@ -9,6 +9,7 @@
 #include "codec/buffer.h"
 #include "codec/reader.h"
 #include "codec/tags.h"
+#include "turborel/turborel.h"
 
 #include <stdbool.h>
 #include <stddef.h>

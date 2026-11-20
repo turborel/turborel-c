@@ -13,9 +13,9 @@
 #include "codec/numerals.h"
 
 #include "codec/buffer.h"
-#include "codec/decfloat.h"
 #include "codec/int128.h"
 #include "codec/strtod.h"
+#include "turborel/turborel.h"
 
 #include <math.h>
 #include <stdbool.h>

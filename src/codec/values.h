@@ -18,29 +18,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-/** @brief A date, a time or a timestamp's body [PROTOCOL Values]. */
-typedef struct trl_datetime {
-    /** @brief Whether it is of a type WITH TIME ZONE. */
-    bool zoned;
-    /** @brief Its fractional seconds' precision. */
-    uint8_t precision;
-    /** @brief The zone's displacement from UTC, in minutes. */
-    int16_t zone;
-    /**
-     * @brief The instant, microseconds in UTC from 0001-01-01 00:00:00: of a
-     * date, its midnight's; of a time, from midnight, within a day.
-     */
-    int64_t utc;
-} trl_datetime;
-
-/** @brief An interval's body: its qualifier, then its units [PROTOCOL Values]. */
-typedef struct trl_interval {
-    /** @brief Its qualifier, as an INTERVAL type writes it. */
-    trl_interval_qualifier qualifier;
-    /** @brief Months of a year-month interval, microseconds of a day-time one. */
-    trl_int128 units;
-} trl_interval;
-
 /** @brief A value. */
 typedef struct trl_value trl_value;
 

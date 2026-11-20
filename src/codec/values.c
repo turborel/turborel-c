@@ -14,6 +14,7 @@
 #include "codec/tags.h"
 #include "codec/types.h"
 #include "codec/utf8.h"
+#include "turborel/turborel.h"
 
 #include <stdbool.h>
 #include <stddef.h>

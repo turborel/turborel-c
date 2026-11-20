@@ -9,6 +9,7 @@
 #include "codec/buffer.h"
 #include "codec/reader.h"
 #include "codec/tags.h"
+#include "turborel/turborel.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -20,18 +21,6 @@ typedef struct trl_name {
     /** @brief The name in it. */
     trl_slice name;
 } trl_name;
-
-/** @brief An interval's qualifier: its fields and precisions [PROTOCOL Data types]. */
-typedef struct trl_interval_qualifier {
-    /** @brief The start field, TRL_FIELD_YEAR to TRL_FIELD_SECOND. */
-    uint32_t start;
-    /** @brief The end field. */
-    uint32_t end;
-    /** @brief The leading field's precision. */
-    uint32_t leading;
-    /** @brief The seconds' fractional precision. */
-    uint32_t fraction;
-} trl_interval_qualifier;
 
 /** @brief A data type. */
 typedef struct trl_data_type trl_data_type;

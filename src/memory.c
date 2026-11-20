@@ -69,6 +69,14 @@ static bool faulted(void) {
 
 #endif
 
+void trl_free_const(const void *block) {
+    union {
+        const void *read;
+        void *owned;
+    } pointer = {block};
+    free(pointer.owned);
+}
+
 void *trl_malloc(size_t size) {
     return faulted() ? NULL : malloc(size);
 }

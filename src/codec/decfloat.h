@@ -11,14 +11,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-/** @brief A decimal floating-point number: coefficient times ten to the exponent. */
-typedef struct trl_decfloat {
-    /** @brief Its digits, signed, with no trailing zero. */
-    trl_int128 coefficient;
-    /** @brief The power of ten. */
-    int32_t exponent;
-} trl_decfloat;
-
 /**
  * @brief The DECFLOAT turborel makes of `value`: rounded to 34 digits,
  * half to even, its trailing zeros taken into its exponent, zero of

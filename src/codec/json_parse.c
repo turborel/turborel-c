@@ -15,6 +15,7 @@
 #include "codec/json_tree.h"
 #include "codec/strtod.h"
 #include "codec/utf8.h"
+#include "turborel/turborel.h"
 
 #include <math.h>
 #include <stdbool.h>

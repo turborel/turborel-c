@@ -20,6 +20,9 @@ void *trl_calloc(size_t count, size_t size);
 /** @brief realloc, or null, `block` kept, as a fault armed says. */
 void *trl_realloc(void *block, size_t size);
 
+/** @brief Frees a block the library allocated, given as const where it is read. */
+void trl_free_const(const void *block);
+
 #ifdef TRL_FAULTS
 /**
  * @brief Arms a fault on this thread: the allocation after `allowed` more

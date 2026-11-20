@@ -123,13 +123,18 @@ bool trl_failure_ends_connection(const trl_failure *failure) {
 }
 
 void trl_failure_set(trl_failure *failure, int32_t sqlcode, const char *sqlstate, const char *message) {
+    trl_failure_cite(failure, sqlcode, sqlstate, message, TRL_RULE_DESIGN);
+}
+
+void trl_failure_cite(trl_failure *failure, int32_t sqlcode, const char *sqlstate, const char *message,
+                      const char *rule) {
     trl_failure probe;
     trl_failure_init(&probe);
     probe.sqlcode = sqlcode;
     trl_format(probe.sqlstate, sizeof probe.sqlstate, "%s", sqlstate);
     strings from = {{{NULL, 0U}}};
     from.of[TRL_STRING_MESSAGE] = text(message);
-    from.of[TRL_STRING_RULE] = text(TRL_RULE_DESIGN);
+    from.of[TRL_STRING_RULE] = text(rule);
     from.of[TRL_STRING_DIAGNOSTICS] =
         text(trl_failure_ends_connection(&probe) ? TRL_SEVERITY_FATAL : TRL_SEVERITY_ERROR);
     set_all(failure, sqlcode, text(sqlstate), &from);

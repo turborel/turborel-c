@@ -8,6 +8,7 @@
 #include "codec/decfloat.h"
 
 #include "codec/int128.h"
+#include "turborel/turborel.h"
 
 #include <stdbool.h>
 #include <stdint.h>
