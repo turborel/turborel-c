@@ -17,11 +17,11 @@ change-user and query attributes. The User's Guide's
 
 ### NAME
 
-`trl_query`, `trl_query_batches`, `trl_result_has_rows`,
-`trl_result_column_count`, `trl_result_column_name`,
+`trl_query`, `trl_query_params`, `trl_query_batches`,
+`trl_result_has_rows`, `trl_result_column_count`, `trl_result_column_name`,
 `trl_result_column_type`, `trl_result_column_type_name`,
 `trl_result_column_type_written`, `trl_result_row_count`, `trl_result_value`,
-`trl_result_more`, `trl_result_sqlcode`, `trl_result_sqlstate`,
+`trl_result_text`, `trl_result_more`, `trl_result_sqlcode`, `trl_result_sqlstate`,
 `trl_result_free`: a statement run, and what it gave.
 
 ### SYNOPSIS
@@ -32,6 +32,8 @@ change-user and query attributes. The User's Guide's
 typedef void (*trl_batch_handler)(void *context, const trl_result *batch);
 
 trl_status trl_query(trl_conn *conn, const char *sql, trl_result **out);
+trl_status trl_query_params(trl_conn *conn, const char *sql, size_t count, const char *const *values,
+                            trl_result **out);
 trl_status trl_query_batches(trl_conn *conn, const char *sql, trl_batch_handler handler, void *context,
                              trl_result **out);
 bool trl_result_has_rows(const trl_result *result);
@@ -42,6 +44,7 @@ const char *trl_result_column_type_name(const trl_result *result, size_t column)
 const char *trl_result_column_type_written(const trl_result *result, size_t column);
 size_t trl_result_row_count(const trl_result *result);
 const trl_value *trl_result_value(const trl_result *result, size_t row, size_t column);
+const char *trl_result_text(trl_result *result, size_t row, size_t column);
 bool trl_result_more(const trl_result *result);
 int32_t trl_result_sqlcode(const trl_result *result);
 const char *trl_result_sqlstate(const trl_result *result);
@@ -57,6 +60,13 @@ result holds the columns, every row, and the completion's SQLCODE and
 SQLSTATE, a query of no rows SQLCODE 100 and SQLSTATE 02000. It is the
 caller's, and lasts until `trl_result_free`, its values with it, whatever
 the connection does after.
+
+`trl_query_params` runs a statement with its `?` parameters given as
+text, as libpq's PQexecParams does: each value a null-ended UTF-8
+string, or a null pointer for the null value. The statement is
+prepared, executed with each value as a character string, which the
+server assigns to the parameter's type, and destroyed; its result is as
+`trl_query`'s. With no parameter it is `trl_query`.
 
 `trl_query_batches` gives each Rows reply to `handler` as it comes, a
 batch whose rows and values last only until the handler returns, the
@@ -75,13 +85,18 @@ USER-DEFINED, null where the server did not tell it;
 declared where told, as INTEGER or ANN.MONEY, else as the type's tag and
 sizes say, as `trl_type_to_text` writes it, so INTEGER is NUMERIC(10,0)
 [CLIENT Prepared statements]. Rows and columns are counted from 0; a
-place past the last gives null. `trl_result_more` says whether a cursor's batch left rows to
-fetch.
+place past the last gives null. `trl_result_text` gives a value's text,
+as `trl_value_to_text` writes it, made once and kept by the result until
+it is freed; null of the null value, of a place past the last, or if
+memory cannot be had. `trl_result_more` says whether a cursor's batch
+left rows to fetch.
 
 ### ERRORS
 
-`TRL_INVALID_ARGUMENT` for a null pointer, nothing sent. `TRL_FAILED`,
-`*out` null, with the connection's failure: the statement's Error,
+`TRL_INVALID_ARGUMENT` for a null pointer, or parameters counted but
+not given, nothing sent. `TRL_FAILED`, `*out` null, with the
+connection's failure: the statement's Error, of `trl_query_params` its
+preparing's or its execution's,
 the connection kept unless it is of class 08; or the driver's own,
 SQLSTATE 08006 of a connection lost, a reply out of turn ("the server
 sent no result", "the server broke off its rows") or a malformed one.

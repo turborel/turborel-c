@@ -4,8 +4,9 @@
 
 A program runs a statement by its text, and reads what comes back: a
 query's columns and rows, or another statement's completion. This
-chapter shows how, how rows come a batch at a time, the values the
-driver gives for each type, and what a completion tells besides.
+chapter shows how, the values the driver gives for each type,
+parameters given as text, how rows come a batch at a time, and what a
+completion tells besides.
 [Statements and Cursors](../client/22-statements.md) and
 [Values](../client/23-values.md) give each function in full.
 
@@ -266,6 +267,44 @@ trl_result_free(result);
 
 A value the server cannot serialize as XML, such as an attribute
 standing alone, fails the query with SQLSTATE 2200W.
+
+## Parameters given as text
+
+A statement's `?` parameters may be given as text, each value a string
+the server assigns to the parameter's type, as libpq's PQexecParams
+takes them. `trl_query_params` prepares the statement, executes it with
+the values, and destroys it; a null pointer is the null value.
+`trl_result_text` gives any value as text, kept by the result until it
+is freed, and null for the null value:
+
+```c
+run(conn, "CREATE TABLE CITY (NAME VARCHAR(20), PEOPLE INTEGER)");
+static const char *const cities[][2] = {{"Oslo", "709000"}, {"Bergen", "291000"}, {"Hamar", NULL}};
+trl_result *result = NULL;
+for (size_t i = 0; i < 3; ++i) {
+    trl_query_params(conn, "INSERT INTO CITY VALUES (?, ?)", 2, cities[i], &result);
+    trl_result_free(result);
+}
+const char *const least[] = {"300000"};
+if (trl_query_params(conn, "SELECT NAME, PEOPLE FROM CITY WHERE PEOPLE > ? OR PEOPLE IS NULL ORDER BY NAME", 1,
+                     least, &result) == TRL_OK) {
+    for (size_t row = 0; row < trl_result_row_count(result); ++row) {
+        const char *people = trl_result_text(result, row, 1);
+        printf("%s %s\n", trl_result_text(result, row, 0), people != NULL ? people : "unknown");
+    }
+}
+trl_result_free(result);
+```
+
+```
+Hamar unknown
+Oslo 709000
+```
+
+A value the parameter's type cannot take fails as the server's
+assignment fails, as 22018 for text that is no number.
+[Prepared Statements](04-prepared-statements.md) binds typed values
+instead, and runs a statement many times.
 
 ## Rows a batch at a time
 

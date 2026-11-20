@@ -29,10 +29,12 @@ large objects, bulk copy, import and export, settings from a URI, the
 environment and service and password files, several servers, pipelines
 and pools.
 
-The driver is built in milestones, M0 to M8: it connects to a server,
-over each transport, by each mechanism; runs statements, prepared or
-not, reads their rows a batch at a time or through cursors, and controls
-the session; large objects, bulk copy and the rest are to come.
+The driver is built in milestones, M0 to M8. It connects to a server
+over each transport, by each mechanism, by settings or a URI; runs
+statements, prepared or not, and reads their rows a batch at a time or
+through cursors; reads and writes large objects; copies, imports and
+exports; runs pipelines, pools and the SQL-agent; and gives the standard
+API and the ODBC driver. Milestone M8, the parity audit, is what remains.
 [CONFORMANCE.md](CONFORMANCE.md) shows what is done, row by row, and
 [TODO.md](TODO.md) what is open.
 
@@ -68,13 +70,13 @@ or with pkg-config, `pkg-config --cflags --libs turborel`.
 
 ## A first query
 
-This is what the standard API will be once milestone M7 builds it and
-M8's audit checks it. None of it runs yet, and its names may change
-until then.
+This is the standard API. Its names may change until milestone M8's
+audit has checked them.
 
 ```c
-#include <stdio.h>
 #include <turborel/turborel.h>
+
+#include <stdio.h>
 
 int main(void) {
     trl_conn *conn = NULL;
@@ -87,15 +89,24 @@ int main(void) {
     const char *const values[] = {"3"};
     trl_result *result = NULL;
     if (trl_query_params(conn, "SELECT ID, NAME FROM STAFF WHERE ID < ? ORDER BY ID", 1, values, &result) == TRL_OK) {
-        for (size_t row = 0; row < trl_result_rows(result); ++row) {
+        for (size_t row = 0; row < trl_result_row_count(result); ++row) {
             printf("%s %s\n", trl_result_text(result, row, 0), trl_result_text(result, row, 1));
         }
+    } else {
+        fprintf(stderr, "%s: %s\n", trl_failure_sqlstate(trl_conn_failure(conn)),
+                trl_failure_message(trl_conn_failure(conn)));
     }
     trl_result_free(result);
+    trl_conn_terminate(conn);
     trl_conn_free(conn);
     return 0;
 }
 ```
+
+The program is built by `cc first.c $(pkg-config --cflags --libs turborel)`.
+[Installing](doc/user/01-installing.md) runs a whole first program, and
+shows how to register the ODBC driver, `libturborelodbc`, with a driver
+manager.
 
 ## The manual
 

@@ -882,17 +882,17 @@ later decision of RULES.md.
 
 | ID | Row | Citation | Status |
 |---|---|---|---|
-| S-API-1 | `trl_connect`: a connection handle made from a `turborel://` URI or settings, and `trl_conn_free` | `[DESIGN] D2` | not yet |
-| S-API-2 | Every call answered by a `trl_status`, and the failure object of SQLCODE, SQLSTATE, message and diagnostics a handle keeps | `[DESIGN] D9` | not yet |
-| S-API-3 | Queries, with and without `?` parameters, giving a result handle | `[DESIGN] D2` | not yet |
-| S-API-4 | Prepared statements and cursors, by handle | `[DESIGN] D2` | not yet |
-| S-API-5 | A result's columns and their types, its rows, and each value as text or by a typed accessor | `[DESIGN] D2` | not yet |
+| S-API-1 | `trl_connect`: a connection handle made from a `turborel://` URI or settings, and `trl_conn_free` | `[DESIGN] D2` | done |
+| S-API-2 | Every call answered by a `trl_status`, and the failure object of SQLCODE, SQLSTATE, message and diagnostics a handle keeps | `[DESIGN] D9` | done |
+| S-API-3 | Queries, with and without `?` parameters, giving a result handle | `[DESIGN] D2` | done |
+| S-API-4 | Prepared statements and cursors, by handle | `[DESIGN] D2` | done |
+| S-API-5 | A result's columns and their types, its rows, and each value as text or by a typed accessor | `[DESIGN] D2` | done |
 | S-API-6 | Exact numbers as `trl_decimal`, two 64-bit halves and a scale, with nothing lost, and their text | `[DESIGN] D2` | done |
-| S-API-7 | Large objects, copy, notices, the session's status, pipelines and pools, reached through the C API | `[DESIGN] D2` | not yet |
-| S-API-8 | Ownership said by every function, and opaque handles freed by their `_free` (D10) | `[DESIGN] D10` | not yet |
-| S-API-9 | The ODBC 3.x driver, `libturborelodbc`: its environment, connection, statement and descriptor handles, from Microsoft's *ODBC Programmer's Reference* | `[DESIGN] D2` | not yet |
-| S-API-10 | ODBC's connection: `SQLDriverConnect` and `SQLConnect` with a data source's settings, `SQLDisconnect` | `[DESIGN] D2` | not yet |
-| S-API-11 | ODBC's statements: `SQLExecDirect`, `SQLPrepare`, `SQLExecute`, `SQLBindParameter`, `SQLFetch`, `SQLGetData`, `SQLBindCol` | `[DESIGN] D2` | not yet |
-| S-API-12 | ODBC's catalog functions, as GUI tools call them: `SQLTables`, `SQLColumns`, `SQLPrimaryKeys`, `SQLGetTypeInfo`, `SQLGetInfo` | `[DESIGN] D2` | not yet |
-| S-API-13 | ODBC's diagnostics: `SQLGetDiagRec` and `SQLGetDiagField`, of each failure's SQLSTATE and message | `[DESIGN] D2` | not yet |
-| S-API-14 | The ODBC driver registered on Windows, and with unixODBC and iODBC | `[DESIGN] D2` | not yet |
+| S-API-7 | Large objects, copy, notices, the session's status, pipelines and pools, reached through the C API | `[DESIGN] D2` | done |
+| S-API-8 | Ownership said by every function, and opaque handles freed by their `_free` (D10) | `[DESIGN] D10` | done |
+| S-API-9 | The ODBC 3.x driver, `libturborelodbc`: its environment, connection, statement and descriptor handles, from Microsoft's *ODBC Programmer's Reference* | `[DESIGN] D2` | done |
+| S-API-10 | ODBC's connection: `SQLDriverConnect` and `SQLConnect` with a data source's settings, `SQLDisconnect` | `[DESIGN] D2` | done |
+| S-API-11 | ODBC's statements: `SQLExecDirect`, `SQLPrepare`, `SQLExecute`, `SQLBindParameter`, `SQLFetch`, `SQLGetData`, `SQLBindCol` | `[DESIGN] D2` | done |
+| S-API-12 | ODBC's catalog functions, as GUI tools call them: `SQLTables`, `SQLColumns`, `SQLPrimaryKeys`, `SQLGetTypeInfo`, `SQLGetInfo` | `[DESIGN] D2` | done |
+| S-API-13 | ODBC's diagnostics: `SQLGetDiagRec` and `SQLGetDiagField`, of each failure's SQLSTATE and message | `[DESIGN] D2` | done |
+| S-API-14 | The ODBC driver registered on Windows, and with unixODBC and iODBC | `[DESIGN] D2` | done |

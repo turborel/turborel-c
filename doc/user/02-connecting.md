@@ -7,9 +7,8 @@ A program connects to a server by three things: where the server is, a
 user. A connection is a session of the server's, held until the program
 ends it. This chapter shows each target and mechanism, TLS, the
 timeouts, what a connection is told, and how it ends or its statement is
-cancelled. The standard API's way of connecting comes with it, at
-milestone M7. [Connections](../client/21-connections.md) gives each
-function in full.
+cancelled, and last the standard API's way of connecting, by a URI.
+[Connections](../client/21-connections.md) gives each function in full.
 
 ## A first connection
 
@@ -53,6 +52,40 @@ time zone +00:00
 The user is an identifier, so `ann` is ANN. Each handle is freed by its
 own `_free` function, and a connection is freed even when `trl_connect`
 fails: it then holds the failure, which `trl_conn_failure` gives.
+
+## By a URI
+
+The standard API connects by one call, `trl_connect_uri`, given a
+`turborel://` URI. The URI is laid with the rest of the connection's
+settings, the environment's and a service file's among them, as
+[Settings](09-settings.md) shows, and the connection is made as they
+say:
+
+```c
+#include <turborel/turborel.h>
+
+#include <stdio.h>
+
+int main(void) {
+    trl_conn *conn = NULL;
+    if (trl_connect_uri("turborel://ann@127.0.0.1:17438/?tls_mode=disable&application_name=reports", &conn) ==
+        TRL_OK) {
+        printf("%s, as %s\n", trl_conn_server(conn), trl_conn_authorization(conn));
+        trl_conn_terminate(conn);
+    } else {
+        printf("%s %s\n", trl_failure_sqlstate(trl_conn_failure(conn)), trl_failure_message(trl_conn_failure(conn)));
+    }
+    trl_conn_free(conn);
+    return 0;
+}
+```
+
+```
+turborel 0.0.0 (alpha), as ANN
+```
+
+As with `trl_connect`, the connection is freed even when the call fails,
+and holds the failure until it is.
 
 ## Targets
 

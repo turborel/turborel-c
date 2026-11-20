@@ -519,6 +519,30 @@ Where it departs from turborel-client on its own:
   of them, which places a failure as Turborel's parser does but words it
   in its own way.
 
+Where the standard API departs from its models, libpq and ODBC 3.x:
+
+- A connection by a URI is `trl_connect_uri`, as `trl_connect` is the
+  low-level client's connection by a target and a mechanism.
+- The ODBC driver's functions without `W` take and give UTF-8, whatever
+  the process's code page or locale; a `W` function's SQLWCHAR is UTF-16
+  or UTF-32 by its size.
+- Its parameters are input parameters, one set at a time: an output
+  parameter, an array of parameter sets, and data at execution are
+  refused, SQLSTATE HYC00. SQLSetPos and positioned updates are refused
+  so too.
+- Its cursor is the client's: a query's rows are read as it runs, so a
+  forward-only cursor and a static one are the same rows, and a
+  keyset-driven or dynamic one is changed to static, SQLSTATE 01S02.
+- Its transactions are serializable, as Turborel's are: another
+  isolation level is changed to it, SQLSTATE 01S02. SQL_ATTR_ACCESS_MODE
+  and SQL_ATTR_QUERY_TIMEOUT are kept and told, and stop nothing; a
+  statement is stopped by SQLCancel.
+- A type ODBC has none of, a datetime with a time zone, an interval,
+  DECFLOAT, JSON, XML and the composite types, is given as its text, of
+  SQL type SQL_VARCHAR, or SQL_LONGVARCHAR for those of no bound; an
+  interval's leading precision is told as 0.
+- SQLDriverConnect shows no dialog, whatever its completion asks.
+
 ### This driver's own
 
 #### D9. Failures are status codes, with a failure object of SQLCODE and SQLSTATE

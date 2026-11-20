@@ -157,8 +157,9 @@ settings.
 
 ### NAME
 
-`trl_settings_connect`, `trl_server_role`, `trl_conn_role`: a connection
-made as settings say, and the role of its server.
+`trl_settings_connect`, `trl_connect_uri`, `trl_server_role`,
+`trl_conn_role`: a connection made as settings, or a URI, say, and the
+role of its server.
 
 ### SYNOPSIS
 
@@ -166,6 +167,7 @@ made as settings say, and the role of its server.
 typedef enum trl_server_role { TRL_SERVER_READ_WRITE = 0, TRL_SERVER_READ_ONLY, TRL_SERVER_UNKNOWN } trl_server_role;
 
 trl_status trl_settings_connect(const trl_settings *settings, trl_conn **out);
+trl_status trl_connect_uri(const char *uri, trl_conn **out);
 trl_status trl_conn_role(trl_conn *conn, trl_server_role *out);
 ```
 
@@ -196,6 +198,12 @@ a connection not over TLS or a password not proved by SCRAM.
 
 Settings may connect from several threads at once; their connections
 share their key cache, which takes every thread (RULES.md D11).
+
+`trl_connect_uri` is the standard API's way to a connection, as libpq's
+PQconnectdb: the URI laid with the rest of the settings, as
+`trl_settings_from_uri` lays it, then connected by
+`trl_settings_connect`. Its connection is made on `TRL_FAILED` too,
+holding why, a URI that cannot be read among the reasons.
 
 `trl_conn_role` gives the role of a connection's server as its session
 sees it: as SERVER_READ_ONLY last told it; of a server that does not

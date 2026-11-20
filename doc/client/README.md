@@ -9,6 +9,7 @@ The standard API, then the low-level client beneath it, a page for each main int
 ### The standard API
 
 - [The ODBC Driver](01-api-odbc.md)
+- [The C API](02-api-c.md)
 
 ### The low-level client
 
