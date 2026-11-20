@@ -30,7 +30,6 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
@@ -62,7 +61,11 @@ static int fd_of(const trl_transport *transport) {
 /* Whether `code` says a wait ran out: SO_RCVTIMEO and SO_SNDTIMEO give
    EAGAIN, or EWOULDBLOCK. */
 static bool ran_out(int code) {
+#if EAGAIN == EWOULDBLOCK
+    return code == EAGAIN;
+#else
     return code == EAGAIN || code == EWOULDBLOCK;
+#endif
 }
 
 /* Records the failure of `code`, a wait run out if it says so. */

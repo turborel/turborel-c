@@ -18,7 +18,6 @@
 #include <openssl/x509v3.h>
 #include <stdbool.h>
 #include <stddef.h>
-#include <stdio.h>
 
 #define PATH_BYTES 1024U
 #define ONE_HOUR 3600L

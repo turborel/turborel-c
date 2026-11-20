@@ -23,7 +23,6 @@
 #ifdef TRL_HAVE_TLS
 
 #include <limits.h>
-#include <stdio.h>
 
 /* The TLS library's headers declare more than the include checker can
    map to their own names (R-LINT-3). */
