@@ -494,6 +494,30 @@ static void exact_numbers_hold_38_digits(trl_test *test) {
     trl_conn_free(conn);
 }
 
+/**
+ * Verifies: [PROTOCOL Query 'Q'] a query that fails before its first
+ * batch is sent answered by its Error alone: no result, no columns
+ * and no batch given, by Query, by Query a batch at a time, and by
+ * Execute; the connection kept for the next statement.
+ */
+static void a_query_failing_at_its_first_batch_gives_its_error_alone(trl_test *test) {
+    trl_conn *conn = live_trusted(NULL);
+    TRL_CHECK(test, run(conn, "CREATE TABLE ZERO (K INTEGER)") && run(conn, "INSERT INTO ZERO VALUES (0)"));
+    trl_result *result = NULL;
+    TRL_CHECK(test, trl_query(conn, "SELECT 1 / K FROM ZERO", &result) == TRL_FAILED && result == NULL);
+    TRL_CHECK(test, strcmp(trl_failure_sqlstate(trl_conn_failure(conn)), "22012") == 0 && !trl_conn_is_lost(conn));
+    size_t counted[2] = {0U, 0U};
+    TRL_CHECK(test, trl_query_batches(conn, "SELECT 1 / K FROM ZERO", count_batch, counted, &result) == TRL_FAILED &&
+                        result == NULL && counted[1] == 0U);
+    trl_statement *statement = NULL;
+    TRL_CHECK(test, trl_prepare(conn, "SELECT 1 / K FROM ZERO", &statement) == TRL_OK &&
+                        trl_execute(conn, statement, NULL, &result) == TRL_FAILED && result == NULL);
+    TRL_CHECK(test, strcmp(trl_failure_sqlstate(trl_conn_failure(conn)), "22012") == 0);
+    TRL_CHECK(test, trl_deallocate(conn, statement) == TRL_OK && run(conn, "VALUES 1") && run(conn, "ROLLBACK"));
+    trl_statement_free(statement);
+    trl_conn_free(conn);
+}
+
 int main(int argc, char **argv) {
     char cwd[PATH_BYTES];
     char dir[PATH_BYTES + sizeof "/live-statements"];
@@ -510,13 +534,20 @@ int main(int argc, char **argv) {
     bool ready = owner != NULL && run(owner, "CREATE SCHEMA AUTHORIZATION ANN") && run(owner, "COMMIT");
     trl_conn_free(owner);
     static const trl_test_case cases[] = {
-        TRL_TEST_CASE(a_query_gives_columns_and_rows),    TRL_TEST_CASE(a_failure_says_what_and_where),
-        TRL_TEST_CASE(rows_come_a_batch_at_a_time),       TRL_TEST_CASE(a_transaction_ends_as_asked),
-        TRL_TEST_CASE(a_prepared_statement_runs_again),   TRL_TEST_CASE(a_cursor_is_read_in_parts),
-        TRL_TEST_CASE(numbered_cursors_and_descriptions), TRL_TEST_CASE(a_call_gives_its_output_parameters),
-        TRL_TEST_CASE(an_open_cursors_statement_stays),   TRL_TEST_CASE(a_cut_parameter_warns),
-        TRL_TEST_CASE(declared_types_are_told),           TRL_TEST_CASE(a_prepared_statement_tells_not_null),
+        TRL_TEST_CASE(a_query_gives_columns_and_rows),
+        TRL_TEST_CASE(a_failure_says_what_and_where),
+        TRL_TEST_CASE(rows_come_a_batch_at_a_time),
+        TRL_TEST_CASE(a_transaction_ends_as_asked),
+        TRL_TEST_CASE(a_prepared_statement_runs_again),
+        TRL_TEST_CASE(a_cursor_is_read_in_parts),
+        TRL_TEST_CASE(numbered_cursors_and_descriptions),
+        TRL_TEST_CASE(a_call_gives_its_output_parameters),
+        TRL_TEST_CASE(an_open_cursors_statement_stays),
+        TRL_TEST_CASE(a_cut_parameter_warns),
+        TRL_TEST_CASE(declared_types_are_told),
+        TRL_TEST_CASE(a_prepared_statement_tells_not_null),
         TRL_TEST_CASE(exact_numbers_hold_38_digits),
+        TRL_TEST_CASE(a_query_failing_at_its_first_batch_gives_its_error_alone),
     };
     int result = ready ? trl_test_main(argc, argv, cases, TRL_TEST_COUNT(cases)) : EXIT_FAILURE;
     server_stop(&live_server);

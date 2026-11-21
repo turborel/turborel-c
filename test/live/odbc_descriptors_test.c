@@ -426,6 +426,29 @@ static void exact_numbers_hold_38_digits(trl_test *test) {
     odbc_close(&o);
 }
 
+/**
+ * Verifies: [DESIGN] D2 a query that fails before its first batch is
+ * sent, answered by its Error alone [PROTOCOL Query 'Q']: SQLExecDirect
+ * SQL_ERROR (22012) with no result's columns, and SQLExecute of it
+ * prepared, its prepared columns kept; the statement used again after.
+ */
+static void a_query_failing_at_its_first_batch_is_an_error(trl_test *test) {
+    odbc_opened o;
+    TRL_CHECK(test, odbc_open(&o));
+    TRL_CHECK(test,
+              odbc_run(o.stmt, "CREATE TABLE ZERO (K INTEGER)") && odbc_run(o.stmt, "INSERT INTO ZERO VALUES (0)"));
+    SQLSMALLINT columns = -1;
+    TRL_CHECK(test, SQLExecDirect(o.stmt, sql_text("SELECT 1 / K FROM ZERO"), SQL_NTS) == SQL_ERROR &&
+                        strcmp(odbc_state(SQL_HANDLE_STMT, o.stmt, NULL), "22012") == 0);
+    TRL_CHECK(test, SQLNumResultCols(o.stmt, &columns) == SQL_SUCCESS && columns == 0);
+    TRL_CHECK(test, SQLPrepare(o.stmt, sql_text("SELECT 1 / K FROM ZERO"), SQL_NTS) == SQL_SUCCESS);
+    TRL_CHECK(test, SQLExecute(o.stmt) == SQL_ERROR && strcmp(odbc_state(SQL_HANDLE_STMT, o.stmt, NULL), "22012") == 0);
+    TRL_CHECK(test, SQLNumResultCols(o.stmt, &columns) == SQL_SUCCESS && columns == 1);
+    (void)SQLFreeStmt(o.stmt, SQL_CLOSE);
+    TRL_CHECK(test, odbc_run(o.stmt, "DROP TABLE ZERO CASCADE"));
+    odbc_close(&o);
+}
+
 int main(int argc, char **argv) {
     bool skip = false;
     if (!odbc_start("live-odbc-desc", &skip)) {
@@ -439,6 +462,7 @@ int main(int argc, char **argv) {
         TRL_TEST_CASE(declared_integers_are_odbcs),
         TRL_TEST_CASE(each_type_is_odbcs),
         TRL_TEST_CASE(exact_numbers_hold_38_digits),
+        TRL_TEST_CASE(a_query_failing_at_its_first_batch_is_an_error),
     };
     int run_result = trl_test_main(argc, argv, cases, TRL_TEST_COUNT(cases));
     odbc_stop();
