@@ -1,6 +1,6 @@
 # A release's archives, built and tested on each platform (VERSIONING.md).
 # Run only by hand. It publishes nothing: the publish job is written but
-# turned off, and the owner turns it on once every driver is done.
+# turned off, and a maintainer turns it on once every driver is done.
 name: release
 
 on:
@@ -39,8 +39,8 @@ jobs:
 
   publish:
     needs: build
-    # Off: nothing is published until every turborel driver is done. The
-    # owner turns this on, by removing this line, for the release.
+    # Off: nothing is published until every turborel driver is done. A
+    # maintainer turns this on, by removing this line, for the release.
     if: false
     runs-on: ubuntu-latest
     permissions:
