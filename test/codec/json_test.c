@@ -40,8 +40,8 @@ static void literals_are_their_tags(trl_test *test) {
 /**
  * Verifies: [PROTOCOL Values] an exact number is stored in the narrowest
  * of its forms, an integer i64 or a decimal of units i64 and scale u8; one
- * of more digits than an exact number holds a DECFLOAT; one with an
- * exponent approximate.
+ * of more than 18 digits, the most a JSON number holds exact, a DECFLOAT;
+ * one with an exponent approximate.
  */
 static void numbers_take_their_narrowest_node(trl_test *test) {
     fixture f;

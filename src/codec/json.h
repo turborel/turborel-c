@@ -87,8 +87,8 @@ bool trl_json_to_text(trl_buffer *buffer, const uint8_t *bytes, size_t length, t
 
 /**
  * @brief Appends the document of a JSON text, as turborel parses one
- * (RFC 8259): a number without an exponent exact, of more digits than an
- * exact number holds a DECFLOAT, one with an exponent approximate; members
+ * (RFC 8259): a number without an exponent exact, of more than 18 digits
+ * a DECFLOAT, one with an exponent approximate; members
  * of one key all kept, in the order written.
  * @param buffer Where the document goes.
  * @param text The text, UTF-8; may be null if `length` is 0.

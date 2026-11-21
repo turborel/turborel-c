@@ -363,6 +363,69 @@ static void each_type_is_odbcs(trl_test *test) {
     odbc_close(&o);
 }
 
+/* 38 digits, the most an exact number holds, and 39, past them. */
+#define WIDEST "12345678901234567890123456789012345678"
+#define PAST_WIDEST "100000000000000000000000000000000000000"
+
+/* SQL_NUMERIC_STRUCT of the digits `digits`, scale 0, positive. */
+static SQL_NUMERIC_STRUCT numeric_of(const char *digits) {
+    SQL_NUMERIC_STRUCT n;
+    memset(&n, 0, sizeof n);
+    n.precision = 38U;
+    n.sign = 1U;
+    for (const char *at = digits; *at != '\0'; ++at) {
+        unsigned int carry = (unsigned int)(*at - '0');
+        for (size_t i = 0U; i < SQL_MAX_NUMERIC_LEN; ++i) {
+            unsigned int next = (n.val[i] * 10U) + carry;
+            n.val[i] = (SQLCHAR)(next & 0xFFU);
+            carry = next >> 8U;
+        }
+    }
+    return n;
+}
+
+/**
+ * Verifies: [DESIGN] D2 an exact number of 38 digits, the most turborel
+ * holds, through ODBC: sent as SQL_C_NUMERIC and as text, read as
+ * SQL_C_CHAR and as SQL_C_NUMERIC unchanged; its column's size, and
+ * SQLGetTypeInfo's of NUMERIC, 38; one of 39 digits refused (22003).
+ */
+static void exact_numbers_hold_38_digits(trl_test *test) {
+    odbc_opened o;
+    TRL_CHECK(test, odbc_open(&o));
+    TRL_CHECK(test, odbc_run(o.stmt, "CREATE TABLE WIDE (N NUMERIC(38,0), T NUMERIC(38,0))"));
+    SQL_NUMERIC_STRUCT sent = numeric_of(WIDEST);
+    char text[] = WIDEST;
+    (void)SQLBindParameter(o.stmt, 1, SQL_PARAM_INPUT, SQL_C_NUMERIC, SQL_NUMERIC, 38, 0, &sent, 0, NULL);
+    (void)SQLBindParameter(o.stmt, 2, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_NUMERIC, 38, 0, text, 0, NULL);
+    TRL_CHECK(test, odbc_said(o.stmt, SQLExecDirect(o.stmt, sql_text("INSERT INTO WIDE VALUES (?, ?)"), SQL_NTS)) ==
+                        SQL_SUCCESS);
+    (void)SQLFreeStmt(o.stmt, SQL_RESET_PARAMS);
+    TRL_CHECK(test, SQLExecDirect(o.stmt, sql_text("SELECT N, T FROM WIDE"), SQL_NTS) == SQL_SUCCESS &&
+                        SQLFetch(o.stmt) == SQL_SUCCESS);
+    char read[64];
+    SQLLEN length = 0;
+    TRL_CHECK(test, SQLGetData(o.stmt, 1, SQL_C_CHAR, read, (SQLLEN)sizeof read, &length) == SQL_SUCCESS &&
+                        strcmp(read, WIDEST) == 0);
+    SQL_NUMERIC_STRUCT got;
+    TRL_CHECK(test, SQLGetData(o.stmt, 2, SQL_C_NUMERIC, &got, 0, &length) == SQL_SUCCESS &&
+                        memcmp(got.val, sent.val, sizeof got.val) == 0 && got.sign == 1U);
+    SQLULEN size = 0U;
+    TRL_CHECK(test, SQLDescribeCol(o.stmt, 1, NULL, 0, NULL, NULL, &size, NULL, NULL) == SQL_SUCCESS && size == 38U);
+    (void)SQLFreeStmt(o.stmt, SQL_CLOSE);
+    SQLINTEGER most = 0;
+    TRL_CHECK(test, SQLGetTypeInfo(o.stmt, SQL_NUMERIC) == SQL_SUCCESS && SQLFetch(o.stmt) == SQL_SUCCESS &&
+                        SQLGetData(o.stmt, 3, SQL_C_SLONG, &most, 0, &length) == SQL_SUCCESS && most == 38);
+    (void)SQLFreeStmt(o.stmt, SQL_CLOSE);
+    char past[] = PAST_WIDEST;
+    (void)SQLBindParameter(o.stmt, 1, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_NUMERIC, 39, 0, past, 0, NULL);
+    TRL_CHECK(test, SQLExecDirect(o.stmt, sql_text("INSERT INTO WIDE (N) VALUES (?)"), SQL_NTS) == SQL_ERROR &&
+                        strcmp(odbc_state(SQL_HANDLE_STMT, o.stmt, NULL), "22003") == 0);
+    (void)SQLFreeStmt(o.stmt, SQL_RESET_PARAMS);
+    TRL_CHECK(test, odbc_run(o.stmt, "DROP TABLE WIDE CASCADE"));
+    odbc_close(&o);
+}
+
 int main(int argc, char **argv) {
     bool skip = false;
     if (!odbc_start("live-odbc-desc", &skip)) {
@@ -375,6 +438,7 @@ int main(int argc, char **argv) {
         TRL_TEST_CASE(each_column_attribute_is_told),
         TRL_TEST_CASE(declared_integers_are_odbcs),
         TRL_TEST_CASE(each_type_is_odbcs),
+        TRL_TEST_CASE(exact_numbers_hold_38_digits),
     };
     int run_result = trl_test_main(argc, argv, cases, TRL_TEST_COUNT(cases));
     odbc_stop();

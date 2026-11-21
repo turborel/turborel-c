@@ -69,6 +69,6 @@ members in the order written, an exact number's digits, a DECFLOAT plain,
 an approximate number as its shortest numeral with an exponent. A
 datetime within a JSON value, or an approximate number that is not
 finite, has no JSON text: SQLSTATE 22032. A JSON text made into a value
-takes a number without an exponent as exact, one of more digits than an
-exact number holds as a DECFLOAT, and one with an exponent as
-approximate; a number none of them holds exactly is SQLSTATE 22003.
+takes a number without an exponent as exact, one of more than 18
+digits, as many as 64 bits always hold, as a DECFLOAT, though an exact
+number holds 38, and one with an exponent as approximate; a number none of them holds exactly is SQLSTATE 22003.

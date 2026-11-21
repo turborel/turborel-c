@@ -116,7 +116,7 @@ CODE    kind  1 length 4 precision 0 scale 0
 PRICE   kind  2 length 0 precision 9 scale 2
 WEIGHT  kind  3 length 0 precision 53 scale 0
 ADDED   kind 11 length 0 precision 3 scale 0
-(none)  kind  2 length 0 precision 18 scale 2
+(none)  kind  2 length 0 precision 10 scale 2
 100 02000
 ```
 
@@ -157,7 +157,7 @@ SMALLINT     SMALLINT           NUMERIC(5,0)
 USER-DEFINED ANN.MONEY          NUMERIC(9,2)
 FLOAT        FLOAT(24)          FLOAT(24)
 ARRAY        INTEGER ARRAY[3]   NUMERIC(10,0) ARRAY[3]
-NUMERIC      NUMERIC(18,0)      NUMERIC(18,0)
+NUMERIC      NUMERIC(11,0)      NUMERIC(11,0)
 ```
 
 ## Values

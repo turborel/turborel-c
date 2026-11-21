@@ -76,8 +76,8 @@ static void what_does_not_read(trl_test *test) {
 
 /**
  * Verifies: [PROTOCOL JSON values] numbers at their edges: trailing and
- * leading zeros of a fraction, more digits than an exact number holds as
- * a decimal floating-point one, an exponent signed or capital, negative
+ * leading zeros of a fraction, more than 18 digits, the most a JSON number
+ * holds exact, as a decimal floating-point one, an exponent signed or capital, negative
  * zero, read; more digits than either holds, an exponent past 32 bits or
  * past a double's range either way, a leading zero, an escape of a digit
  * not hexadecimal, a literal or a member misspelled, a trailing comma,

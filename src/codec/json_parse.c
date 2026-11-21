@@ -2,8 +2,8 @@
  * @file json_parse.c
  * @brief JSON text parsed by RFC 8259's grammar into items, as turborel's
  * `json/text.rs` parses it: a number without an exponent exact, of more
- * digits than an exact number holds a DECFLOAT, one with an exponent
- * approximate; members of one key all kept, in the order written.
+ * than 18 digits, as many as 64 bits always hold, a DECFLOAT, one with an
+ * exponent approximate; members of one key all kept, in the order written.
  */
 #include "codec/arena.h"
 #include "codec/buffer.h"
@@ -24,8 +24,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* The most digits, and the greatest scale, of an exact number, turborel's
-   MAX_EXACT_PRECISION. */
+/* The most digits, and the greatest scale, of a JSON number held exact,
+   turborel's JSON_EXACT_DIGITS: those 64 bits always hold, though a SQL
+   exact number holds 38. */
 #define TRL_MAX_EXACT_DIGITS 18U
 /* The most significant digits of a DECFLOAT, turborel's MAX_DECFLOAT_PRECISION. */
 #define TRL_MAX_DECFLOAT_DIGITS 34U

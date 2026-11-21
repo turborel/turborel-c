@@ -438,6 +438,62 @@ static void a_prepared_statement_tells_not_null(trl_test *test) {
     trl_conn_free(conn);
 }
 
+/* 38 digits, the most an exact number holds, and 39, past them. */
+#define WIDEST "12345678901234567890123456789012345678"
+#define WIDEST_SCALED "-1234567890123456789012345678.1234567890"
+#define PAST_WIDEST "100000000000000000000000000000000000000"
+
+/* Whether `value` is an exact number whose text is `text`. */
+static bool decimal_is(const trl_value *value, const char *text) {
+    trl_decimal read;
+    char written[TRL_DECIMAL_TEXT_BYTES];
+    return trl_value_decimal(value, &read) == TRL_OK && trl_decimal_text(&read, written, sizeof written) == TRL_OK &&
+           strcmp(written, text) == 0;
+}
+
+/* Runs `sql` with the one exact parameter `text`; what it came to, its result let go. */
+static trl_status ran_with_decimal(trl_conn *conn, const char *sql, const char *text) {
+    trl_decimal number;
+    trl_params *params = NULL;
+    trl_result *result = NULL;
+    trl_status ran = trl_decimal_parse(text, &number) == TRL_OK && trl_params_new(&params) == TRL_OK &&
+                             trl_params_add_decimal(params, number) == TRL_OK
+                         ? trl_query_values(conn, sql, params, &result)
+                         : TRL_INVALID_ARGUMENT;
+    trl_result_free(result);
+    trl_params_free(params);
+    return ran;
+}
+
+/**
+ * Verifies: [PROTOCOL Values] an exact number of 38 digits, the most
+ * turborel holds, sent as a parameter and read as a result unchanged,
+ * of scale 0 and of scale 10; one of 39 digits refused by the server,
+ * a parameter or a result SQLSTATE 22003, a literal past its precision
+ * SQLCODE -900, SQLSTATE 0A000.
+ */
+static void exact_numbers_hold_38_digits(trl_test *test) {
+    trl_conn *conn = live_trusted(NULL);
+    TRL_CHECK(test, run(conn, "CREATE TABLE WIDE (N NUMERIC(38,0), F NUMERIC(38,10))"));
+    TRL_CHECK(test, ran_with_decimal(conn, "INSERT INTO WIDE (N) VALUES (?)", WIDEST) == TRL_OK);
+    TRL_CHECK(test, ran_with_decimal(conn, "UPDATE WIDE SET F = ?", WIDEST_SCALED) == TRL_OK);
+    trl_result *result = NULL;
+    TRL_CHECK(test, trl_query(conn, "SELECT N, F, N - 1 FROM WIDE", &result) == TRL_OK);
+    TRL_CHECK(test, decimal_is(trl_result_value(result, 0U, 0U), WIDEST) &&
+                        decimal_is(trl_result_value(result, 0U, 1U), WIDEST_SCALED) &&
+                        decimal_is(trl_result_value(result, 0U, 2U), "12345678901234567890123456789012345677"));
+    TRL_CHECK(test, trl_type_precision(trl_result_column_type(result, 0U)) == 38U);
+    trl_result_free(result);
+    TRL_CHECK(test, ran_with_decimal(conn, "INSERT INTO WIDE (N) VALUES (?)", PAST_WIDEST) == TRL_FAILED &&
+                        strcmp(trl_failure_sqlstate(trl_conn_failure(conn)), "22003") == 0);
+    TRL_CHECK(test, trl_query(conn, "VALUES 99999999999999999999999999999999999999 + 1", &result) == TRL_FAILED &&
+                        strcmp(trl_failure_sqlstate(trl_conn_failure(conn)), "22003") == 0);
+    TRL_CHECK(test, trl_query(conn, "VALUES " PAST_WIDEST, &result) == TRL_FAILED &&
+                        strcmp(trl_failure_sqlstate(trl_conn_failure(conn)), "0A000") == 0);
+    TRL_CHECK(test, run(conn, "ROLLBACK"));
+    trl_conn_free(conn);
+}
+
 int main(int argc, char **argv) {
     char cwd[PATH_BYTES];
     char dir[PATH_BYTES + sizeof "/live-statements"];
@@ -460,6 +516,7 @@ int main(int argc, char **argv) {
         TRL_TEST_CASE(numbered_cursors_and_descriptions), TRL_TEST_CASE(a_call_gives_its_output_parameters),
         TRL_TEST_CASE(an_open_cursors_statement_stays),   TRL_TEST_CASE(a_cut_parameter_warns),
         TRL_TEST_CASE(declared_types_are_told),           TRL_TEST_CASE(a_prepared_statement_tells_not_null),
+        TRL_TEST_CASE(exact_numbers_hold_38_digits),
     };
     int result = ready ? trl_test_main(argc, argv, cases, TRL_TEST_COUNT(cases)) : EXIT_FAILURE;
     server_stop(&live_server);

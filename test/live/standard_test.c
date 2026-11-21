@@ -137,8 +137,8 @@ static bool ran_values(trl_conn *conn, const char *sql, const trl_params *params
     return ran;
 }
 
-/* A JSON number of more digits than an exact number holds, 34 of them
-   significant, which a DECFLOAT holds exactly. */
+/* A JSON number of more than 18 digits, the most a JSON number holds
+   exact, 34 of them significant, which a DECFLOAT holds exactly. */
 #define WIDE_NUMBER "1234567890123456789012345678901234000000"
 
 /**
