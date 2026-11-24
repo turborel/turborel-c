@@ -130,6 +130,11 @@ add_library(
   src/codec/numerals.c
   src/codec/reader.c
   src/codec/replies.c
+  src/codec/debug.c
+  src/debug/kept.c
+  src/debug/made.c
+  src/debug/read.c
+  src/debug/requests.c
   src/codec/requests.c
   src/codec/strtod.c
   src/codec/tail.c

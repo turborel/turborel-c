@@ -11,6 +11,7 @@
 #define TRL_CODEC_REPLIES_H
 
 #include "codec/arena.h"
+#include "codec/debug.h"
 #include "codec/error.h"
 #include "codec/fields.h"
 #include "codec/values.h"
@@ -128,6 +129,10 @@ typedef struct trl_reply {
             trl_slice name;
             trl_slice value;
         } status;
+        /** @brief Debugged, with `debugger`. */
+        trl_debugged debugged;
+        /** @brief Event, with `debugger`. */
+        trl_event event;
     } as;
 } trl_reply;
 

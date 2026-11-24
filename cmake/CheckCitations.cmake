@@ -6,19 +6,20 @@
 # The headings a citation may name, as [PROTOCOL <heading>] or [CLIENT <heading>]:
 # those of doc/client/05-protocol.md, and of doc/client/02-library.md and
 # 02-library-connections.md, in turborel's main at 045e42a9, with
-# "Parameter modes" of 1afa44c2.
+# "Parameter modes" of 1afa44c2, and "Debug 'V'", "Debugged 'V'",
+# "Event 'W'" and "Debugging routines" of 5863fe65.
 set(TRL_PROTOCOL_HEADINGS
     "The Native Protocol" "Frames" "Compressed frames" "Values and fields" "Data types" "Values"
     "JSON values" "Composite fields" "The tail" "Opening a connection" "Mechanisms" "Capabilities" "Requests" "Hello 'H'"
     "Answer 'A'" "Query 'Q'" "Prepare 'P'" "Execute 'E'" "Fetch 'F'" "Close 'C'" "Deallocate 'D'" "Lob 'L'"
     "Cancel 'Z'" "Terminate 'X'" "Describe 'Y'" "Ping 'G'" "Reset 'W'" "ChangeUser 'U'" "CopyIn 'I'"
-    "CopyData 'J'" "CopyEnd 'N'" "Replies" "Challenge 'C'" "Ready 'R'" "Prepared 'P'" "Description 'D'"
-    "Declared types" "Parameter modes" "Rows 'B'" "Suspended 'S'" "Complete 'K'" "Error 'E'" "Notice 'N'" "Status 'T'" "Pong 'G'"
+    "CopyData 'J'" "CopyEnd 'N'" "Debug 'V'" "Replies" "Challenge 'C'" "Ready 'R'" "Prepared 'P'" "Description 'D'"
+    "Declared types" "Parameter modes" "Rows 'B'" "Suspended 'S'" "Complete 'K'" "Error 'E'" "Notice 'N'" "Status 'T'" "Pong 'G'" "Debugged 'V'" "Event 'W'"
     "Conversations" "Errors and notices" "Sample frames" "A worked example")
 set(TRL_CLIENT_HEADINGS
     "The Client Library" "Connecting" "Timeouts" "Running statements" "Prepared statements" "Large objects"
     "XML values" "UUIDs" "Importing" "What a connection asks for" "What the server tells"
-    "Controlling the session" "Copying and exporting" "The SQL-agent" "Settings, Pipelines and Pools"
+    "Controlling the session" "Debugging routines" "Copying and exporting" "The SQL-agent" "Settings, Pipelines and Pools"
     "Connecting by settings" "Where settings come from" "The connection URI" "The service file"
     "The password file" "Several servers" "TLS by mode" "Pipelines" "Pools" "The SCRAM key cache")
 # This file's decisions and rules, as RULES.md has them.

@@ -91,6 +91,10 @@ struct trl_conn {
     trl_failure notices[TRL_KEPT_NOTICES];
     /** @brief How many. */
     size_t notice_count;
+    /** @brief The debugger's events kept, the oldest first, until trl_debug_wait() gives them. */
+    trl_debug_event *events_first;
+    /** @brief The newest kept. */
+    trl_debug_event *events_last;
     /** @brief The notice handler, or null. */
     trl_notice_handler handler;
     /** @brief Its context. */
@@ -201,6 +205,21 @@ trl_status trl_conn_log_in(trl_conn *conn, const char *user, trl_mechanism *mech
 
 /** @brief Keeps a setting the server told. */
 bool trl_conn_tell(trl_conn *conn, trl_slice name, trl_slice value);
+
+/**
+ * @brief Whether a frame begins to arrive within `within_ms`, without
+ * limit if TRL_NO_LIMIT, the connection's own bound put back: 1 if it
+ * does, 0 if none came in time, the connection kept, -1 if the
+ * connection failed or was lost.
+ */
+int trl_conn_arrives_within(trl_conn *conn, uint32_t within_ms);
+
+/**
+ * @brief Reads one frame between requests: 1 if it was taken, a Notice,
+ * a Status or a debugger's Event; 0 if it is another reply, into `out`;
+ * -1 if the connection failed or was lost.
+ */
+int trl_conn_receive_unasked(trl_conn *conn, trl_reply *out);
 
 /** @brief Reads a statement's completion: Complete, or Error as its failure. */
 bool trl_conn_completion(trl_conn *conn);

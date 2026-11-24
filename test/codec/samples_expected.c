@@ -183,6 +183,23 @@ const sample_reply sample_replies[] = {
     {"value-json-scalars", "Rows (25:[null,true,false,-2,1.50,\"\",{}] stored=74)"},
     {"value-xml", "Rows (26:<a>&lt;</a>)"},
     {"value-uuid", "Rows (27:00112233-4455-6677-8899-aabbccddeeff)"},
+    {"debugged-connection", "Debugged connection 2"},
+    {"debugged-breakpoint", "Debugged breakpoint 1 ANN.RAISE_PAY line 4"},
+    {"debugged-breakpoints", "Debugged breakpoints (1 ANN.RAISE_PAY line 4)"},
+    {"debugged-running", "Debugged running"},
+    {
+        "debugged-stack",
+        "Debugged stack breakpoint 1 frames (procedure ANN.RAISE_PAY/ANN.RAISE_PAY visible place 1 line 4:3 parameters"
+        " (PCT INTEGER 2:10) variables (N INTEGER 0:NULL) cursors (C closed 'SELECT ID FROM STAFF'))",
+    },
+    {
+        "event-paused",
+        "Event paused breakpoint 1 frames (procedure ANN.RAISE_PAY/ANN.RAISE_PAY visible place 1 line 4:3 parameters"
+        " (PCT INTEGER 2:10) variables (N INTEGER 0:NULL) cursors (C closed 'SELECT ID FROM STAFF'))",
+    },
+    {"event-timed-out", "Event timed out"},
+    {"event-cancelled", "Event cancelled"},
+    {"event-ended", "Event ended"},
 };
 
 const size_t sample_reply_count = sizeof sample_replies / sizeof sample_replies[0];

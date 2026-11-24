@@ -7,6 +7,7 @@
 #include "samples_encoded.h"
 
 #include "codec/buffer.h"
+#include "codec/debug.h"
 #include "codec/error.h"
 #include "codec/kinds.h"
 #include "codec/requests.h"
@@ -264,6 +265,59 @@ static bool copy_end_abandon(trl_buffer *b, trl_codec_error *e) {
     return trl_encode_copy_end(b, true, e);
 }
 
+/* A Debug request asking `what`, its other fields as the samples give them. */
+static bool debug_of(trl_buffer *b, trl_codec_error *e, uint8_t what) {
+    trl_debug_request request;
+    memset(&request, 0, sizeof request);
+    request.what = what;
+    request.connection = 2U;
+    request.kind = 0U;
+    request.schema = slice_of("ANN");
+    request.name = slice_of("RAISE_PAY");
+    request.line = 4U;
+    request.conditioned = true;
+    request.condition = slice_of("PCT > 5");
+    request.number = 1U;
+    request.action = 1U;
+    return trl_encode_debug(b, &request, e);
+}
+
+static bool debug_identify(trl_buffer *b, trl_codec_error *e) {
+    return debug_of(b, e, TRL_DEBUG_IDENTIFY);
+}
+
+static bool debug_attach(trl_buffer *b, trl_codec_error *e) {
+    return debug_of(b, e, TRL_DEBUG_ATTACH);
+}
+
+static bool debug_detach(trl_buffer *b, trl_codec_error *e) {
+    return debug_of(b, e, TRL_DEBUG_DETACH);
+}
+
+static bool debug_break(trl_buffer *b, trl_codec_error *e) {
+    return debug_of(b, e, TRL_DEBUG_BREAK);
+}
+
+static bool debug_clear(trl_buffer *b, trl_codec_error *e) {
+    return debug_of(b, e, TRL_DEBUG_CLEAR);
+}
+
+static bool debug_breakpoints(trl_buffer *b, trl_codec_error *e) {
+    return debug_of(b, e, TRL_DEBUG_BREAKPOINTS);
+}
+
+static bool debug_resume(trl_buffer *b, trl_codec_error *e) {
+    return debug_of(b, e, TRL_DEBUG_RESUME);
+}
+
+static bool debug_interrupt(trl_buffer *b, trl_codec_error *e) {
+    return debug_of(b, e, TRL_DEBUG_INTERRUPT);
+}
+
+static bool debug_stack(trl_buffer *b, trl_codec_error *e) {
+    return debug_of(b, e, TRL_DEBUG_STACK);
+}
+
 bool compressed_query(trl_buffer *b, trl_codec_error *e) {
     static char sql[sizeof "SELECT '' FROM T" + COMPRESSED_XS];
     memcpy(sql, "SELECT '", sizeof "SELECT '" - 1U);
@@ -311,6 +365,15 @@ const sample_request sample_requests[] = {
     {"copy-data", copy_data},
     {"copy-end", copy_end},
     {"copy-end-abandon", copy_end_abandon},
+    {"debug-identify", debug_identify},
+    {"debug-attach", debug_attach},
+    {"debug-detach", debug_detach},
+    {"debug-break", debug_break},
+    {"debug-clear", debug_clear},
+    {"debug-breakpoints", debug_breakpoints},
+    {"debug-resume", debug_resume},
+    {"debug-interrupt", debug_interrupt},
+    {"debug-stack", debug_stack},
 };
 
 const size_t sample_request_count = sizeof sample_requests / sizeof sample_requests[0];

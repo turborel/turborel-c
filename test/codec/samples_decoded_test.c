@@ -7,6 +7,7 @@
 #include "codec/arena.h"
 #include "codec/buffer.h"
 #include "codec/compress.h"
+#include "codec/debug.h"
 #include "codec/fields.h"
 #include "codec/frame.h"
 #include "codec/kinds.h"
@@ -320,10 +321,101 @@ static void a_called_tail_of_a_bad_mode_or_position_is_refused(trl_test *test) {
     samples_free(&s);
 }
 
+/* Whether the sample `name`, its body's byte `at` set to `to`, fails to decode. */
+static bool byte_refused(const samples *s, const char *name, size_t at, uint8_t to) {
+    const sample *one = sample_named(s, name);
+    if (one == NULL || TRL_FRAME_HEADER_BYTES + at >= one->length) {
+        return false;
+    }
+    sample changed = *one;
+    changed.frame[TRL_FRAME_HEADER_BYTES + at] = to;
+    fixture f;
+    fixture_init(&f);
+    trl_reply reply;
+    bool refused = !decoded(&f, &changed, &reply) && f.error.message[0] != '\0';
+    fixture_free(&f);
+    return refused;
+}
+
+/* In event-paused's body: its reason, then its frame's kind, past the
+   what, the reason, the breakpoint, the frame count and the origin flag. */
+#define PAUSE_REASON 1U
+#define FRAME_KIND (1U + 1U + 4U + 4U + 1U)
+
+/**
+ * Verifies: [PROTOCOL Debugged 'V'] [PROTOCOL Event 'W'] a Debugged or an
+ * Event of a code of no kind, a pause of no reason, a frame of no kind,
+ * refused; a Debug of a kind of breakpoint, an action or a request of no
+ * code refused as it is encoded, the buffer as it was.
+ */
+static void debugger_frames_of_no_code_are_refused(trl_test *test) {
+    samples s;
+    TRL_CHECK(test, samples_read(&s));
+    TRL_CHECK(test, byte_refused(&s, "debugged-connection", 0U, 9U) && byte_refused(&s, "event-ended", 0U, 9U));
+    TRL_CHECK(test,
+              byte_refused(&s, "event-paused", PAUSE_REASON, 2U) && byte_refused(&s, "event-paused", FRAME_KIND, 5U));
+    samples_free(&s);
+    trl_buffer out;
+    trl_buffer_init(&out);
+    trl_codec_error error = {0, "", ""};
+    trl_debug_request request;
+    memset(&request, 0, sizeof request);
+    request.what = TRL_DEBUG_BREAK;
+    request.kind = 3U;
+    bool every = !trl_encode_debug(&out, &request, &error) && out.length == 0U;
+    request.what = TRL_DEBUG_RESUME;
+    request.action = 4U;
+    every = every && !trl_encode_debug(&out, &request, &error) && out.length == 0U;
+    request.what = 9U;
+    every = every && !trl_encode_debug(&out, &request, &error) && out.length == 0U;
+    TRL_CHECK(test, every && error.sqlcode != 0);
+    trl_buffer_free(&out);
+}
+
+/* Whether the sample `name`, its body cut at every length short of whole, fails to decode each time. */
+static bool every_cut_refused(const samples *s, const char *name) {
+    const sample *one = sample_named(s, name);
+    if (one == NULL) {
+        return false;
+    }
+    bool every = true;
+    for (size_t cut = 0U; every && cut + TRL_FRAME_HEADER_BYTES < one->length; ++cut) {
+        fixture f;
+        fixture_init(&f);
+        trl_reply reply;
+        trl_slice body = {one->frame + TRL_FRAME_HEADER_BYTES, cut};
+        every = !trl_decode_reply(one->frame[0], body, &f.arena, &reply, &f.error);
+        fixture_free(&f);
+    }
+    return every;
+}
+
+/**
+ * Verifies: [PROTOCOL Debugged 'V'] [PROTOCOL Event 'W'] each Debugged
+ * and Event sample cut short at every byte is refused, read no further
+ * than it holds.
+ */
+static void debugger_frames_cut_short_are_refused(trl_test *test) {
+    samples s;
+    TRL_CHECK(test, samples_read(&s));
+    static const char *const names[] = {
+        "debugged-connection", "debugged-breakpoint", "debugged-breakpoints", "debugged-running",
+        "debugged-stack",      "event-paused",        "event-timed-out",
+    };
+    bool every = true;
+    for (size_t i = 0U; i < sizeof names / sizeof names[0]; ++i) {
+        every = every && every_cut_refused(&s, names[i]);
+    }
+    TRL_CHECK(test, every);
+    samples_free(&s);
+}
+
 int main(int argc, char **argv) {
     static const trl_test_case cases[] = {
         TRL_TEST_CASE(every_server_frame_is_decoded),
         TRL_TEST_CASE(a_called_tail_of_a_bad_mode_or_position_is_refused),
+        TRL_TEST_CASE(debugger_frames_of_no_code_are_refused),
+        TRL_TEST_CASE(debugger_frames_cut_short_are_refused),
         TRL_TEST_CASE(every_server_frame_is_copied_whole),
 #ifdef TRL_FAULTS
         TRL_TEST_CASE(copying_survives_each_fault),

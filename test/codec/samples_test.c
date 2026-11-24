@@ -23,8 +23,8 @@
 #include <string.h>
 
 /* The samples the file holds at the commit CONFORMANCE.md names, and how many of each side, and compressed. */
-#define SAMPLES 148U
-#define CLIENT_SAMPLES 38U
+#define SAMPLES 166U
+#define CLIENT_SAMPLES 47U
 #define COMPRESSED_SAMPLES 2U
 /* The rows of the compressed server sample. */
 #define COMPRESSED_ROWS 64U
@@ -52,6 +52,7 @@ static bool capability(const char *name) {
         TRL_CAPABILITY_CONDITIONS,
         TRL_CAPABILITY_DECLARED_TYPES,
         TRL_CAPABILITY_PARAMETER_MODES,
+        TRL_CAPABILITY_DEBUGGER,
     };
     for (size_t i = 0U; i < sizeof known / sizeof known[0]; ++i) {
         if (strcmp(known[i], name) == 0) {

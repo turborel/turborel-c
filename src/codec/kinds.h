@@ -45,6 +45,8 @@
 #define TRL_KIND_COPY_DATA ((uint8_t)'J')
 /** @brief CopyEnd [PROTOCOL CopyEnd 'N']. */
 #define TRL_KIND_COPY_END ((uint8_t)'N')
+/** @brief Debug, with `debugger` *(extension)* [PROTOCOL Debug 'V']. */
+#define TRL_KIND_DEBUG ((uint8_t)'V')
 
 /** @brief Challenge [PROTOCOL Challenge 'C']. */
 #define TRL_KIND_CHALLENGE ((uint8_t)'C')
@@ -70,6 +72,10 @@
 #define TRL_KIND_STATUS ((uint8_t)'T')
 /** @brief Pong [PROTOCOL Pong 'G']. */
 #define TRL_KIND_PONG ((uint8_t)'G')
+/** @brief Debugged, with `debugger` *(extension)* [PROTOCOL Debugged 'V']. */
+#define TRL_KIND_DEBUGGED ((uint8_t)'V')
+/** @brief Event, sent unasked, with `debugger` *(extension)* [PROTOCOL Event 'W']. */
+#define TRL_KIND_EVENT ((uint8_t)'W')
 
 /** @brief A compressed frame, either way [PROTOCOL Compressed frames]. */
 #define TRL_KIND_COMPRESSED ((uint8_t)'z')

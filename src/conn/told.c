@@ -11,6 +11,7 @@
 #include "codec/replies.h"
 #include "codec/tail.h"
 #include "conn/conn.h"
+#include "debug/debug.h"
 #include "failure.h"
 #include "format.h"
 #include "memory.h"
@@ -144,6 +145,7 @@ void trl_conn_notice(trl_conn *conn, const trl_reply *notice) {
 void trl_conn_free_told(trl_conn *conn) {
     forget_told(&conn->last);
     trl_conn_clear_notices(conn);
+    trl_conn_events_drop(conn);
     for (size_t i = 0U; i < conn->attribute_count; ++i) {
         trl_free_const(conn->attributes[i].name.bytes);
         trl_free_const(conn->attributes[i].value.bytes);

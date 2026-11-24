@@ -166,7 +166,7 @@ TRL_API size_t trl_conn_granted_count(const trl_conn *conn);
 
 /**
  * @brief A capability granted, in the order of the protocol's table of
- * them, as TRL_CAPABILITY_NOTICES to TRL_CAPABILITY_PARAMETER_MODES list them.
+ * them, as TRL_CAPABILITY_NOTICES to TRL_CAPABILITY_DEBUGGER list them.
  *
  * @param conn The connection.
  * @param index Which, from 0.

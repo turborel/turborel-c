@@ -15,6 +15,7 @@
 #include "codec/replies.h"
 #include "conn/conn.h"
 #include "conn/target.h"
+#include "debug/debug.h"
 #include "failure.h"
 #include "format.h"
 #include "memory.h"
@@ -309,9 +310,19 @@ static void noted(trl_conn *conn, const trl_reply *reply) {
     }
 }
 
-/* Takes a Notice or a Status: 1 if `reply` was one, 0 if not, -1 if
-   memory to keep it could not be had. */
+/* Takes a Notice, a Status or a debugger's Event: 1 if `reply` was one,
+   0 if not, -1 if memory to keep it could not be had. An Event is kept
+   wherever it is read, as the debugger waits for it [PROTOCOL Event 'W']. */
 static int took(trl_conn *conn, const trl_reply *reply) {
+    if (reply->kind == TRL_KIND_EVENT) {
+        trl_debug_event *event = trl_debug_event_made(&reply->as.event);
+        if (event == NULL) {
+            trl_failure_no_memory(&conn->failure);
+            return -1;
+        }
+        trl_conn_event_keep(conn, event);
+        return 1;
+    }
     if (reply->kind == TRL_KIND_STATUS) {
         if (!trl_conn_tell(conn, reply->as.status.name, reply->as.status.value)) {
             trl_failure_no_memory(&conn->failure);
@@ -407,6 +418,57 @@ static bool receive_as(trl_conn *conn, trl_reply *out, bool one) {
             return said == 0;
         }
     }
+}
+
+int trl_conn_arrives_within(trl_conn *conn, uint32_t within_ms) {
+    if (conn->lost) {
+        trl_failure_copy(&conn->failure, &conn->lost_by);
+        return -1;
+    }
+    if (conn->input_at < conn->input_end) {
+        return 1;
+    }
+    bool bounded = within_ms != conn->read_ms;
+    if (bounded && (conn->transport.ops->bound == NULL || !conn->transport.ops->bound(&conn->transport, within_ms))) {
+        trl_failure_broken(&conn->failure, conn->transport.ops->bound == NULL
+                                               ? "a stream given to open is bounded by its maker"
+                                               : "cannot bound how long the connection waits");
+        return -1;
+    }
+    int64_t got = fill(conn);
+    if (bounded) {
+        (void)conn->transport.ops->bound(&conn->transport, conn->read_ms);
+    }
+    if (got > 0) {
+        return 1;
+    }
+    if (got < 0 && conn->transport.error.timed_out) {
+        return 0;
+    }
+    if (got == 0) {
+        trl_conn_lose_by(conn, "cannot receive: the server closed the connection");
+        return -1;
+    }
+    (void)io_lost(conn, "receive");
+    return -1;
+}
+
+int trl_conn_receive_unasked(trl_conn *conn, trl_reply *out) {
+    uint8_t kind = 0U;
+    trl_slice body = {NULL, 0U};
+    if (!next_frame(conn, &kind, &body)) {
+        return -1;
+    }
+    trl_codec_error error = {0, "", ""};
+    if (!decode_frame(conn, kind, body, out, &error)) {
+        trl_conn_lose_by(conn, error.message);
+        return -1;
+    }
+    int said = took(conn, out);
+    if (said == 0) {
+        noted(conn, out);
+    }
+    return said;
 }
 
 bool trl_conn_receive(trl_conn *conn, trl_reply *out) {

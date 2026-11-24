@@ -6,6 +6,7 @@
  * does, with the fields its text does not show beside it.
  */
 #include "codec/buffer.h"
+#include "codec/debug.h"
 #include "codec/fields.h"
 #include "codec/kinds.h"
 #include "codec/replies.h"
@@ -406,6 +407,125 @@ static void put_notice(text *t, const trl_reply *r) {
     put_diagnostics(t, &r->as.notice.diagnostics);
 }
 
+/* A breakpoint: its number, routine, line and condition. */
+static void put_breakpoint(text *t, const trl_wire_breakpoint *b) {
+    put_u64(t, b->number);
+    put(t, " ");
+    put_slice(t, b->schema);
+    put(t, ".");
+    put_slice(t, b->name);
+    put(t, " line ");
+    put_u64(t, b->line);
+    if (b->conditioned) {
+        put(t, " if ");
+        put_slice(t, b->condition);
+    }
+}
+
+/* A frame's parameters or variables: each name, type and value. */
+static void put_named(text *t, const char *what, const trl_wire_named *named, uint32_t count) {
+    put(t, what);
+    put(t, " (");
+    for (uint32_t i = 0U; i < count; ++i) {
+        put(t, i == 0U ? "" : "; ");
+        put_slice(t, named[i].name);
+        put(t, " ");
+        put_slice(t, named[i].type);
+        put(t, " ");
+        put_value(t, &named[i].value);
+    }
+    put(t, ")");
+}
+
+/* A frame: its origin, visibility, place, line, and what it holds. */
+static void put_frame(text *t, const trl_wire_frame *f) {
+    static const char *const kinds[] = {"procedure", "function", "trigger"};
+    if (f->has_origin) {
+        put(t, f->kind < sizeof kinds / sizeof kinds[0] ? kinds[f->kind] : "?");
+        put(t, " ");
+        put_slice(t, f->specific_schema);
+        put(t, ".");
+        put_slice(t, f->specific_name);
+        put(t, "/");
+        put_slice(t, f->schema);
+        put(t, ".");
+        put_slice(t, f->name);
+    } else {
+        put(t, "direct");
+    }
+    put(t, f->visible ? " visible" : " hidden");
+    if (f->has_place) {
+        put(t, " place ");
+        put_u64(t, f->place);
+    }
+    if (f->has_line) {
+        put(t, " line ");
+        put_u64(t, f->line);
+        put(t, ":");
+        put_u64(t, f->column);
+    }
+    put_named(t, " parameters", f->parameters, f->parameter_count);
+    put_named(t, " variables", f->variables, f->variable_count);
+    put(t, " cursors (");
+    for (uint32_t i = 0U; i < f->cursor_count; ++i) {
+        put(t, i == 0U ? "" : "; ");
+        put_slice(t, f->cursors[i].name);
+        put(t, f->cursors[i].open ? " open '" : " closed '");
+        put_slice(t, f->cursors[i].query);
+        put(t, "'");
+    }
+    put(t, ")");
+}
+
+/* A pause: its reason, then its frames, the outermost first. */
+static void put_pause(text *t, const trl_wire_pause *p) {
+    if (p->reason == 0U) {
+        put(t, "breakpoint ");
+        put_u64(t, p->breakpoint);
+    } else {
+        put(t, "step");
+    }
+    put(t, " frames (");
+    for (uint32_t i = 0U; i < p->frame_count; ++i) {
+        put(t, i == 0U ? "" : "; ");
+        put_frame(t, &p->frames[i]);
+    }
+    put(t, ")");
+}
+
+static void put_debugged(text *t, const trl_reply *r) {
+    const trl_debugged *d = &r->as.debugged;
+    put(t, "Debugged ");
+    if (d->what == TRL_DEBUGGED_CONNECTION) {
+        put(t, "connection ");
+        put_u64(t, d->connection);
+    } else if (d->what == TRL_DEBUGGED_BREAKPOINT) {
+        put(t, "breakpoint ");
+        put_breakpoint(t, &d->breakpoint);
+    } else if (d->what == TRL_DEBUGGED_BREAKPOINTS) {
+        put(t, "breakpoints (");
+        for (uint32_t i = 0U; i < d->breakpoint_count; ++i) {
+            put(t, i == 0U ? "" : "; ");
+            put_breakpoint(t, &d->breakpoints[i]);
+        }
+        put(t, ")");
+    } else if (d->paused) {
+        put(t, "stack ");
+        put_pause(t, &d->pause);
+    } else {
+        put(t, "running");
+    }
+}
+
+static void put_event(text *t, const trl_reply *r) {
+    static const char *const said[] = {"paused ", "timed out", "cancelled", "ended"};
+    put(t, "Event ");
+    put(t, r->as.event.what < sizeof said / sizeof said[0] ? said[r->as.event.what] : "?");
+    if (r->as.event.what == TRL_EVENT_PAUSED) {
+        put_pause(t, &r->as.event.pause);
+    }
+}
+
 /* The replies of a header alone, and those of a few fields. */
 static void put_simple(text *t, const trl_reply *r) {
     switch (r->kind) {
@@ -460,6 +580,12 @@ void reply_text(const trl_reply *reply, char *out, size_t capacity) {
         return;
     case TRL_KIND_NOTICE:
         put_notice(&t, reply);
+        return;
+    case TRL_KIND_DEBUGGED:
+        put_debugged(&t, reply);
+        return;
+    case TRL_KIND_EVENT:
+        put_event(&t, reply);
         return;
     default:
         put_simple(&t, reply);

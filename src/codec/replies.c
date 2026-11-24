@@ -8,6 +8,7 @@
 
 #include "codec/arena.h"
 #include "codec/buffer.h"
+#include "codec/debug.h"
 #include "codec/error.h"
 #include "codec/fields.h"
 #include "codec/int128.h"
@@ -237,7 +238,9 @@ bool trl_completed_head(uint8_t kind, trl_slice body, trl_arena *arena, trl_comp
 }
 
 bool trl_reply_ends_request(uint8_t kind, trl_slice body, trl_arena *arena) {
-    if (kind == TRL_KIND_DESCRIPTION || kind == TRL_KIND_ROWS || kind == TRL_KIND_NOTICE || kind == TRL_KIND_STATUS) {
+    /* An Event, as a Notice or a Status, never ends a request's replies. */
+    if (kind == TRL_KIND_DESCRIPTION || kind == TRL_KIND_ROWS || kind == TRL_KIND_NOTICE || kind == TRL_KIND_STATUS ||
+        kind == TRL_KIND_EVENT) {
         return false;
     }
     trl_completed head;
@@ -271,6 +274,10 @@ static bool read_other(trl_reader *reader, trl_reply *out) {
     case TRL_KIND_SUSPENDED:
     case TRL_KIND_PONG:
         return true;
+    case TRL_KIND_DEBUGGED:
+        return trl_read_debugged(reader, &out->as.debugged);
+    case TRL_KIND_EVENT:
+        return trl_read_event(reader, &out->as.event);
     default:
         return trl_reader_fail(reader, "no reply is of this kind");
     }
