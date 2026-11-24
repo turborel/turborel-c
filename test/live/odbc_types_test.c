@@ -477,7 +477,7 @@ static void parameters_bound_at_an_offset_and_run_directly(trl_test *test) {
     (void)SQLFreeStmt(o.stmt, SQL_CLOSE);
     (void)SQLFreeStmt(o.stmt, SQL_RESET_PARAMS);
     TRL_CHECK(test, SQLExecDirect(o.stmt, sql_text("SELECT FROM"), SQL_NTS) == SQL_ERROR);
-    TRL_CHECK(test, strcmp(odbc_state(SQL_HANDLE_STMT, o.stmt, NULL), "2A000") == 0);
+    TRL_CHECK(test, strcmp(odbc_state(SQL_HANDLE_STMT, o.stmt, NULL), "42000") == 0);
     TRL_CHECK(test, SQLSetStmtAttr(o.stmt, SQL_ATTR_PARAMSET_SIZE, (SQLPOINTER)2, 0) == SQL_ERROR);
     TRL_CHECK(test, SQLSetStmtAttr(o.stmt, SQL_ATTR_PARAMSET_SIZE, (SQLPOINTER)1, 0) == SQL_SUCCESS);
     odbc_close(&o);

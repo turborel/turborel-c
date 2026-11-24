@@ -111,8 +111,8 @@ the agent's failure:
 | 08004 | -919 | The server refused the connection: `connect` failed otherwise, its message kept |
 | 08003 | -919 | SET CONNECTION or DISCONNECT names no connection held; another statement with none current |
 | 25000 | -917 | DISCONNECT of a connection whose transaction is active |
-| 2A000 | -101, -102 | A connection statement that is none: a literal not ended, or not of its Format |
-| 2A000 | -103 | A connection statement naming by anything but a character string literal |
+| 42000 | -101, -102 | A connection statement that is none: a literal not ended, or not of its Format |
+| 42000 | -103 | A connection statement naming by anything but a character string literal |
 | 0A000 | -900 | A connection statement naming by an embedded variable, or a literal of a character set other than SQL_TEXT |
 
 A failure of another statement is its connection's, as `trl_query()`

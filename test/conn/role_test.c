@@ -19,7 +19,7 @@
 /* How the server answers the query of its role. */
 typedef enum answer {
     ANSWER_NO_TABLE = 0,
-    ANSWER_NO_TABLE_DIRECT,
+    ANSWER_NO_TABLE_OLDER,
     ANSWER_PRIMARY,
     ANSWER_BACKUP,
     ANSWER_NO_ROW,
@@ -55,7 +55,7 @@ static void respond(script *s, uint8_t kind, trl_slice body) {
     case ANSWER_NO_TABLE:
         script_error(s, -103, "42000", "INFORMATION_SCHEMA.REPLICAS is not defined", NULL);
         break;
-    case ANSWER_NO_TABLE_DIRECT:
+    case ANSWER_NO_TABLE_OLDER:
         script_error(s, -103, "2A000", "INFORMATION_SCHEMA.REPLICAS is not defined", NULL);
         break;
     case ANSWER_PRIMARY:
@@ -94,7 +94,7 @@ static bool role_read(answer plan, trl_server_role *role) {
 
 /**
  * Verifies: [CLIENT Several servers] a server alone, which has no
- * REPLICAS (class 2A or 42), takes changes; of a replica, PRIMARY is read-write,
+ * REPLICAS (class 42, or 2A of an older server), takes changes; of a replica, PRIMARY is read-write,
  * another role read-only; no row, as a session not the owner's sees, is
  * unknown; another failure is the query's; a server that tells
  * SERVER_READ_ONLY is not asked.
@@ -102,7 +102,7 @@ static bool role_read(answer plan, trl_server_role *role) {
 static void a_servers_role_is_read_from_replicas(trl_test *test) {
     trl_server_role role = TRL_SERVER_UNKNOWN;
     TRL_CHECK(test, role_read(ANSWER_NO_TABLE, &role) && role == TRL_SERVER_READ_WRITE);
-    TRL_CHECK(test, role_read(ANSWER_NO_TABLE_DIRECT, &role) && role == TRL_SERVER_READ_WRITE);
+    TRL_CHECK(test, role_read(ANSWER_NO_TABLE_OLDER, &role) && role == TRL_SERVER_READ_WRITE);
     TRL_CHECK(test, role_read(ANSWER_PRIMARY, &role) && role == TRL_SERVER_READ_WRITE);
     TRL_CHECK(test, role_read(ANSWER_BACKUP, &role) && role == TRL_SERVER_READ_ONLY);
     TRL_CHECK(test, role_read(ANSWER_NO_ROW, &role) && role == TRL_SERVER_UNKNOWN);

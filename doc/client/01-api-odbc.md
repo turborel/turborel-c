@@ -467,7 +467,7 @@ int main(void) {
 
 ```
 connected to Turborel
-2A000 (-103) [Turborel][libturborelodbc] table ANN.NOWHERE is not defined
+42000 (-103) [Turborel][libturborelodbc] table ANN.NOWHERE is not defined
 ```
 
 A tool reads the catalog as ODBC lays it out, and SQLNativeSql shows

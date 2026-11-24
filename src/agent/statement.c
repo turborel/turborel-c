@@ -33,10 +33,11 @@
 #include <string.h>
 
 /* The SQLCODEs of text that is no statement: of its characters, its
-   syntax, or a rule of its syntax; their SQLSTATE, a syntax error. */
+   syntax, or a rule of its syntax; their SQLSTATE, SQL:2023's one class
+   of a syntax error or an access rule's violation. */
 #define TRL_SQLCODE_LEXICAL (-101)
 #define TRL_SQLCODE_SYNTAX (-102)
-#define TRL_SQLSTATE_SYNTAX "2A000"
+#define TRL_SQLSTATE_SYNTAX "42000"
 #define TRL_SQLSTATE_UNSUPPORTED "0A000"
 /* A quote, and the bytes that begin a UTF-8 character but continue none. */
 #define TRL_QUOTE '\''

@@ -116,7 +116,7 @@ static void a_failure_says_what_and_where(trl_test *test) {
     trl_result *result = NULL;
     TRL_CHECK(test, trl_query(conn, "SELECT * FROM NOPE", &result) == TRL_FAILED && result == NULL);
     const trl_failure *failure = trl_conn_failure(conn);
-    TRL_CHECK(test, trl_failure_sqlcode(failure) == -103 && strcmp(trl_failure_sqlstate(failure), "2A000") == 0);
+    TRL_CHECK(test, trl_failure_sqlcode(failure) == -103 && strcmp(trl_failure_sqlstate(failure), "42000") == 0);
     TRL_CHECK(test, strcmp(trl_failure_message(failure), "table ANN.NOPE is not defined") == 0);
     TRL_CHECK(test, trl_failure_rule(failure) != NULL);
     uint64_t position = 0U;
@@ -470,7 +470,7 @@ static trl_status ran_with_decimal(trl_conn *conn, const char *sql, const char *
  * turborel holds, sent as a parameter and read as a result unchanged,
  * of scale 0 and of scale 10; one of 39 digits refused by the server,
  * a parameter or a result SQLSTATE 22003, a literal past its precision
- * SQLCODE -900, SQLSTATE 0A000.
+ * breaking a Syntax Rule, SQLCODE -103, SQLSTATE 42000.
  */
 static void exact_numbers_hold_38_digits(trl_test *test) {
     trl_conn *conn = live_trusted(NULL);
@@ -489,7 +489,8 @@ static void exact_numbers_hold_38_digits(trl_test *test) {
     TRL_CHECK(test, trl_query(conn, "VALUES 99999999999999999999999999999999999999 + 1", &result) == TRL_FAILED &&
                         strcmp(trl_failure_sqlstate(trl_conn_failure(conn)), "22003") == 0);
     TRL_CHECK(test, trl_query(conn, "VALUES " PAST_WIDEST, &result) == TRL_FAILED &&
-                        strcmp(trl_failure_sqlstate(trl_conn_failure(conn)), "0A000") == 0);
+                        trl_failure_sqlcode(trl_conn_failure(conn)) == -103 &&
+                        strcmp(trl_failure_sqlstate(trl_conn_failure(conn)), "42000") == 0);
     TRL_CHECK(test, run(conn, "ROLLBACK"));
     trl_conn_free(conn);
 }

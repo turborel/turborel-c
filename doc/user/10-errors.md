@@ -52,12 +52,12 @@ if (trl_query(conn, "SELECT NAME FROM NOWHERE", &result) == TRL_FAILED) {
 ```
 
 ```
-SQLCODE -103, SQLSTATE 2A000
+SQLCODE -103, SQLSTATE 42000
 message: table ANN.NOWHERE is not defined
 rule: X3.135-1986 §5.4 SR5
 at character 17
 transaction still active: yes
-SQLCODE -103 (SQLSTATE 2A000): table ANN.NOWHERE is not defined [X3.135-1986 §5.4 SR5] (at character 17)
+SQLCODE -103 (SQLSTATE 42000): table ANN.NOWHERE is not defined [X3.135-1986 §5.4 SR5] (at character 17)
 ```
 
 ### Diagnostics

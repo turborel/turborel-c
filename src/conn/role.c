@@ -25,7 +25,7 @@
 #define TRL_CLASS_BYTES 2U
 
 /* Whether a failure is of a table that does not exist, as a server alone
-   answers the query: of class 2A or 42. */
+   answers the query: of class 42, or 2A, as an older server answered. */
 static bool no_such_table(const trl_failure *failure) {
     const char *state = trl_failure_sqlstate(failure);
     return strncmp(state, "2A", TRL_CLASS_BYTES) == 0 || strncmp(state, "42", TRL_CLASS_BYTES) == 0;

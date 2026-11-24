@@ -122,7 +122,7 @@ static void complete_tail(trl_test *test) {
 static void error_carries_its_failure(trl_test *test) {
     fixture f;
     fixture_init(&f);
-    put_failure(&f.buffer, -103, "2A000", "column K is ambiguous");
+    put_failure(&f.buffer, -103, "42000", "column K is ambiguous");
     trl_put_u8(&f.buffer, 7U);
     trl_put_bytes(&f.buffer, text_of("ERROR"));
     trl_put_u8(&f.buffer, 12U);
@@ -133,7 +133,7 @@ static void error_carries_its_failure(trl_test *test) {
     TRL_CHECK(test, decode_buffer(&f, 'E', &reply));
     const trl_wire_failure *e = &reply.as.error;
     TRL_CHECK(test,
-              e->sqlcode == -103 && slice_is(e->sqlstate, "2A000") && slice_is(e->message, "column K is ambiguous"));
+              e->sqlcode == -103 && slice_is(e->sqlstate, "42000") && slice_is(e->message, "column K is ambiguous"));
     TRL_CHECK(test, e->cited && slice_is(e->rule, "X3.135-1986 §5.7 SR3b") && e->placed && e->position == 7U);
     TRL_CHECK(test, !e->active && e->diagnostics.told[0] && e->diagnostics.told[5] && e->diagnostics.told[8]);
     TRL_CHECK(test, !e->diagnostics.told[1] && slice_is(e->diagnostics.text[8], "STAFF_PK"));

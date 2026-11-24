@@ -487,7 +487,7 @@ static void modes_at_their_edges(trl_test *test) {
     (void)SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt);
     TRL_CHECK(test, odbc_run(stmt, "CREATE TABLE E (K INTEGER)") && odbc_run(stmt, "INSERT INTO E VALUES (1)"));
     (void)SQLSetStmtAttr(stmt, SQL_ATTR_QUERY_TIMEOUT, (SQLPOINTER)30, 0);
-    TRL_CHECK(test, fails_with(stmt, "SELECT FROM", "2A000"));
+    TRL_CHECK(test, fails_with(stmt, "SELECT FROM", "42000"));
     (void)SQLFreeHandle(SQL_HANDLE_STMT, stmt);
     (void)SQLDisconnect(dbc);
     (void)SQLFreeHandle(SQL_HANDLE_DBC, dbc);

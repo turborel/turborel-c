@@ -360,7 +360,7 @@ static void transactions_escapes_and_unicode(trl_test *test) {
     TRL_CHECK(test, SQLExecDirectW(o.stmt, bad, SQL_NTS) == SQL_ERROR);
     TRL_CHECK(test, SQLGetDiagRecW(SQL_HANDLE_STMT, o.stmt, 1, state, NULL, message, ODBC_TEXT_BYTES,
                                    &message_length) == SQL_SUCCESS);
-    TRL_CHECK(test, state[0] == '2' && state[1] == 'A' && message_length > 0);
+    TRL_CHECK(test, state[0] == '4' && state[1] == '2' && message_length > 0);
     TRL_CHECK(test, SQLGetDiagRec(SQL_HANDLE_STMT, o.stmt, 2, NULL, NULL, NULL, 0, NULL) == SQL_NO_DATA);
     TRL_CHECK(test, SQLSetConnectAttr(o.dbc, SQL_ATTR_AUTOCOMMIT, (SQLPOINTER)SQL_AUTOCOMMIT_ON, 0) == SQL_SUCCESS);
     TRL_CHECK(test, odbc_run(o.stmt, "DROP TABLE T CASCADE"));

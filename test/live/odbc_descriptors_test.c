@@ -363,9 +363,10 @@ static void each_type_is_odbcs(trl_test *test) {
     odbc_close(&o);
 }
 
-/* 38 digits, the most an exact number holds, and 39, past them. */
+/* 38 digits, the most an exact number holds; and text of 39, which the
+   server reads as approximate, still past 38 digits as a double. */
 #define WIDEST "12345678901234567890123456789012345678"
-#define PAST_WIDEST "100000000000000000000000000000000000000"
+#define PAST_WIDEST "200000000000000000000000000000000000000"
 
 /* SQL_NUMERIC_STRUCT of the digits `digits`, scale 0, positive. */
 static SQL_NUMERIC_STRUCT numeric_of(const char *digits) {
@@ -388,7 +389,8 @@ static SQL_NUMERIC_STRUCT numeric_of(const char *digits) {
  * Verifies: [DESIGN] D2 an exact number of 38 digits, the most turborel
  * holds, through ODBC: sent as SQL_C_NUMERIC and as text, read as
  * SQL_C_CHAR and as SQL_C_NUMERIC unchanged; its column's size, and
- * SQLGetTypeInfo's of NUMERIC, 38; one of 39 digits refused (22003).
+ * SQLGetTypeInfo's of NUMERIC, 38; text of 39 digits past them refused
+ * (22003).
  */
 static void exact_numbers_hold_38_digits(trl_test *test) {
     odbc_opened o;
