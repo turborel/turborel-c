@@ -105,6 +105,41 @@ bool trl_read_parameters(trl_reader *reader, trl_parameter **out, uint32_t *coun
     return *out != NULL;
 }
 
+/* The fewest bytes of a marker: its mode, ordinal and parameter. */
+#define TRL_MARKER_LEAST_BYTES (1U + 4U + TRL_PARAMETER_LEAST_BYTES)
+
+/* Whether `mode` is one of tail 20's codes. */
+static bool mode_known(uint8_t mode) {
+    return mode == TRL_MODE_IN || mode == TRL_MODE_INOUT || mode == TRL_MODE_OUT;
+}
+
+bool trl_read_markers(trl_reader *reader, trl_marker **out, uint32_t *count) {
+    if (!trl_read_count(reader, TRL_MARKER_LEAST_BYTES, count)) {
+        return false;
+    }
+    uint32_t room = 0U;
+    *out = trl_reader_items(reader, *count, sizeof(trl_marker), &room);
+    for (uint32_t i = 0U; *out != NULL && i < *count; ++i) {
+        *out = trl_reader_room(reader, *out, &room, i, sizeof(trl_marker));
+        if (*out == NULL) {
+            return false;
+        }
+        trl_marker *marker = &(*out)[i];
+        if (!trl_read_u8(reader, &marker->mode) || !trl_read_u32(reader, &marker->ordinal) ||
+            !trl_read_flag(reader, &marker->parameter.varying) ||
+            !trl_read_data_type(reader, &marker->parameter.type)) {
+            return false;
+        }
+        if (!mode_known(marker->mode)) {
+            return trl_reader_fail(reader, "a parameter's mode is of no code tail 20 has");
+        }
+        if (marker->ordinal == 0U) {
+            return trl_reader_fail(reader, "a parameter's ordinal position is 0");
+        }
+    }
+    return *out != NULL;
+}
+
 bool trl_read_diagnostics(trl_reader *reader, trl_diagnostics *out) {
     uint32_t taken = 0U;
     for (unsigned int tag = TRL_TAIL_SEVERITY; tag <= TRL_TAIL_CONSTRAINT; ++tag) {

@@ -34,7 +34,37 @@ struct trl_statement {
     uint32_t parameter_count;
     /* A result of its columns and no row, for their names and types. */
     trl_result *columns;
+    /* Of a CALL whose Prepared told tail 20: its procedure, null-ended,
+       and each `?`, OUT ones too, in the order written. */
+    const char *procedure_schema;
+    const char *procedure_name;
+    const trl_marker *markers;
+    uint32_t marker_count;
 };
+
+/* A copy of `text` in `arena`, null-ended; null if memory cannot be had. */
+static const char *text_kept(trl_arena *arena, trl_slice text) {
+    char *copy = trl_arena_alloc(arena, text.length + 1U, 1U);
+    if (copy != NULL) {
+        if (text.length > 0U) {
+            memcpy(copy, text.bytes, text.length);
+        }
+        copy[text.length] = '\0';
+    }
+    return copy;
+}
+
+/* Keeps what tail 20 told of a CALL; whether memory could be had. */
+static bool called_kept(trl_statement *statement, const trl_reply *reply) {
+    if (!reply->as.prepared.called) {
+        return true;
+    }
+    statement->procedure_schema = text_kept(&statement->arena, reply->as.prepared.procedure_schema);
+    statement->procedure_name = text_kept(&statement->arena, reply->as.prepared.procedure_name);
+    statement->markers = reply->as.prepared.markers;
+    statement->marker_count = reply->as.prepared.marker_count;
+    return statement->procedure_schema != NULL && statement->procedure_name != NULL;
+}
 
 /* Reads Prepared into a new statement. */
 static bool read_prepared(trl_conn *conn, trl_statement **out) {
@@ -57,7 +87,8 @@ static bool read_prepared(trl_conn *conn, trl_statement **out) {
         statement->number = reply.as.prepared.statement;
         statement->parameters = reply.as.prepared.parameters;
         statement->parameter_count = reply.as.prepared.parameter_count;
-        made = trl_result_take_columns(columns, reply.as.prepared.columns, reply.as.prepared.column_count);
+        made = trl_result_take_columns(columns, reply.as.prepared.columns, reply.as.prepared.column_count) &&
+               called_kept(statement, &reply);
         if (!made) {
             trl_failure_no_memory(&conn->failure);
         }
@@ -367,6 +398,78 @@ const char *trl_statement_column_type_name(const trl_statement *statement, size_
 
 const char *trl_statement_column_type_written(const trl_statement *statement, size_t column) {
     return statement == NULL ? NULL : trl_result_column_type_written(statement->columns, column);
+}
+
+size_t trl_statement_marker_count(const trl_statement *statement) {
+    if (statement == NULL) {
+        return 0U;
+    }
+    return statement->markers != NULL ? statement->marker_count : statement->parameter_count;
+}
+
+trl_parameter_mode trl_statement_marker_mode(const trl_statement *statement, size_t marker) {
+    if (marker >= trl_statement_marker_count(statement)) {
+        return TRL_PARAMETER_MODE_NONE;
+    }
+    return statement->markers != NULL ? (trl_parameter_mode)statement->markers[marker].mode : TRL_PARAMETER_MODE_IN;
+}
+
+uint32_t trl_statement_marker_position(const trl_statement *statement, size_t marker) {
+    if (marker >= trl_statement_marker_count(statement) || statement->markers == NULL) {
+        return 0U;
+    }
+    return statement->markers[marker].ordinal;
+}
+
+const trl_data_type *trl_statement_marker_type(const trl_statement *statement, size_t marker) {
+    if (marker >= trl_statement_marker_count(statement)) {
+        return NULL;
+    }
+    return statement->markers != NULL ? &statement->markers[marker].parameter.type
+                                      : &statement->parameters[marker].type;
+}
+
+bool trl_statement_marker_parameter(const trl_statement *statement, size_t marker, size_t *parameter) {
+    trl_parameter_mode mode = trl_statement_marker_mode(statement, marker);
+    if (mode == TRL_PARAMETER_MODE_NONE || mode == TRL_PARAMETER_MODE_OUT) {
+        return false;
+    }
+    /* The inputs are the `?`s of IN and INOUT parameters, as written. */
+    size_t before = 0U;
+    for (size_t i = 0U; statement->markers != NULL && i < marker; ++i) {
+        before += statement->markers[i].mode != TRL_PARAMETER_MODE_OUT ? 1U : 0U;
+    }
+    if (parameter != NULL) {
+        *parameter = statement->markers != NULL ? before : marker;
+    }
+    return true;
+}
+
+bool trl_statement_marker_column(const trl_statement *statement, size_t marker, size_t *column) {
+    trl_parameter_mode mode = trl_statement_marker_mode(statement, marker);
+    if (mode != TRL_PARAMETER_MODE_INOUT && mode != TRL_PARAMETER_MODE_OUT) {
+        return false;
+    }
+    /* The columns are those of OUT and INOUT parameters, in the procedure's
+       parameter order [PROTOCOL Prepared 'P']. */
+    uint32_t ordinal = statement->markers[marker].ordinal;
+    size_t before = 0U;
+    for (size_t i = 0U; i < statement->marker_count; ++i) {
+        const trl_marker *other = &statement->markers[i];
+        before += other->mode != TRL_PARAMETER_MODE_IN && other->ordinal < ordinal ? 1U : 0U;
+    }
+    if (column != NULL) {
+        *column = before;
+    }
+    return true;
+}
+
+const char *trl_statement_procedure_schema(const trl_statement *statement) {
+    return statement == NULL ? NULL : statement->procedure_schema;
+}
+
+const char *trl_statement_procedure_name(const trl_statement *statement) {
+    return statement == NULL ? NULL : statement->procedure_name;
 }
 
 bool trl_statement_column_not_null(const trl_statement *statement, size_t column) {

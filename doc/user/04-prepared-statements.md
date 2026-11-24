@@ -256,6 +256,13 @@ AMOUNT = 15
 DOUBLED = 30
 ```
 
+The connection asks for `parameter-modes`, so the server also tells each
+`?` the mode of the parameter it stands for, OUT ones included:
+`trl_statement_marker_count` counts them, `trl_statement_marker_mode`
+gives IN, INOUT or OUT, and `trl_statement_marker_column` gives the
+column of the row that carries an OUT or INOUT one's value back
+([Statements and Cursors](../client/22-statements.md)).
+
 ## Letting a statement go
 
 `trl_deallocate` tells the server to forget a statement; executing it

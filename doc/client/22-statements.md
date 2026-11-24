@@ -191,6 +191,107 @@ SQLSTATE 08006, sending nothing, the connection kept.
 
 [Prepared Statements](../user/04-prepared-statements.md) runs each.
 
+## Parameter modes
+
+### NAME
+
+`trl_parameter_mode`, `trl_statement_marker_count`,
+`trl_statement_marker_mode`, `trl_statement_marker_position`,
+`trl_statement_marker_type`, `trl_statement_marker_parameter`,
+`trl_statement_marker_column`, `trl_statement_procedure_schema`,
+`trl_statement_procedure_name`: each `?` of a prepared CALL, with the
+mode of the parameter it is the argument of.
+
+### SYNOPSIS
+
+```c
+typedef enum trl_parameter_mode {
+    TRL_PARAMETER_MODE_NONE = 0,
+    TRL_PARAMETER_MODE_IN = 1,
+    TRL_PARAMETER_MODE_INOUT = 2,
+    TRL_PARAMETER_MODE_OUT = 4,
+} trl_parameter_mode;
+
+size_t trl_statement_marker_count(const trl_statement *statement);
+trl_parameter_mode trl_statement_marker_mode(const trl_statement *statement, size_t marker);
+uint32_t trl_statement_marker_position(const trl_statement *statement, size_t marker);
+const trl_data_type *trl_statement_marker_type(const trl_statement *statement, size_t marker);
+bool trl_statement_marker_parameter(const trl_statement *statement, size_t marker, size_t *parameter);
+bool trl_statement_marker_column(const trl_statement *statement, size_t marker, size_t *column);
+const char *trl_statement_procedure_schema(const trl_statement *statement);
+const char *trl_statement_procedure_name(const trl_statement *statement);
+```
+
+### DESCRIPTION
+
+A connection asks for `parameter-modes`, as it asks for every capability
+but compression. Granted it, the server ends the Prepared of a CALL of
+an SQL-invoked procedure with tail 20: the procedure's specific schema
+and name, then every `?` in the order written, its OUT ones too, each
+with the mode of the procedure parameter whose argument holds it, that
+parameter's ordinal position from 1, and its type
+[PROTOCOL Parameter modes]. A `?` of an IN parameter is an input; of an
+OUT one, a column of the CALL's row; of an INOUT one, both.
+
+`trl_statement_marker_count` counts the `?`s, OUT ones too, numbered from
+0 in the order written; `trl_statement_marker_mode`,
+`trl_statement_marker_position` and `trl_statement_marker_type` give
+each one's mode, position and type. `trl_statement_marker_parameter`
+gives an IN or INOUT `?`'s place among the values `trl_execute` takes,
+the inputs in the order of their `?`s; `trl_statement_marker_column`
+gives an OUT or INOUT `?`'s column of the CALL's row, as the columns are
+in the order of the procedure's parameters. `trl_statement_procedure_schema`
+and `trl_statement_procedure_name` name the procedure.
+
+A statement other than a CALL, a CALL of a procedure written in Rust,
+and every statement of a connection not granted `parameter-modes` have
+no tail 20: their `?`s are their parameters, each IN, of position 0, and
+no procedure is named.
+
+### ERRORS
+
+None of their own: a `?` past the last gives TRL_PARAMETER_MODE_NONE,
+position 0, no type and no place or column. A Prepared whose tail 20
+gives a mode of another code than 1, 2 or 4, or a position of 0, loses
+the connection, SQLCODE -919, SQLSTATE 08006.
+
+### EXAMPLES
+
+A CALL whose OUT parameter's `?` comes first, its value read from the
+column its `?` names:
+
+```c
+trl_result *result = NULL;
+trl_query(conn, "CREATE PROCEDURE SPLIT (OUT HALF INTEGER, IN WHOLE INTEGER) MODIFIES SQL DATA "
+                "SET HALF = WHOLE / 2", &result);
+trl_result_free(result);
+trl_statement *call = NULL;
+if (trl_prepare(conn, "CALL SPLIT(?, ?)", &call) == TRL_OK) {
+    static const char *const modes[] = {"none", "IN", "INOUT", "", "OUT"};
+    for (size_t i = 0; i < trl_statement_marker_count(call); ++i) {
+        printf("? %zu: %s of parameter %u\n", i + 1, modes[trl_statement_marker_mode(call, i)],
+               (unsigned)trl_statement_marker_position(call, i));
+    }
+    trl_params *params = NULL;
+    trl_params_new(&params);
+    trl_params_add_decimal(params, (trl_decimal){{9, 0}, 0});
+    size_t column = 0;
+    if (trl_execute(conn, call, params, &result) == TRL_OK && trl_statement_marker_column(call, 0, &column)) {
+        printf("HALF %s\n", trl_result_text(result, 0, column));
+    }
+    trl_result_free(result);
+    trl_params_free(params);
+    trl_deallocate(conn, call);
+    trl_statement_free(call);
+}
+```
+
+```
+? 1: OUT of parameter 1
+? 2: IN of parameter 2
+HALF 4
+```
+
 ## Cursors
 
 ### NAME

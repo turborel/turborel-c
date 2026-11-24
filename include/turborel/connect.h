@@ -82,6 +82,8 @@ extern "C" {
 #define TRL_CAPABILITY_CONDITIONS "conditions"
 /** @brief The capability of each column's declared type in a Prepared and a Description. */
 #define TRL_CAPABILITY_DECLARED_TYPES "declared-types"
+/** @brief The capability of a CALL's procedure and each `?`'s mode in its Prepared. */
+#define TRL_CAPABILITY_PARAMETER_MODES "parameter-modes"
 
 /**
  * @brief TLS settings: the certificate authorities trusted, and the

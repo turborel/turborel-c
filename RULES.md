@@ -570,10 +570,9 @@ Where the ODBC driver departs from ODBC 3.x:
 - The ODBC driver's functions without `W` take and give UTF-8, whatever
   the process's code page or locale; a `W` function's SQLWCHAR is UTF-16
   or UTF-32 by its size.
-- Its parameters are input parameters, one set at a time: an output
-  parameter, an array of parameter sets, and data at execution are
-  refused, SQLSTATE HYC00. SQLSetPos and positioned updates are refused
-  so too.
+- Its parameters are one set at a time: an array of parameter sets, data
+  at execution, and a streamed output parameter are refused, SQLSTATE
+  HYC00. SQLSetPos and positioned updates are refused so too.
 - Its cursor is the client's: a query's rows are read as it runs, so a
   forward-only cursor and a static one are the same rows, and a
   keyset-driven or dynamic one is changed to static, SQLSTATE 01S02.

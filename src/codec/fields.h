@@ -51,6 +51,32 @@ typedef struct trl_parameter {
     trl_data_type type;
 } trl_parameter;
 
+/** @brief A procedure parameter's mode, as tail 20 codes it [PROTOCOL Parameter modes]. */
+#define TRL_MODE_IN 1U
+#define TRL_MODE_INOUT 2U
+#define TRL_MODE_OUT 4U
+
+/**
+ * @brief A `?` of a CALL, as tail 20 tells it: the mode and ordinal
+ * position of the procedure's parameter whose argument holds it, and its
+ * parameter's type [PROTOCOL Parameter modes].
+ */
+typedef struct trl_marker {
+    /** @brief TRL_MODE_IN, TRL_MODE_INOUT or TRL_MODE_OUT. */
+    uint8_t mode;
+    /** @brief The parameter's ordinal position, from 1. */
+    uint32_t ordinal;
+    /** @brief Its type, as a parameter's is written. */
+    trl_parameter parameter;
+} trl_marker;
+
+/**
+ * @brief Reads tail 20's markers into `arena`'s room: a count, then each
+ * one's mode, ordinal and parameter, a mode of another code or an ordinal
+ * of 0 failing the read.
+ */
+bool trl_read_markers(trl_reader *reader, trl_marker **out, uint32_t *count);
+
 /**
  * @brief What a failure or a notice says beyond its SQLSTATE and message:
  * severity, detail, hint, context, schema, table, column, data type and

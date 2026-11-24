@@ -35,36 +35,67 @@ static bool read_ready(trl_reader *reader, trl_reply *out) {
 /* The fewest bytes of a column's declared type: two empty strings. */
 #define TRL_DECLARED_LEAST_BYTES 8U
 
-/* Reads the tail of a Prepared or a Description: of tag 19, the type each
-   of `columns` was declared with, one for each [PROTOCOL Declared types]. */
+/* Reads tag 19: the type each of `columns` was declared with, one for
+   each [PROTOCOL Declared types]. */
+static bool declared_read(trl_reader *reader, trl_column *columns, uint32_t count) {
+    uint32_t told = 0U;
+    if (!trl_read_count(reader, TRL_DECLARED_LEAST_BYTES, &told)) {
+        return false;
+    }
+    if (told != count) {
+        return trl_reader_fail(reader, "its declared types are not one for each column");
+    }
+    for (uint32_t i = 0U; i < count; ++i) {
+        if (!trl_read_string(reader, &columns[i].declared_name) ||
+            !trl_read_string(reader, &columns[i].declared_written)) {
+            return false;
+        }
+        columns[i].declared = true;
+    }
+    return true;
+}
+
+/* Reads the tail of a Description: of tag 19, the columns' declared types. */
 static bool read_declared(trl_reader *reader, trl_column *columns, uint32_t count) {
     trl_tail tail = {0U};
     uint8_t tag = 0U;
     while (trl_tail_next(reader, &tail, TRL_TAG_BIT(TRL_TAIL_DECLARED), &tag) && tag != 0U) {
-        uint32_t told = 0U;
-        if (!trl_read_count(reader, TRL_DECLARED_LEAST_BYTES, &told)) {
+        if (!declared_read(reader, columns, count)) {
             return false;
-        }
-        if (told != count) {
-            return trl_reader_fail(reader, "its declared types are not one for each column");
-        }
-        for (uint32_t i = 0U; i < count; ++i) {
-            if (!trl_read_string(reader, &columns[i].declared_name) ||
-                !trl_read_string(reader, &columns[i].declared_written)) {
-                return false;
-            }
-            columns[i].declared = true;
         }
     }
     return !reader->failed;
 }
 
-/* Reads Prepared: statement, parameters, columns, then its tail [PROTOCOL Prepared 'P']. */
+/* Reads tag 20 of a Prepared: the procedure's specific schema and name,
+   then each `?` [PROTOCOL Parameter modes]. */
+static bool read_called(trl_reader *reader, trl_reply *out) {
+    out->as.prepared.called = true;
+    return trl_read_string(reader, &out->as.prepared.procedure_schema) &&
+           trl_read_string(reader, &out->as.prepared.procedure_name) &&
+           trl_read_markers(reader, &out->as.prepared.markers, &out->as.prepared.marker_count);
+}
+
+/* Reads Prepared: statement, parameters, columns, then its tail, tags 19
+   and 20 [PROTOCOL Prepared 'P']. */
 static bool read_prepared(trl_reader *reader, trl_reply *out) {
-    return trl_read_u32(reader, &out->as.prepared.statement) &&
-           trl_read_parameters(reader, &out->as.prepared.parameters, &out->as.prepared.parameter_count) &&
-           trl_read_columns(reader, &out->as.prepared.columns, &out->as.prepared.column_count) &&
-           read_declared(reader, out->as.prepared.columns, out->as.prepared.column_count);
+    if (!trl_read_u32(reader, &out->as.prepared.statement) ||
+        !trl_read_parameters(reader, &out->as.prepared.parameters, &out->as.prepared.parameter_count) ||
+        !trl_read_columns(reader, &out->as.prepared.columns, &out->as.prepared.column_count)) {
+        return false;
+    }
+    trl_tail tail = {0U};
+    uint8_t tag = 0U;
+    uint32_t taken = TRL_TAG_BIT(TRL_TAIL_DECLARED) | TRL_TAG_BIT(TRL_TAIL_CALLED);
+    while (trl_tail_next(reader, &tail, taken, &tag) && tag != 0U) {
+        bool read = tag == TRL_TAIL_CALLED
+                        ? read_called(reader, out)
+                        : declared_read(reader, out->as.prepared.columns, out->as.prepared.column_count);
+        if (!read) {
+            return false;
+        }
+    }
+    return !reader->failed;
 }
 
 /* Reads Rows: a list of rows [PROTOCOL Rows 'B']. */

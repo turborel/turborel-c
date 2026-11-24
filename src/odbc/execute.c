@@ -12,6 +12,7 @@
 #include "format.h"
 #include "odbc/escapes.h"
 #include "odbc/odbc.h"
+#include "odbc/outputs.h"
 #include "odbc/params.h"
 #include "odbc/types.h"
 #include "stmt/stmt.h"
@@ -118,7 +119,7 @@ static char *escaped(trl_odbc_stmt *stmt, const char *sql) {
 /* Executes `statement` with the parameters bound, then gives up its result. */
 static SQLRETURN executed(trl_odbc_stmt *stmt, const trl_statement *statement, const char *sql) {
     trl_params *params = NULL;
-    SQLRETURN bound = trl_odbc_params(stmt, trl_statement_parameter_count(statement), &params);
+    SQLRETURN bound = trl_odbc_params(stmt, statement, &params);
     if (bound != SQL_SUCCESS) {
         return bound;
     }
@@ -130,7 +131,12 @@ static SQLRETURN executed(trl_odbc_stmt *stmt, const trl_statement *statement, c
     trl_result *result = NULL;
     trl_status ran = trl_execute(stmt->dbc->conn, statement, params, &result);
     trl_params_free(params);
-    return finished(stmt, ran, result, sql);
+    SQLRETURN done = finished(stmt, ran, result, sql);
+    if (done != SQL_SUCCESS && done != SQL_SUCCESS_WITH_INFO) {
+        return done;
+    }
+    SQLRETURN given = trl_odbc_outputs_given(stmt, statement);
+    return given == SQL_SUCCESS ? done : given;
 }
 
 SQLRETURN trl_odbc_exec_direct(trl_odbc_stmt *stmt, const char *sql) {
@@ -178,7 +184,7 @@ SQLRETURN trl_odbc_prepare(trl_odbc_stmt *stmt, const char *sql) {
         return prepared == TRL_NO_MEMORY ? trl_odbc_no_memory(&stmt->diag)
                                          : trl_odbc_failed(&stmt->diag, trl_conn_failure(conn));
     }
-    return SQL_SUCCESS;
+    return trl_odbc_ipd_filled(stmt);
 }
 
 TRL_ODBC_EXPORT SQLRETURN SQL_API SQLExecDirect(SQLHSTMT handle, SQLCHAR *sql, SQLINTEGER length) {
@@ -239,7 +245,8 @@ TRL_ODBC_EXPORT SQLRETURN SQL_API SQLNumParams(SQLHSTMT handle, SQLSMALLINT *cou
         return trl_odbc_fail(&stmt->diag, "HY010", "Function sequence error: no statement is prepared");
     }
     if (count != NULL) {
-        *count = (SQLSMALLINT)trl_statement_parameter_count(stmt->prepared);
+        /* Every `?`, OUT ones too [PROTOCOL Parameter modes]. */
+        *count = (SQLSMALLINT)trl_statement_marker_count(stmt->prepared);
     }
     return SQL_SUCCESS;
 }
@@ -255,11 +262,11 @@ TRL_ODBC_EXPORT SQLRETURN SQL_API SQLDescribeParam(SQLHSTMT handle, SQLUSMALLINT
     if (stmt->prepared == NULL) {
         return trl_odbc_fail(&stmt->diag, "HY010", "Function sequence error: no statement is prepared");
     }
-    if (number < 1 || number > trl_statement_parameter_count(stmt->prepared)) {
+    if (number < 1 || number > trl_statement_marker_count(stmt->prepared)) {
         return trl_odbc_fail(&stmt->diag, "07009", "Invalid descriptor index");
     }
     trl_odbc_type t;
-    trl_odbc_type_of(trl_statement_parameter_type(stmt->prepared, (size_t)number - 1U), NULL, &t);
+    trl_odbc_type_of(trl_statement_marker_type(stmt->prepared, (size_t)number - 1U), NULL, &t);
     if (sql_type != NULL) {
         *sql_type = t.sql_type;
     }
@@ -293,8 +300,11 @@ static SQLRETURN parameter_bound(trl_odbc_stmt *stmt, SQLUSMALLINT number, const
     if (number < 1) {
         return trl_odbc_fail(&stmt->diag, "07009", "Invalid descriptor index");
     }
-    if (b->io != SQL_PARAM_INPUT) {
-        return trl_odbc_fail(&stmt->diag, "HYC00", "Optional feature not implemented: output parameters");
+    if (b->io == SQL_PARAM_INPUT_OUTPUT_STREAM || b->io == SQL_PARAM_OUTPUT_STREAM) {
+        return trl_odbc_fail(&stmt->diag, "HYC00", "Optional feature not implemented: streamed output parameters");
+    }
+    if (b->io != SQL_PARAM_INPUT && b->io != SQL_PARAM_INPUT_OUTPUT && b->io != SQL_PARAM_OUTPUT) {
+        return trl_odbc_fail(&stmt->diag, "HY105", "Invalid parameter type");
     }
     trl_odbc_field *app = trl_odbc_desc_field(stmt->apd, (SQLSMALLINT)number);
     trl_odbc_field *sql = trl_odbc_desc_field(&stmt->implicit[TRL_ODBC_IPD], (SQLSMALLINT)number);

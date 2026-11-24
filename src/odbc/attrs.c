@@ -102,7 +102,8 @@ static bool connect_number(const trl_odbc_dbc *dbc, SQLINTEGER attribute, SQLUIN
         *out = SQL_ASYNC_ENABLE_OFF;
         return true;
     case SQL_ATTR_AUTO_IPD:
-        *out = SQL_FALSE;
+        /* SQLPrepare fills the IPD, each `?`'s type and mode. */
+        *out = SQL_TRUE;
         return true;
     case SQL_ATTR_CONNECTION_TIMEOUT:
     case SQL_ATTR_PACKET_SIZE:
@@ -228,8 +229,10 @@ static bool running_set(trl_odbc_stmt *stmt, SQLINTEGER attribute, SQLULEN numbe
     case SQL_ATTR_ASYNC_ENABLE:
     case SQL_ATTR_RETRIEVE_DATA:
     case SQL_ATTR_SIMULATE_CURSOR:
-    case SQL_ATTR_ENABLE_AUTO_IPD:
         /* Taken, of what the driver does one way alone. */
+        return true;
+    case SQL_ATTR_ENABLE_AUTO_IPD:
+        stmt->ipd_manual = number == SQL_FALSE;
         return true;
     default:
         return false;
@@ -387,9 +390,11 @@ static bool stmt_number(const trl_odbc_stmt *stmt, SQLINTEGER attribute, SQLULEN
     case SQL_ATTR_MAX_LENGTH:
     case SQL_ATTR_KEYSET_SIZE:
     case SQL_ATTR_ASYNC_ENABLE:
-    case SQL_ATTR_ENABLE_AUTO_IPD:
     case SQL_ATTR_SIMULATE_CURSOR:
         *out = 0U;
+        return true;
+    case SQL_ATTR_ENABLE_AUTO_IPD:
+        *out = stmt->ipd_manual ? SQL_FALSE : SQL_TRUE;
         return true;
     default:
         return false;

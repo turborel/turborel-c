@@ -413,8 +413,8 @@ static void parameters_of_each_c_type_are_sent(trl_test *test) {
 /**
  * Verifies: [DESIGN] D2 a parameter refused: data at execution (HYC00), a
  * C type the driver does not take (HY003), a null value's pointer
- * (HY009), a value not bound (07002), an output parameter or one numbered
- * 0 (HY105, 07009).
+ * (HY009), a value not bound (07002), a streamed output parameter
+ * (HYC00), one of no kind ODBC has (HY105) or one numbered 0 (07009).
  */
 static void parameters_are_refused(trl_test *test) {
     odbc_opened o;
@@ -434,8 +434,11 @@ static void parameters_are_refused(trl_test *test) {
     TRL_CHECK(test, SQLExecute(o.stmt) == SQL_ERROR && strcmp(odbc_state(SQL_HANDLE_STMT, o.stmt, NULL), "HY009") == 0);
     (void)SQLFreeStmt(o.stmt, SQL_RESET_PARAMS);
     TRL_CHECK(test, SQLExecute(o.stmt) == SQL_ERROR && strcmp(odbc_state(SQL_HANDLE_STMT, o.stmt, NULL), "07002") == 0);
-    TRL_CHECK(test,
-              SQLBindParameter(o.stmt, 1, SQL_PARAM_OUTPUT, SQL_C_CHAR, SQL_VARCHAR, 4, 0, text, 0, NULL) == SQL_ERROR);
+    TRL_CHECK(test, SQLBindParameter(o.stmt, 1, SQL_PARAM_OUTPUT_STREAM, SQL_C_CHAR, SQL_VARCHAR, 4, 0, text, 0,
+                                     NULL) == SQL_ERROR &&
+                        strcmp(odbc_state(SQL_HANDLE_STMT, o.stmt, NULL), "HYC00") == 0);
+    TRL_CHECK(test, SQLBindParameter(o.stmt, 1, 99, SQL_C_CHAR, SQL_VARCHAR, 4, 0, text, 0, NULL) == SQL_ERROR &&
+                        strcmp(odbc_state(SQL_HANDLE_STMT, o.stmt, NULL), "HY105") == 0);
     TRL_CHECK(test,
               SQLBindParameter(o.stmt, 0, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR, 4, 0, text, 0, NULL) == SQL_ERROR);
     odbc_close(&o);

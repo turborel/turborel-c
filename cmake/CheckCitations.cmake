@@ -5,14 +5,15 @@
 
 # The headings a citation may name, as [PROTOCOL <heading>] or [CLIENT <heading>]:
 # those of doc/client/05-protocol.md, and of doc/client/02-library.md and
-# 02-library-connections.md, in turborel's main at 045e42a9.
+# 02-library-connections.md, in turborel's main at 045e42a9, with
+# "Parameter modes" of 1afa44c2.
 set(TRL_PROTOCOL_HEADINGS
     "The Native Protocol" "Frames" "Compressed frames" "Values and fields" "Data types" "Values"
     "JSON values" "Composite fields" "The tail" "Opening a connection" "Mechanisms" "Capabilities" "Requests" "Hello 'H'"
     "Answer 'A'" "Query 'Q'" "Prepare 'P'" "Execute 'E'" "Fetch 'F'" "Close 'C'" "Deallocate 'D'" "Lob 'L'"
     "Cancel 'Z'" "Terminate 'X'" "Describe 'Y'" "Ping 'G'" "Reset 'W'" "ChangeUser 'U'" "CopyIn 'I'"
     "CopyData 'J'" "CopyEnd 'N'" "Replies" "Challenge 'C'" "Ready 'R'" "Prepared 'P'" "Description 'D'"
-    "Declared types" "Rows 'B'" "Suspended 'S'" "Complete 'K'" "Error 'E'" "Notice 'N'" "Status 'T'" "Pong 'G'"
+    "Declared types" "Parameter modes" "Rows 'B'" "Suspended 'S'" "Complete 'K'" "Error 'E'" "Notice 'N'" "Status 'T'" "Pong 'G'"
     "Conversations" "Errors and notices" "Sample frames" "A worked example")
 set(TRL_CLIENT_HEADINGS
     "The Client Library" "Connecting" "Timeouts" "Running statements" "Prepared statements" "Large objects"

@@ -333,6 +333,104 @@ TRL_API const char *trl_statement_column_type_written(const trl_statement *state
 TRL_API bool trl_statement_column_not_null(const trl_statement *statement, size_t column);
 
 /**
+ * @brief The mode of the procedure parameter a `?` is the argument of, as
+ * tail 20 codes it [PROTOCOL Parameter modes].
+ */
+typedef enum trl_parameter_mode {
+    /** @brief No `?`: past the last. */
+    TRL_PARAMETER_MODE_NONE = 0,
+    /** @brief An input: IN, as every `?` of a statement other than a CALL is. */
+    TRL_PARAMETER_MODE_IN = 1,
+    /** @brief Both an input and a column of the CALL's row. */
+    TRL_PARAMETER_MODE_INOUT = 2,
+    /** @brief No input; a column of the CALL's row. */
+    TRL_PARAMETER_MODE_OUT = 4,
+} trl_parameter_mode;
+
+/**
+ * @brief How many `?` markers the statement has, OUT ones too: with
+ * `parameter-modes` granted, a CALL of an SQL-invoked procedure's every
+ * `?`, as Prepared told them in tail 20; another statement's, its
+ * parameters, each IN [PROTOCOL Parameter modes].
+ *
+ * @param statement The statement; null gives 0.
+ * @return The count.
+ */
+TRL_API size_t trl_statement_marker_count(const trl_statement *statement);
+
+/**
+ * @brief A `?`'s mode.
+ *
+ * @param statement The statement.
+ * @param marker Which `?`, from 0, in the order written.
+ * @return Its mode; TRL_PARAMETER_MODE_NONE past the last.
+ */
+TRL_API trl_parameter_mode trl_statement_marker_mode(const trl_statement *statement, size_t marker);
+
+/**
+ * @brief The ordinal position of the procedure parameter a `?` of a CALL
+ * is the argument of, several `?`s of one IN argument each its.
+ *
+ * @param statement The statement.
+ * @param marker Which `?`, from 0.
+ * @return The position, from 1; 0 past the last, or of a statement that
+ * is no CALL whose Prepared told tail 20.
+ */
+TRL_API uint32_t trl_statement_marker_position(const trl_statement *statement, size_t marker);
+
+/**
+ * @brief A `?`'s type, an OUT one's too.
+ *
+ * @param statement The statement.
+ * @param marker Which `?`, from 0.
+ * @return The type, borrowed; null past the last.
+ */
+TRL_API const trl_data_type *trl_statement_marker_type(const trl_statement *statement, size_t marker);
+
+/**
+ * @brief The parameter a `?` of IN or INOUT is, its value's place in the
+ * list trl_execute() takes: the inputs, in the order of their `?`s.
+ *
+ * @param statement The statement.
+ * @param marker Which `?`, from 0.
+ * @param parameter Where its place goes, from 0; may be null.
+ * @return Whether it is an input; false of an OUT `?`, or past the last.
+ */
+TRL_API bool trl_statement_marker_parameter(const trl_statement *statement, size_t marker, size_t *parameter);
+
+/**
+ * @brief The column of a CALL's row that gives an OUT or INOUT `?`'s value
+ * back: its columns are the OUT and INOUT parameters' `?`s, in the order
+ * of the procedure's parameters [PROTOCOL Prepared 'P'].
+ *
+ * @param statement The statement.
+ * @param marker Which `?`, from 0.
+ * @param column Where its column goes, from 0; may be null.
+ * @return Whether it has one; false of an IN `?`, or past the last.
+ */
+TRL_API bool trl_statement_marker_column(const trl_statement *statement, size_t marker, size_t *column);
+
+/**
+ * @brief The specific schema of the procedure a CALL calls, as tail 20
+ * names it.
+ *
+ * @param statement The statement.
+ * @return A string the statement owns; null of a statement that is no
+ * CALL whose Prepared told tail 20.
+ */
+TRL_API const char *trl_statement_procedure_schema(const trl_statement *statement);
+
+/**
+ * @brief The specific name of the procedure a CALL calls, as tail 20
+ * names it.
+ *
+ * @param statement The statement.
+ * @return A string the statement owns; null as
+ * trl_statement_procedure_schema() is.
+ */
+TRL_API const char *trl_statement_procedure_name(const trl_statement *statement);
+
+/**
  * @brief Executes a prepared statement with values, as many times as wanted
  * [PROTOCOL Execute 'E']: a query's rows all at once, a CALL's output
  * parameters as one row, another statement's completion.

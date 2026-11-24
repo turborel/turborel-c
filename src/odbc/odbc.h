@@ -235,6 +235,8 @@ struct trl_odbc_stmt {
     SQLULEN cursor_type;
     /** @brief SQL_ATTR_NOSCAN: whether escape sequences are sent as they are. */
     bool noscan;
+    /** @brief SQL_ATTR_ENABLE_AUTO_IPD off: the IPD left as the application set it after SQLPrepare. */
+    bool ipd_manual;
     /** @brief SQL_ATTR_QUERY_TIMEOUT, in seconds, the session's STATEMENT.TIMEOUT_MS as it runs; 0 for none. */
     SQLULEN query_timeout;
     /** @brief The cursor's name SQLSetCursorName gave, owned; null for the one the driver makes. */

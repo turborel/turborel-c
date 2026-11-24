@@ -114,6 +114,36 @@ static bool rows_copied(trl_arena *arena, const trl_reply *in, trl_reply *out) {
 }
 
 /* Copies a Prepared reply's parameters' types and its columns into `arena`; whether it could. */
+/* A copy of `from`'s bytes into `arena`; whether it could. */
+static bool slice_copied(trl_arena *arena, trl_slice from, trl_slice *out) {
+    uint8_t *bytes = trl_arena_alloc(arena, from.length + 1U, 1U);
+    if (bytes != NULL && from.length > 0U) {
+        memcpy(bytes, from.bytes, from.length);
+    }
+    out->bytes = bytes;
+    out->length = from.length;
+    return bytes != NULL;
+}
+
+/* Copies tail 20 of a Prepared into `arena`: its procedure and each `?`. */
+static bool called_copied(trl_arena *arena, const trl_reply *in, trl_reply *out) {
+    if (!in->as.prepared.called) {
+        return true;
+    }
+    uint32_t count = in->as.prepared.marker_count;
+    out->as.prepared.markers = trl_arena_alloc(arena, count + 1U, sizeof(trl_marker));
+    bool copied = out->as.prepared.markers != NULL &&
+                  slice_copied(arena, in->as.prepared.procedure_schema, &out->as.prepared.procedure_schema) &&
+                  slice_copied(arena, in->as.prepared.procedure_name, &out->as.prepared.procedure_name);
+    for (uint32_t i = 0U; copied && i < count; ++i) {
+        const trl_marker *from = &in->as.prepared.markers[i];
+        trl_marker *to = &out->as.prepared.markers[i];
+        *to = *from;
+        copied = trl_type_copy(arena, &from->parameter.type, &to->parameter.type, 0U);
+    }
+    return copied;
+}
+
 static bool prepared_copied(trl_arena *arena, const trl_reply *in, trl_reply *out) {
     uint32_t count = in->as.prepared.parameter_count;
     out->as.prepared.parameters = trl_arena_alloc(arena, count + 1U, sizeof(trl_parameter));
@@ -124,7 +154,7 @@ static bool prepared_copied(trl_arena *arena, const trl_reply *in, trl_reply *ou
         }
     }
     out->as.prepared.columns = trl_columns_copy(arena, in->as.prepared.columns, in->as.prepared.column_count);
-    return out->as.prepared.parameters != NULL && out->as.prepared.columns != NULL;
+    return out->as.prepared.parameters != NULL && out->as.prepared.columns != NULL && called_copied(arena, in, out);
 }
 
 /* A copy of `in` into `arena`, of a reply of values or types; whether it could. */
@@ -247,9 +277,53 @@ static void copying_survives_each_fault(trl_test *test) {
 }
 #endif
 
+/* Whether the sample `name`, its byte `from` past tail 20's tag set to
+   `to`, fails to decode. */
+static bool called_refused(const samples *s, size_t from, uint8_t to) {
+    const sample *called = sample_named(s, "prepared-called");
+    if (called == NULL) {
+        return false;
+    }
+    sample changed = *called;
+    static const uint8_t tag[] = {20U, 1U, 0U, 0U, 0U, 'S'};
+    size_t at = 0U;
+    while (at + sizeof tag <= changed.length && memcmp(changed.frame + at, tag, sizeof tag) != 0) {
+        ++at;
+    }
+    if (at + from >= changed.length) {
+        return false;
+    }
+    changed.frame[at + from] = to;
+    fixture f;
+    fixture_init(&f);
+    trl_reply reply;
+    bool refused = !decoded(&f, &changed, &reply) && f.error.message[0] != '\0';
+    fixture_free(&f);
+    return refused;
+}
+
+/* Past tail 20's tag: the schema and name, 5 bytes each, the count, then
+   the first `?`'s mode and its ordinal's first byte. */
+#define CALLED_MODE (1U + 5U + 5U + 4U)
+#define CALLED_ORDINAL (CALLED_MODE + 1U)
+
+/**
+ * Verifies: [PROTOCOL Parameter modes] tail 20 of a mode of no code, 3,
+ * or of an ordinal position of 0, is refused, as fails the connection;
+ * of its codes read whole.
+ */
+static void a_called_tail_of_a_bad_mode_or_position_is_refused(trl_test *test) {
+    samples s;
+    TRL_CHECK(test, samples_read(&s));
+    TRL_CHECK(test, called_refused(&s, CALLED_MODE, 3U) && called_refused(&s, CALLED_MODE, 0U));
+    TRL_CHECK(test, called_refused(&s, CALLED_ORDINAL, 0U) && !called_refused(&s, CALLED_MODE, 2U));
+    samples_free(&s);
+}
+
 int main(int argc, char **argv) {
     static const trl_test_case cases[] = {
         TRL_TEST_CASE(every_server_frame_is_decoded),
+        TRL_TEST_CASE(a_called_tail_of_a_bad_mode_or_position_is_refused),
         TRL_TEST_CASE(every_server_frame_is_copied_whole),
 #ifdef TRL_FAULTS
         TRL_TEST_CASE(copying_survives_each_fault),

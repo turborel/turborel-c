@@ -264,6 +264,26 @@ static void put_columns(text *t, const trl_column *columns, uint32_t count) {
     put(t, ")");
 }
 
+/* Tail 20: the procedure, then each `?`'s mode, ordinal and type. */
+static void put_called(text *t, const trl_reply *r) {
+    static const char *const modes[] = {"", "IN", "INOUT", "", "OUT"};
+    put(t, " called ");
+    put_slice(t, r->as.prepared.procedure_schema);
+    put(t, ".");
+    put_slice(t, r->as.prepared.procedure_name);
+    put(t, " (");
+    for (uint32_t i = 0U; i < r->as.prepared.marker_count; ++i) {
+        const trl_marker *m = &r->as.prepared.markers[i];
+        put(t, i == 0U ? "" : "; ");
+        put(t, m->mode < sizeof modes / sizeof modes[0] ? modes[m->mode] : "?");
+        put(t, " ");
+        put_u64(t, m->ordinal);
+        put(t, m->parameter.varying ? " varying " : " ");
+        put_type(t, &m->parameter.type);
+    }
+    put(t, ")");
+}
+
 static void put_prepared(text *t, const trl_reply *r) {
     put(t, "Prepared ");
     put_u64(t, r->as.prepared.statement);
@@ -275,6 +295,9 @@ static void put_prepared(text *t, const trl_reply *r) {
     }
     put(t, ") columns ");
     put_columns(t, r->as.prepared.columns, r->as.prepared.column_count);
+    if (r->as.prepared.called) {
+        put_called(t, r);
+    }
 }
 
 static void put_ready(text *t, const trl_reply *r) {

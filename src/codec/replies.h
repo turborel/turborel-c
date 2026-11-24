@@ -88,6 +88,14 @@ typedef struct trl_reply {
             uint32_t parameter_count;
             trl_column *columns;
             uint32_t column_count;
+            /** @brief Whether it told tail 20, of a CALL of an SQL-invoked procedure. */
+            bool called;
+            /** @brief The procedure's specific schema and name, of tail 20. */
+            trl_slice procedure_schema;
+            trl_slice procedure_name;
+            /** @brief Every `?`, OUT ones too, in the order written, of tail 20. */
+            trl_marker *markers;
+            uint32_t marker_count;
         } prepared;
         /** @brief Description: the columns. */
         struct {

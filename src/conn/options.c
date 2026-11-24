@@ -37,6 +37,7 @@ const char *const trl_capabilities_known[TRL_CAPABILITIES_KNOWN] = {
     TRL_CAPABILITY_FETCH_ENDS,
     TRL_CAPABILITY_CONDITIONS,
     TRL_CAPABILITY_DECLARED_TYPES,
+    TRL_CAPABILITY_PARAMETER_MODES,
 };
 
 /* Every capability but compression, in the protocol's table's order. */
@@ -59,6 +60,7 @@ static const char *const asked_by_default[] = {
     TRL_CAPABILITY_FETCH_ENDS,
     TRL_CAPABILITY_CONDITIONS,
     TRL_CAPABILITY_DECLARED_TYPES,
+    TRL_CAPABILITY_PARAMETER_MODES,
 };
 
 /* A copy of `text`, or null if memory cannot be had. */

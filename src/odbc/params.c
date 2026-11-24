@@ -242,7 +242,8 @@ static SQLRETURN one_added(trl_odbc_diag *diag, const bound *b, trl_params *para
     return added == TRL_OK ? SQL_SUCCESS : trl_odbc_no_memory(diag);
 }
 
-SQLRETURN trl_odbc_params(trl_odbc_stmt *stmt, size_t count, trl_params **out) {
+SQLRETURN trl_odbc_params(trl_odbc_stmt *stmt, const trl_statement *statement, trl_params **out) {
+    size_t count = trl_statement_marker_count(statement);
     *out = NULL;
     const trl_odbc_desc *apd = stmt->apd;
     const trl_odbc_desc *ipd = &stmt->implicit[TRL_ODBC_IPD];
@@ -253,6 +254,9 @@ SQLRETURN trl_odbc_params(trl_odbc_stmt *stmt, size_t count, trl_params **out) {
         return trl_odbc_no_memory(&stmt->diag);
     }
     for (size_t i = 1U; i <= count; ++i) {
+        if (!trl_statement_marker_parameter(statement, i - 1U, NULL)) {
+            continue;
+        }
         const trl_odbc_field *field = &apd->fields[i];
         SQLSMALLINT sql_type = (SQLSMALLINT)i <= ipd->count ? ipd->fields[i].concise_type : SQL_VARCHAR;
         bound b = {

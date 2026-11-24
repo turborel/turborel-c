@@ -38,6 +38,8 @@ typedef enum broken {
     BROKEN_STORED_LOB,
     BROKEN_FLAG,
     BROKEN_LONGER,
+    BROKEN_CALLED_MODE,
+    BROKEN_CALLED_POSITION,
 } broken;
 
 /* A server's plan: what breaks, and how many statements it answered. */
@@ -133,6 +135,28 @@ static void malformed_complete(script *s, bool longer) {
     trl_buffer_free(&body);
 }
 
+/* Writes a Prepared of a CALL of S.P, its one `?` of `mode` and position
+   `position` in tail 20 [PROTOCOL Parameter modes]. */
+static void prepared_called(script *s, uint8_t mode, uint32_t position) {
+    trl_buffer body;
+    trl_buffer_init(&body);
+    trl_put_u32(&body, 0U);
+    trl_put_u32(&body, 0U);
+    trl_put_u32(&body, 0U);
+    trl_put_u8(&body, TRL_TAIL_CALLED);
+    script_put_string(&body, "S");
+    script_put_string(&body, "P");
+    trl_put_u32(&body, 1U);
+    trl_put_u8(&body, mode);
+    trl_put_u32(&body, position);
+    trl_put_u8(&body, 0U);
+    trl_put_u8(&body, TRL_TAG_EXACT);
+    trl_put_u32(&body, 10U);
+    trl_put_u32(&body, 0U);
+    script_reply(s, TRL_KIND_PREPARED, &body);
+    trl_buffer_free(&body);
+}
+
 /* Answers the first statement as the plan says. */
 static void answer_broken(script *s, broken what) {
     static const uint8_t json[] = {TRL_TAG_JSON, 2U, 0U, 0U, 0U, JSON_VERSION, 0xEEU};
@@ -174,7 +198,12 @@ static void respond(script *s, uint8_t kind, trl_slice body) {
         script_ready(s, "ANN", granted, 1U);
         return;
     }
-    if (p->answered++ == 0) {
+    bool called = p->what == BROKEN_CALLED_MODE || p->what == BROKEN_CALLED_POSITION;
+    bool first = p->answered++ == 0;
+    if (first && called) {
+        bool mode = p->what == BROKEN_CALLED_MODE;
+        prepared_called(s, mode ? 3U : 1U, mode ? 1U : 0U);
+    } else if (first) {
         answer_broken(s, p->what);
     } else {
         script_complete(s, 100, "02000", false, false);
@@ -262,6 +291,30 @@ static void a_bad_condition_fails_its_statement_alone(trl_test *test) {
     script_free(&s);
 }
 
+/* Whether a CALL prepared and answered with `what` loses the connection,
+   SQLCODE -919 and SQLSTATE 08006. */
+static bool prepare_loses(broken what) {
+    plan p = {what, 0};
+    script s;
+    trl_conn *conn = connected(&s, &p);
+    trl_statement *statement = NULL;
+    bool lost = trl_prepare(conn, "CALL S.P(?)", &statement) == TRL_FAILED && statement == NULL &&
+                trl_conn_is_lost(conn) && trl_failure_sqlcode(trl_conn_failure(conn)) == -919 &&
+                strcmp(trl_failure_sqlstate(trl_conn_failure(conn)), "08006") == 0;
+    trl_conn_free(conn);
+    script_free(&s);
+    return lost;
+}
+
+/**
+ * Verifies: [PROTOCOL Parameter modes] a Prepared whose tail 20 gives a
+ * `?` a mode of another code, or a position of 0, fails the connection,
+ * SQLCODE -919, SQLSTATE 08006.
+ */
+static void a_bad_called_tail_loses_the_connection(trl_test *test) {
+    TRL_CHECK(test, prepare_loses(BROKEN_CALLED_MODE) && prepare_loses(BROKEN_CALLED_POSITION));
+}
+
 /**
  * Verifies: [PROTOCOL Values and fields] a malformed frame, a flag neither
  * 0 nor 1 or a byte after its last field, loses the connection, and the
@@ -330,6 +383,7 @@ int main(int argc, char **argv) {
         TRL_TEST_CASE(a_bad_value_fails_its_statement_alone),
         TRL_TEST_CASE(a_bad_condition_fails_its_statement_alone),
         TRL_TEST_CASE(a_malformed_frame_loses_the_connection),
+        TRL_TEST_CASE(a_bad_called_tail_loses_the_connection),
         TRL_TEST_CASE(a_cursor_or_a_describe_reads_only_its_own),
     };
     return trl_test_main(argc, argv, cases, TRL_TEST_COUNT(cases));

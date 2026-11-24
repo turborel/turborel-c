@@ -37,6 +37,8 @@
 #define TRL_TAIL_TIME 18U
 /** @brief Tag 19: declared, of Prepared and Description. */
 #define TRL_TAIL_DECLARED 19U
+/** @brief Tag 20, a Prepared of a CALL: its procedure and each `?`'s mode [PROTOCOL Parameter modes]. */
+#define TRL_TAIL_CALLED 20U
 
 /** @brief The most attributes a message takes [PROTOCOL The tail]. */
 #define TRL_MAX_ATTRIBUTES 32U

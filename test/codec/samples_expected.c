@@ -20,6 +20,11 @@ const sample_reply sample_replies[] = {
     },
     {"prepared-empty", "Prepared 2 parameters () columns ()"},
     {
+        "prepared-called",
+        "Prepared 3 parameters (NUMERIC(10,0)) columns (G NUMERIC(10,0) not null) called S.P (IN 1 NUMERIC(10,0);"
+        " OUT 2 NUMERIC(10,0))",
+    },
+    {
         "prepared-declared",
         "Prepared 1 parameters (varying CHARACTER VARYING(32767); NUMERIC(10,0)) columns (K NUMERIC(10,0)"
         " not null declared INTEGER/INTEGER)",

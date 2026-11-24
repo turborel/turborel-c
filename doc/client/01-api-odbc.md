@@ -184,10 +184,26 @@ A statement runs directly, by SQLExecDirect, or is prepared once and run
 many times, by SQLPrepare and SQLExecute. Its parameters are `?` marks,
 bound by SQLBindParameter or set in the application's parameter
 descriptor, and each C type is sent as the value it holds. Parameters are
-input only, one set at a time: an output parameter, an array of
-parameter sets, or data given at execution is refused (HYC00).
-SQLDescribeParam reports the type the server gives a prepared
-statement's parameter.
+one set at a time: an array of parameter sets, data given at execution,
+or a streamed output parameter is refused (HYC00), and a parameter type
+of no kind ODBC has (HY105). SQLDescribeParam reports the type the
+server gives a prepared statement's parameter, by its type's tag, as a
+parameter has no declared type.
+
+A CALL of an SQL-invoked procedure names, through the `parameter-modes`
+capability a connection asks for, the mode of each `?`
+[PROTOCOL Parameter modes]. Its parameters are numbered by its `?`
+marks in the order written, OUT ones too, as SQLNumParams counts them.
+SQLPrepare fills the implementation parameter descriptor, as
+SQL_ATTR_AUTO_IPD says it does: each `?`'s type and its
+SQL_DESC_PARAMETER_TYPE, SQL_PARAM_INPUT, SQL_PARAM_INPUT_OUTPUT or
+SQL_PARAM_OUTPUT, unless SQL_ATTR_ENABLE_AUTO_IPD is set off. A `?`
+bound as SQL_PARAM_OUTPUT or SQL_PARAM_INPUT_OUTPUT is given its value
+back from the CALL's row once SQLExecute or SQLExecDirect returns, a
+value cut short to fit a warning (01004), and the CALL then has no
+result set; one bound as SQL_PARAM_INPUT leaves its value in the row,
+for SQLFetch. An OUT `?` is sent no value. Another statement's `?`s are
+each SQL_PARAM_INPUT.
 
 All of a query's rows are read when it runs. A static cursor therefore
 scrolls over them in any direction by SQLFetchScroll, and SQLRowCount
@@ -329,10 +345,11 @@ describes each class. The driver's own failures, whose messages begin
 | HY024 | Invalid attribute value |
 | HY091 | Invalid descriptor field identifier |
 | HY092 | Invalid attribute identifier |
+| HY105 | Invalid parameter type: a parameter bound of no kind ODBC has |
 | HY096 | Information type out of range |
 | HY106 | Fetch type out of range, or a scroll of a forward-only cursor |
 | HYT00 | Timeout expired: the statement ran past its query timeout |
-| HYC00 | Optional feature not implemented: output parameters, arrays of parameters, data at execution, positioned operations |
+| HYC00 | Optional feature not implemented: arrays of parameters, data at execution, streamed output parameters, positioned operations |
 
 ## EXAMPLES
 
