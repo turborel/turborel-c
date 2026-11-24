@@ -628,6 +628,7 @@ From `doc/client/02-library.md`, The Client Library.
 | C-TIME-4 | A wait that runs out loses the connection (SQLSTATE 08006), saying the server did not answer in time | `[CLIENT Timeouts]` | done |
 | C-TIME-5 | A named pipe bounded only as it is opened | `[CLIENT Timeouts]` | done |
 | C-TIME-6 | Replies taken up to 16 MiB, or as many bytes as the program says; a longer one loses the connection | `[CLIENT Timeouts]` | done |
+| C-TIME-7 | A read, a write, a connect or a wait a signal interrupts made again, within what is left of its timeout, and no failure of the connection (turborel's RULES.md D1047) | `[CLIENT Timeouts]` | done |
 | C-TIME-7 | A stream of the program's own that bounds itself, opened within Timeouts, bounded as they say, its read timeout settable as a connection's | `[CLIENT Timeouts]` | done |
 
 ### Running statements

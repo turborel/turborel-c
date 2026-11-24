@@ -2,7 +2,7 @@
  * @file fake.h
  * @brief A server of a test's own over a real socket, on a thread of its
  * own: it answers a login with Ready, or never answers, or closes at
- * once, and takes a Cancel.
+ * once, or answers late, and takes a Cancel.
  */
 #ifndef TRL_TEST_NET_FAKE_H
 #define TRL_TEST_NET_FAKE_H
@@ -15,6 +15,9 @@
 /** @brief The longest path of a fake's Unix socket. */
 #define FAKE_PATH_BYTES 104U
 
+/** @brief How late a slow fake answers, in milliseconds. */
+#define FAKE_SLOW_MS 300U
+
 /** @brief What a fake does with each connection it takes. */
 typedef enum fake_mode {
     /** @brief Reads Hello, sends Ready, reads to the end; a Cancel it reads and closes. */
@@ -25,6 +28,8 @@ typedef enum fake_mode {
     FAKE_SILENT,
     /** @brief Closes at once. */
     FAKE_CLOSE,
+    /** @brief As FAKE_READY, but each Pong, and the close after Terminate, FAKE_SLOW_MS late. */
+    FAKE_READY_SLOW,
 } fake_mode;
 
 /** @brief A fake server. */

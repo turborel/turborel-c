@@ -30,6 +30,7 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <time.h>
 #include <unistd.h>
 
 #ifdef TRL_HAVE_TLS
@@ -38,6 +39,7 @@
 #endif
 
 #define BACKLOG 4
+#define NS_PER_MS 1000000L
 #define CHUNK 512U
 #define PATH_BYTES 1024U
 
@@ -109,7 +111,16 @@ static void drain(const peer *p) {
     }
 }
 
-/* Answers a login with Ready of `ping`, then reads until Terminate or the end. */
+/* Waits FAKE_SLOW_MS, of a slow fake. */
+static void slow(const fake *f) {
+    if (f->mode == FAKE_READY_SLOW) {
+        struct timespec late = {0, (long)FAKE_SLOW_MS * NS_PER_MS};
+        (void)nanosleep(&late, NULL);
+    }
+}
+
+/* Answers a login with Ready of `ping`, then reads until Terminate or the
+   end; a slow fake answers each Ping, and closes after Terminate, late. */
 static void answer(fake *f, const peer *p) {
     static const char *const granted[] = {"ping"};
     script s;
@@ -122,9 +133,13 @@ static void answer(fake *f, const peer *p) {
         kind = read_frame(f, p);
         if (kind == TRL_KIND_PING) {
             static const uint8_t pong[] = {TRL_KIND_PONG, 0, 0, 0, 0};
+            slow(f);
             put(p, pong, sizeof pong);
         }
     } while (kind != 0U && kind != TRL_KIND_TERMINATE);
+    if (kind == TRL_KIND_TERMINATE) {
+        slow(f);
+    }
 }
 
 /* Begins TLS with the peer, over a fake of TLS; false if it fails. */
@@ -158,7 +173,7 @@ static void end(peer *p) {
 
 /* Takes one connection as the mode says. */
 static void take(fake *f, int i, peer *p) {
-    if (f->mode == FAKE_READY || f->mode == FAKE_READY_HOLDING) {
+    if (f->mode == FAKE_READY || f->mode == FAKE_READY_HOLDING || f->mode == FAKE_READY_SLOW) {
         uint8_t kind = read_frame(f, p);
         f->first[i] = kind;
         if (kind == TRL_KIND_HELLO) {

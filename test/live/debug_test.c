@@ -3,8 +3,9 @@
  * @brief The routine debugger against a real server (RULES.md R-TEST-8),
  * two connections: a target whose CALL runs on a thread of its own, and
  * a debugger that attaches to it, breaks, waits for the pause, reads the
- * frames, steps, resumes and detaches; and the refusals that keep the
- * session [CLIENT Debugging routines] [PROTOCOL Debug 'V'].
+ * frames, steps, resumes and detaches; each wait signalled, and still
+ * waiting; and the refusals that keep the session
+ * [CLIENT Debugging routines] [PROTOCOL Debug 'V'].
  */
 #ifndef __APPLE__
 // NOLINTNEXTLINE(bugprone-reserved-identifier,cert-dcl37-c,cert-dcl51-cpp,readability-identifier-naming)
@@ -15,6 +16,7 @@
 #include "harness.h"
 #include "live.h"
 #include "server.h"
+#include "signals.h"
 #include "turborel/turborel.h"
 
 /* The platform declares its threads in headers of its own, which the
@@ -35,6 +37,11 @@
 /* How long the debugger waits for an event, and a pause to let one come. */
 #define WAIT_MS 10000U
 #define SETTLE_NS 300000000L
+/* A wait that nothing ends, and the most it may take though signalled. */
+#define SHORT_WAIT_MS 200U
+#define SHORT_WAIT_AT_MOST_MS 1000U
+#define MS_PER_SECOND 1000U
+#define NS_PER_MS 1000000L
 
 /* The procedure debugged: line 4 its UPDATE, line 5 its SET. */
 #define RAISE_PAY                                                                                                      \
@@ -69,6 +76,25 @@ static void *call_in(void *context) {
     calling *c = context;
     c->ran = run(c->conn, c->sql);
     return NULL;
+}
+
+/* Lets the server's event come before the debugger reads. */
+static void settle(void) {
+    struct timespec pause = {0, SETTLE_NS};
+    (void)nanosleep(&pause, NULL);
+}
+
+/* Runs the statement as call_in() does, after a settle. */
+static void *call_late(void *context) {
+    settle();
+    return call_in(context);
+}
+
+/* Milliseconds of a clock that only moves on. */
+static uint64_t now_ms(void) {
+    struct timespec now;
+    (void)clock_gettime(CLOCK_MONOTONIC, &now);
+    return ((uint64_t)now.tv_sec * MS_PER_SECOND) + (uint64_t)(now.tv_nsec / NS_PER_MS);
 }
 
 /* Whether the connection's failure is of `sqlcode` and `sqlstate`, the session kept. */
@@ -111,12 +137,6 @@ static bool paused(trl_conn *debugger, trl_debug_reason reason, trl_debug_event 
            trl_debug_pause_reason(trl_debug_event_pause(*out)) == reason;
 }
 
-/* Lets the server's event come before the debugger reads. */
-static void settle(void) {
-    struct timespec pause = {0, SETTLE_NS};
-    (void)nanosleep(&pause, NULL);
-}
-
 /* Sets the breakpoint at line 4 of RAISE_PAY; its number, 0 if none was set. */
 static uint32_t broken_at_update(trl_test *test, trl_conn *debugger) {
     trl_debug_location at = {TRL_DEBUG_PROCEDURE, NULL, "RAISE_PAY", 4U, NULL};
@@ -144,9 +164,6 @@ static void a_debugger_drives_a_paused_procedure(trl_test *test) {
     trl_conn *target = live_trusted(NULL);
     trl_conn *debugger = live_trusted(NULL);
     TRL_CHECK(test, trl_conn_granted(debugger, TRL_CAPABILITY_DEBUGGER));
-    TRL_CHECK(test, run(target, "CREATE TABLE STAFF (ID INTEGER PRIMARY KEY, SALARY INTEGER)") &&
-                        run(target, "INSERT INTO STAFF VALUES (1, 50000), (2, 60000)") && run(target, RAISE_PAY) &&
-                        run(target, "COMMIT"));
     uint64_t id = 0U;
     TRL_CHECK(test, trl_debug_id(target, &id) == TRL_OK && trl_debug_attach(debugger, id) == TRL_OK);
     uint32_t number = broken_at_update(test, debugger);
@@ -177,6 +194,48 @@ static void a_debugger_drives_a_paused_procedure(trl_test *test) {
                         trl_debug_breakpoint_count(all) == 0U);
     trl_debug_breakpoint_list_free(all);
     TRL_CHECK(test, trl_debug_detach(debugger) == TRL_OK);
+    trl_conn_free(debugger);
+    trl_conn_free(target);
+}
+
+/**
+ * Verifies: [CLIENT Debugging routines] signals of a handler installed
+ * without SA_RESTART interrupt no wait (turborel's RULES.md D1047): the debugger's
+ * wait with nothing sent, signalled again and again, gives no event
+ * within about its bound, the time before each signal kept; its wait for
+ * the pause, signalled until the event comes, is given it; and the
+ * target's CALL, its read of the reply signalled while it is paused,
+ * completes once resumed [PROTOCOL Event 'W'].
+ */
+static void signals_interrupt_no_wait(trl_test *test) {
+    trl_conn *target = live_trusted(NULL);
+    trl_conn *debugger = live_trusted(NULL);
+    uint64_t id = 0U;
+    TRL_CHECK(test, trl_debug_id(target, &id) == TRL_OK && trl_debug_attach(debugger, id) == TRL_OK);
+    uint32_t number = broken_at_update(test, debugger);
+    int before = signals_taken();
+    signaller on_debugger;
+    TRL_CHECK(test, signaller_start(&on_debugger, pthread_self()));
+    trl_debug_event *event = NULL;
+    uint64_t began = now_ms();
+    TRL_CHECK(test, trl_debug_wait(debugger, SHORT_WAIT_MS, &event) == TRL_OK && event == NULL &&
+                        !trl_conn_is_lost(debugger));
+    TRL_CHECK(test, now_ms() - began < SHORT_WAIT_AT_MOST_MS);
+    calling call = {target, "CALL RAISE_PAY(10)", false};
+    pthread_t thread;
+    TRL_CHECK(test, pthread_create(&thread, NULL, call_late, &call) == 0);
+    TRL_CHECK(test, paused(debugger, TRL_DEBUG_AT_BREAKPOINT, &event) &&
+                        trl_debug_pause_breakpoint(trl_debug_event_pause(event)) == number);
+    trl_debug_event_free(event);
+    signaller_stop(&on_debugger);
+    signaller on_call;
+    TRL_CHECK(test, signaller_start(&on_call, thread));
+    settle();
+    signaller_stop(&on_call);
+    TRL_CHECK(test, trl_debug_resume(debugger, TRL_DEBUG_CONTINUE) == TRL_OK);
+    (void)pthread_join(thread, NULL);
+    TRL_CHECK(test, call.ran && !trl_conn_is_lost(target) && signals_taken() > before);
+    TRL_CHECK(test, trl_debug_clear(debugger, number) == TRL_OK && trl_debug_detach(debugger) == TRL_OK);
     trl_conn_free(debugger);
     trl_conn_free(target);
 }
@@ -299,15 +358,23 @@ int main(int argc, char **argv) {
     }
     trl_format(dir, sizeof dir, "%s/live-debug", cwd);
     const char *why = NULL;
+    if (!signals_install()) {
+        return EXIT_FAILURE;
+    }
     if (!server_start(&live_server, dir, false, &why)) {
         (void)fprintf(stderr, "%s\n", why);
         return getenv("TRL_TEST_SERVER") == NULL ? SKIPPED : EXIT_FAILURE; // NOLINT(concurrency-mt-unsafe)
     }
     trl_conn *owner = live_trusted(NULL);
-    bool ready = owner != NULL && run(owner, "CREATE SCHEMA AUTHORIZATION ANN") && run(owner, "COMMIT");
+    /* The table and procedure each case debugs, made once. */
+    bool ready = owner != NULL && run(owner, "CREATE SCHEMA AUTHORIZATION ANN") &&
+                 run(owner, "CREATE TABLE STAFF (ID INTEGER PRIMARY KEY, SALARY INTEGER)") &&
+                 run(owner, "INSERT INTO STAFF VALUES (1, 50000), (2, 60000)") && run(owner, RAISE_PAY) &&
+                 run(owner, "COMMIT");
     trl_conn_free(owner);
     static const trl_test_case cases[] = {
         TRL_TEST_CASE(a_debugger_drives_a_paused_procedure),
+        TRL_TEST_CASE(signals_interrupt_no_wait),
         TRL_TEST_CASE(the_refusals_keep_the_session),
         TRL_TEST_CASE(a_running_target_is_interrupted_and_cancelled),
     };

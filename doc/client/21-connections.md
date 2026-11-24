@@ -318,7 +318,9 @@ name as the server spells it, with no round trip
 [CLIENT What the server tells]. A Notice is kept, or given to a handler ([Statements and Cursors](22-statements.md)).
 
 The read timeout bounds each read or write after the login; a wait that
-runs out loses the connection. A reply is taken up to 16 MiB, or as many
+runs out loses the connection. A read, a write, a connect or a wait that
+a signal interrupts is made again within what is left of its timeout,
+and is no failure of the connection, as turborel-client makes it again. A reply is taken up to 16 MiB, or as many
 bytes as `trl_conn_set_max_body` says; a longer one loses the connection
 [CLIENT Timeouts]. A named pipe is bounded only as it is opened, while
 it is busy.

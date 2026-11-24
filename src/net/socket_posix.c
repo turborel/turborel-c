@@ -4,7 +4,9 @@
  * systems (RULES.md R-PLAT-2): each address tried in turn within the
  * connect timeout, each read and write bounded by the socket's own
  * timeouts, and no SIGPIPE raised by a write to a socket the server
- * closed. CMake builds it everywhere but Windows.
+ * closed. A read, a write, a connect or a wait a signal interrupts is
+ * made again within what is left of its bound, as turborel-client makes
+ * it again (turborel's RULES.md D1047). CMake builds it everywhere but Windows.
  */
 #if !defined(_WIN32) && !defined(__APPLE__)
 /* POSIX's sockets, which C17 alone does not declare; the feature macro is
@@ -20,6 +22,7 @@
 // NOLINTBEGIN(misc-include-cleaner)
 #include "format.h"
 #include "memory.h"
+#include "sync.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -48,9 +51,11 @@
 #define TRL_MS_PER_SECOND 1000U
 #define TRL_US_PER_MS 1000U
 
-/* A socket's state: its descriptor. */
+/* A socket's state: its descriptor, and the bound of each of its reads
+   and writes, 0 for none. */
 typedef struct socket_state {
     int fd;
+    uint32_t bound_ms;
 } socket_state;
 
 /* The descriptor of `transport`. */
@@ -74,40 +79,67 @@ static void failed(trl_transport *transport, int code) {
     transport->error.timed_out = ran_out(code);
 }
 
-static int64_t socket_read(trl_transport *transport, uint8_t *into, size_t capacity) {
-    for (;;) {
-        ssize_t got = recv(fd_of(transport), into, capacity, 0);
-        if (got >= 0) {
-            return (int64_t)got;
-        }
-        if (errno != EINTR) {
-            failed(transport, errno);
-            return -1;
-        }
-    }
-}
-
-static int64_t socket_write(trl_transport *transport, const uint8_t *bytes, size_t length) {
-    for (;;) {
-        ssize_t sent = send(fd_of(transport), bytes, length, TRL_SEND_FLAGS);
-        if (sent >= 0) {
-            return (int64_t)sent;
-        }
-        if (errno != EINTR) {
-            failed(transport, errno);
-            return -1;
-        }
-    }
-}
-
-/* Sets both timeouts of `fd` to `ms`, 0 for none. */
-static bool set_timeouts(int fd, uint32_t ms) {
+/* Sets the timeout `option` of `fd`, SO_RCVTIMEO or SO_SNDTIMEO, to `ms`, 0 for none. */
+static bool set_timeout(int fd, int option, uint32_t ms) {
     struct timeval limit;
     memset(&limit, 0, sizeof limit);
     limit.tv_sec = (time_t)(ms / TRL_MS_PER_SECOND);
     limit.tv_usec = (suseconds_t)((ms % TRL_MS_PER_SECOND) * TRL_US_PER_MS);
-    return setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &limit, sizeof limit) == 0 &&
-           setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &limit, sizeof limit) == 0;
+    return setsockopt(fd, SOL_SOCKET, option, &limit, sizeof limit) == 0;
+}
+
+/* Sets both timeouts of `fd` to `ms`, 0 for none. */
+static bool set_timeouts(int fd, uint32_t ms) {
+    return set_timeout(fd, SO_RCVTIMEO, ms) && set_timeout(fd, SO_SNDTIMEO, ms);
+}
+
+/* One read into `into`, or else one write of `from`. */
+static ssize_t once(int fd, uint8_t *into, const uint8_t *from, size_t length) {
+    return into != NULL ? recv(fd, into, length, 0) : send(fd, from, length, TRL_SEND_FLAGS);
+}
+
+/* Reads into `into`, or else writes `from`, made again each time a signal
+   interrupts it, as turborel-client makes it again (turborel's RULES.md D1047): of
+   a bounded socket, within what is left of its bound, which is set to
+   that for each try and set back after; once none is left, a wait run
+   out. */
+static int64_t uninterrupted(trl_transport *transport, uint8_t *into, const uint8_t *from, size_t length) {
+    const socket_state *state = transport->state;
+    int option = into != NULL ? SO_RCVTIMEO : SO_SNDTIMEO;
+    uint64_t began = state->bound_ms == 0U ? 0U : trl_now_ms();
+    bool shortened = false;
+    ssize_t done = once(state->fd, into, from, length);
+    int code = errno;
+    while (done < 0 && code == EINTR) {
+        uint64_t spent = state->bound_ms == 0U ? 0U : trl_now_ms() - began;
+        if (state->bound_ms != 0U && spent >= state->bound_ms) {
+            code = EAGAIN;
+            break;
+        }
+        if (state->bound_ms != 0U && !set_timeout(state->fd, option, (uint32_t)(state->bound_ms - spent))) {
+            code = errno;
+            break;
+        }
+        shortened = state->bound_ms != 0U;
+        done = once(state->fd, into, from, length);
+        code = errno;
+    }
+    if (shortened) {
+        (void)set_timeout(state->fd, option, state->bound_ms);
+    }
+    if (done < 0) {
+        failed(transport, code);
+        return -1;
+    }
+    return (int64_t)done;
+}
+
+static int64_t socket_read(trl_transport *transport, uint8_t *into, size_t capacity) {
+    return uninterrupted(transport, into, NULL, capacity);
+}
+
+static int64_t socket_write(trl_transport *transport, const uint8_t *bytes, size_t length) {
+    return uninterrupted(transport, NULL, bytes, length);
 }
 
 /* Bounds each read and write; a socket whose peer is gone, which some
@@ -115,6 +147,7 @@ static bool set_timeouts(int fd, uint32_t ms) {
    turborel-client leaves it, its next read giving its end. */
 static bool socket_bound(trl_transport *transport, uint32_t ms) {
     if (set_timeouts(fd_of(transport), ms)) {
+        ((socket_state *)transport->state)->bound_ms = ms;
         return true;
     }
     int code = errno;
@@ -146,8 +179,9 @@ static bool socket_peer(const trl_transport *transport, char *out, size_t capaci
 
 static const trl_transport_ops socket_ops = {socket_read, socket_write, socket_bound, socket_close, socket_peer};
 
-/* Makes `out` a transport of `fd`, which it then owns. */
-static bool adopt(int fd, trl_transport *out) {
+/* Makes `out` a transport of `fd`, which it then owns, each read and
+   write bounded by `bound_ms`. */
+static bool adopt(int fd, uint32_t bound_ms, trl_transport *out) {
     socket_state *state = trl_malloc(sizeof *state);
     if (state == NULL) {
         (void)close(fd);
@@ -155,6 +189,7 @@ static bool adopt(int fd, trl_transport *out) {
         return false;
     }
     state->fd = fd;
+    state->bound_ms = bound_ms;
     out->ops = &socket_ops;
     out->state = state;
     return true;
@@ -170,14 +205,18 @@ static void prepare(int fd) {
 #endif
 }
 
-/* Waits for a connect begun without blocking, at most `ms`; the error it
-   came to, ETIMEDOUT if the wait ran out. */
+/* Waits for a connect begun without blocking, at most `ms`, waited for
+   again within what is left of it each time a signal interrupts it
+   (turborel's RULES.md D1047); the error it came to, ETIMEDOUT if the wait ran out. */
 static int finish_connect(int fd, uint32_t ms) {
     struct pollfd watched = {fd, POLLOUT, 0};
-    int ready = 0;
-    do {
-        ready = poll(&watched, 1U, ms == 0U ? -1 : (int)ms);
-    } while (ready < 0 && errno == EINTR);
+    uint64_t began = trl_now_ms();
+    int ready = poll(&watched, 1U, ms == 0U ? -1 : (int)ms);
+    while (ready < 0 && errno == EINTR) {
+        uint64_t spent = trl_now_ms() - began;
+        int left = spent >= ms ? 0 : (int)(ms - spent);
+        ready = poll(&watched, 1U, ms == 0U ? -1 : left);
+    }
     if (ready < 0) {
         return errno;
     }
@@ -201,8 +240,10 @@ static int connect_within(int fd, const struct sockaddr *address, socklen_t leng
         return errno;
     }
     int code = 0;
+    /* A connect a signal interrupts goes on by itself, as POSIX gives it,
+       and is waited for as one begun. */
     if (connect(fd, address, length) != 0) {
-        code = errno == EINPROGRESS ? finish_connect(fd, ms) : errno;
+        code = errno == EINPROGRESS || errno == EINTR ? finish_connect(fd, ms) : errno;
     }
     if (code == 0 && fcntl(fd, F_SETFL, flags) < 0) {
         code = errno;
@@ -245,7 +286,7 @@ static bool set_up(int fd, uint32_t within_ms, trl_transport *out) {
         trl_io_error_os(&out->error, code);
         return false;
     }
-    return adopt(fd, out);
+    return adopt(fd, within_ms, out);
 }
 
 bool trl_tcp_open(const char *host, uint16_t port, uint32_t within_ms, trl_transport *out) {
@@ -361,6 +402,6 @@ bool trl_local_open(const char *path, uint32_t within_ms, trl_transport *out) {
         trl_io_error_os(&out->error, code);
         return false;
     }
-    return adopt(fd, out);
+    return adopt(fd, within_ms, out);
 }
 // NOLINTEND(misc-include-cleaner)
