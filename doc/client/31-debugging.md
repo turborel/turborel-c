@@ -6,7 +6,8 @@ This page describes how the driver gives turborel-client's routine
 debugger *(extension)*: one connection, the debugger, drives the
 procedures, functions and triggers another connection's session runs,
 as Turborel's [Debugging Routines](https://github.com/turborel/turborel/blob/main/doc/user/11-debugging.md)
-describes.
+describes. The User's Guide's [Debugging Routines](../user/11-debugging.md)
+shows it at work.
 
 ## The debugger
 
@@ -142,8 +143,8 @@ no event within 100 ms
 ```
 
 A target's CALL pauses on the thread that runs it; the debugger waits
-for the event on its own, reads the frames, and resumes the target,
-as the driver's live tests do.
+for the event on its own, reads the frames, and resumes the target, as
+the User's Guide's [Debugging Routines](../user/11-debugging.md) shows.
 
 ## Pauses, frames and breakpoints
 
