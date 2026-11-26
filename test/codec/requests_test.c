@@ -222,6 +222,49 @@ static void authentication_requests(trl_test *test) {
 }
 
 /**
+ * Verifies: [PROTOCOL CopyColumns 'O'] the worked example, rows 1, null
+ * and 2, 'ab', by column; and the columns the request cannot carry
+ * refused, nothing written: null bits of the wrong length or set past the
+ * last row, ends that fall, a null cell's end not the one before it, a
+ * last end not the text's length, rows of no column.
+ */
+static void copy_columns_request(trl_test *test) {
+    fixture f;
+    fixture_init(&f);
+    static const uint8_t clear[] = {0x00U};
+    static const uint8_t second_null[] = {0x01U};
+    static const uint32_t first_ends[] = {1U, 2U};
+    static const uint32_t second_ends[] = {0U, 2U};
+    trl_copy_column columns[2] = {
+        {{clear, 1U}, first_ends, text_of("12")},
+        {{second_null, 1U}, second_ends, text_of("ab")},
+    };
+    TRL_CHECK(test, trl_encode_copy_columns(&f.buffer, 2U, columns, 2U, &f.error));
+    const uint8_t expected[] = {
+        'O', 54, 0, 0, 0,   2,   0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 2, 0,   0,   0,
+        2,   0,  0, 0, '1', '2', 1, 0, 0, 0, 1, 2, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0, 'a', 'b',
+    };
+    TRL_CHECK(test, buffer_is(&f.buffer, expected, sizeof expected));
+    f.buffer.length = 0U;
+    static const uint8_t past_the_rows[] = {0x04U};
+    static const uint32_t falling[] = {2U, 1U};
+    static const uint32_t short_of_text[] = {1U, 1U};
+    trl_copy_column refused[] = {
+        {{clear, 0U}, first_ends, text_of("12")},       {{past_the_rows, 1U}, first_ends, text_of("12")},
+        {{clear, 1U}, falling, text_of("12")},          {{clear, 1U}, short_of_text, text_of("12")},
+        {{second_null, 1U}, first_ends, text_of("12")},
+    };
+    for (size_t i = 0U; i < sizeof refused / sizeof refused[0]; ++i) {
+        TRL_CHECK(test, !trl_encode_copy_columns(&f.buffer, 2U, &refused[i], 1U, &f.error));
+    }
+    TRL_CHECK(test, !trl_encode_copy_columns(&f.buffer, 2U, NULL, 0U, &f.error));
+    TRL_CHECK(test, trl_encode_copy_columns(&f.buffer, 0U, NULL, 0U, &f.error));
+    const uint8_t empty[] = {'O', 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    TRL_CHECK(test, buffer_is(&f.buffer, empty, sizeof empty));
+    fixture_free(&f);
+}
+
+/**
  * Verifies: [PROTOCOL CopyIn 'I'] CopyIn is table, columns and ends;
  * [PROTOCOL CopyData 'J'] CopyData a list of rows; [PROTOCOL CopyEnd 'N']
  * CopyEnd the abandon flag.
@@ -318,6 +361,7 @@ int main(int argc, char **argv) {
         TRL_TEST_CASE(describe_is_encoded),
         TRL_TEST_CASE(authentication_requests),
         TRL_TEST_CASE(copy_requests),
+        TRL_TEST_CASE(copy_columns_request),
         TRL_TEST_CASE(attributes_out_of_bounds_are_refused),
         TRL_TEST_CASE(fields_that_cannot_be_sent_are_refused),
     };

@@ -7,13 +7,14 @@
 # those of doc/client/05-protocol.md, and of doc/client/02-library.md and
 # 02-library-connections.md, in turborel's main at 045e42a9, with
 # "Parameter modes" of 1afa44c2, and "Debug 'V'", "Debugged 'V'",
-# "Event 'W'" and "Debugging routines" of 5863fe65.
+# "Event 'W'" and "Debugging routines" of 5863fe65, and "CopyColumns 'O'"
+# of 45cb0d7f.
 set(TRL_PROTOCOL_HEADINGS
     "The Native Protocol" "Frames" "Compressed frames" "Values and fields" "Data types" "Values"
     "JSON values" "Composite fields" "The tail" "Opening a connection" "Mechanisms" "Capabilities" "Requests" "Hello 'H'"
     "Answer 'A'" "Query 'Q'" "Prepare 'P'" "Execute 'E'" "Fetch 'F'" "Close 'C'" "Deallocate 'D'" "Lob 'L'"
     "Cancel 'Z'" "Terminate 'X'" "Describe 'Y'" "Ping 'G'" "Reset 'W'" "ChangeUser 'U'" "CopyIn 'I'"
-    "CopyData 'J'" "CopyEnd 'N'" "Debug 'V'" "Replies" "Challenge 'C'" "Ready 'R'" "Prepared 'P'" "Description 'D'"
+    "CopyData 'J'" "CopyColumns 'O'" "CopyEnd 'N'" "Debug 'V'" "Replies" "Challenge 'C'" "Ready 'R'" "Prepared 'P'" "Description 'D'"
     "Declared types" "Parameter modes" "Rows 'B'" "Suspended 'S'" "Complete 'K'" "Error 'E'" "Notice 'N'" "Status 'T'" "Pong 'G'" "Debugged 'V'" "Event 'W'"
     "Conversations" "Errors and notices" "Sample frames" "A worked example")
 set(TRL_CLIENT_HEADINGS

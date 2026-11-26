@@ -124,6 +124,83 @@ static void a_copy_sends_its_rows(trl_test *test) {
     script_free(&s);
 }
 
+/* Sends `row` to `copy` `times` times; whether each was taken. */
+static bool sent(trl_copy *copy, const trl_params *row, int times) {
+    bool taken = true;
+    for (int i = 0; i < times; ++i) {
+        taken = trl_copy_send(copy, row) == TRL_OK && taken;
+    }
+    return taken;
+}
+
+/* A row of `count` values, each null. */
+static trl_params *nulls_of(size_t count) {
+    trl_params *row = NULL;
+    (void)trl_params_new(&row);
+    for (size_t i = 0U; i < count; ++i) {
+        (void)trl_params_add_null(row);
+    }
+    return row;
+}
+
+/**
+ * Verifies: [PROTOCOL CopyColumns 'O'] with `columns` granted, rows of
+ * nulls and character strings sent by column, a CopyColumns at a time,
+ * once they are about TRL_COPY_CHUNK_BYTES or another row comes; a row of
+ * a value of another type, or of another count of values, sent by
+ * CopyData in its turn, the copy mixing them in order; abandoned, the rows
+ * held not sent; without `columns` granted, every row by CopyData
+ * [CLIENT Copying and exporting].
+ */
+static void a_copy_goes_by_column_where_granted(trl_test *test) {
+    bulk_plan plan;
+    memset(&plan, 0, sizeof plan);
+    plan.copy = true;
+    plan.columns = true;
+    script s;
+    trl_conn *conn = bulk_connect(&s, &plan);
+    trl_copy_target target = {"T", NULL, 0U};
+    trl_copy *copy = NULL;
+    trl_params *texts = two_texts();
+    trl_params *other = nulls_of(1U);
+    trl_decimal one = {{1U, 0U}, 0U};
+    (void)trl_params_add_decimal(other, one);
+    trl_params *nulls = nulls_of(1U);
+    (void)trl_params_add_text(nulls, "", 0U);
+    trl_params *single = nulls_of(1U);
+    TRL_CHECK(test, trl_copy_in(conn, &target, &copy) == TRL_OK && sent(copy, texts, 2) && sent(copy, nulls, 1));
+    TRL_CHECK(test, sent(copy, other, 1) && sent(copy, texts, 1) && sent(copy, single, 1));
+    uint64_t rows = 0U;
+    TRL_CHECK(test, trl_copy_finish(copy, &rows) == TRL_OK && rows == 6U);
+    TRL_CHECK(test, plan.by_column == 2U && plan.by_row == 2U);
+    trl_copy_free(copy);
+    static char wide[1024];
+    memset(wide, 'w', sizeof wide);
+    trl_params_clear(texts);
+    (void)trl_params_add_text(texts, wide, sizeof wide);
+    plan.by_column = 0U;
+    TRL_CHECK(test, trl_copy_in(conn, &target, &copy) == TRL_OK && sent(copy, texts, 300));
+    TRL_CHECK(test, trl_copy_finish(copy, &rows) == TRL_OK && rows == 300U && plan.by_column == 2U);
+    trl_copy_free(copy);
+    TRL_CHECK(test, trl_copy_in(conn, &target, &copy) == TRL_OK && sent(copy, texts, 2));
+    TRL_CHECK(test, trl_copy_abandon(copy) == TRL_OK && plan.by_column == 2U);
+    trl_copy_free(copy);
+    trl_conn_free(conn);
+    script_free(&s);
+    plan.columns = false;
+    plan.by_row = 0U;
+    conn = bulk_connect(&s, &plan);
+    TRL_CHECK(test, trl_copy_in(conn, &target, &copy) == TRL_OK && sent(copy, nulls, 2));
+    TRL_CHECK(test, trl_copy_finish(copy, &rows) == TRL_OK && rows == 2U && plan.by_row == 1U);
+    trl_copy_free(copy);
+    trl_params_free(single);
+    trl_params_free(nulls);
+    trl_params_free(other);
+    trl_params_free(texts);
+    trl_conn_free(conn);
+    script_free(&s);
+}
+
 /**
  * Verifies: [CLIENT Copying and exporting] a copy needs `copy` granted,
  * refused before anything is sent, the connection kept; null arguments, a
@@ -295,9 +372,9 @@ static void native_input_is_checked(trl_test *test) {
 
 int main(int argc, char **argv) {
     static const trl_test_case cases[] = {
-        TRL_TEST_CASE(a_copy_sends_its_rows),     TRL_TEST_CASE(a_copy_is_refused),
-        TRL_TEST_CASE(an_export_writes_its_rows), TRL_TEST_CASE(an_export_fails),
-        TRL_TEST_CASE(native_input_is_checked),
+        TRL_TEST_CASE(a_copy_sends_its_rows), TRL_TEST_CASE(a_copy_goes_by_column_where_granted),
+        TRL_TEST_CASE(a_copy_is_refused),     TRL_TEST_CASE(an_export_writes_its_rows),
+        TRL_TEST_CASE(an_export_fails),       TRL_TEST_CASE(native_input_is_checked),
     };
     return trl_test_main(argc, argv, cases, TRL_TEST_COUNT(cases));
 }

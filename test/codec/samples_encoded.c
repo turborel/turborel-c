@@ -257,6 +257,18 @@ static bool copy_data(trl_buffer *b, trl_codec_error *e) {
     return trl_encode_copy_data(b, rows, 2U, e);
 }
 
+/* Two rows by column: 1 and null, b and the empty string. */
+static bool copy_columns(trl_buffer *b, trl_codec_error *e) {
+    static const uint8_t first_nulls[] = {0x02U};
+    static const uint8_t second_nulls[] = {0x00U};
+    static const uint32_t ends[] = {1U, 1U};
+    trl_copy_column columns[2] = {
+        {{first_nulls, 1U}, ends, slice_of("1")},
+        {{second_nulls, 1U}, ends, slice_of("b")},
+    };
+    return trl_encode_copy_columns(b, 2U, columns, 2U, e);
+}
+
 static bool copy_end(trl_buffer *b, trl_codec_error *e) {
     return trl_encode_copy_end(b, false, e);
 }
@@ -363,6 +375,7 @@ const sample_request sample_requests[] = {
     {"copy-in", copy_in},
     {"copy-in-every-column", copy_in_every_column},
     {"copy-data", copy_data},
+    {"copy-columns", copy_columns},
     {"copy-end", copy_end},
     {"copy-end-abandon", copy_end_abandon},
     {"debug-identify", debug_identify},

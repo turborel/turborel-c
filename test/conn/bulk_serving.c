@@ -170,15 +170,22 @@ static void execute(script *s, bulk_plan *plan) {
     }
 }
 
-/* Answers a CopyData, counting its rows, or a CopyEnd, as the plan says. */
+/* Counts a CopyData's or a CopyColumns' rows, which each begins with. */
+static void count_rows(bulk_plan *plan, uint8_t kind, trl_slice body) {
+    plan->by_row += kind == TRL_KIND_COPY_DATA ? 1U : 0U;
+    plan->by_column += kind == TRL_KIND_COPY_COLUMNS ? 1U : 0U;
+    uint32_t rows = 0U;
+    if (body.length >= sizeof rows) {
+        rows = (uint32_t)body.bytes[0] | ((uint32_t)body.bytes[1] << 8U) | ((uint32_t)body.bytes[2] << 16U) |
+               ((uint32_t)body.bytes[3] << 24U);
+    }
+    plan->copied += rows;
+}
+
+/* Answers a CopyData or a CopyColumns, counting its rows, or a CopyEnd, as the plan says. */
 static void copy(script *s, bulk_plan *plan, uint8_t kind, trl_slice body) {
-    if (kind == TRL_KIND_COPY_DATA) {
-        uint32_t rows = 0U;
-        if (body.length >= sizeof rows) {
-            rows = (uint32_t)body.bytes[0] | ((uint32_t)body.bytes[1] << 8U) | ((uint32_t)body.bytes[2] << 16U) |
-                   ((uint32_t)body.bytes[3] << 24U);
-        }
-        plan->copied += rows;
+    if (kind == TRL_KIND_COPY_DATA || kind == TRL_KIND_COPY_COLUMNS) {
+        count_rows(plan, kind, body);
         return;
     }
     ++plan->copies;
@@ -207,12 +214,20 @@ static void prepare(script *s, const bulk_plan *plan, trl_slice body) {
     }
 }
 
+/* How many of notices, copy and columns the plan grants. */
+static size_t granted_count(const bulk_plan *plan) {
+    if (!plan->copy) {
+        return 1U;
+    }
+    return plan->columns ? 3U : 2U;
+}
+
 void bulk_respond(script *s, uint8_t kind, trl_slice body) {
     bulk_plan *plan = s->data;
-    static const char *const granted[] = {TRL_CAPABILITY_NOTICES, TRL_CAPABILITY_COPY};
+    static const char *const granted[] = {TRL_CAPABILITY_NOTICES, TRL_CAPABILITY_COPY, TRL_CAPABILITY_COLUMNS};
     switch (kind) {
     case TRL_KIND_HELLO:
-        script_ready(s, "ANN", granted, plan->copy ? 2U : 1U);
+        script_ready(s, "ANN", granted, granted_count(plan));
         break;
     case TRL_KIND_QUERY:
         query(s, plan, body);
@@ -233,6 +248,7 @@ void bulk_respond(script *s, uint8_t kind, trl_slice body) {
     case TRL_KIND_COPY_IN:
         break;
     case TRL_KIND_COPY_DATA:
+    case TRL_KIND_COPY_COLUMNS:
     case TRL_KIND_COPY_END:
         copy(s, plan, kind, body);
         break;

@@ -267,6 +267,31 @@ bool trl_encode_copy_data(trl_buffer *buffer, const trl_row_values *rows, size_t
  */
 bool trl_encode_copy_rows(trl_buffer *buffer, trl_slice rows, size_t count, trl_codec_error *error);
 
+/** @brief A column of a CopyColumns: its rows' null bits, where each cell ends, and the cells' text. */
+typedef struct trl_copy_column {
+    /** @brief A bit for each row, set if its cell is null, row 0 the low bit of the first octet. */
+    trl_slice nulls;
+    /** @brief Where each row's cell ends in the text, one for each row. */
+    const uint32_t *ends;
+    /** @brief The cells' UTF-8, one after another. */
+    trl_slice text;
+} trl_copy_column;
+
+/**
+ * @brief Encodes a CopyColumns of `rows` rows, a column for each of the
+ * copy's, in order [PROTOCOL CopyColumns 'O'].
+ * @param buffer The buffer.
+ * @param rows How many rows.
+ * @param columns The columns.
+ * @param count How many.
+ * @param error Where a column the request cannot carry is recorded: null
+ * bits of the wrong length or set past the last row, ends that fall or
+ * whose last is not the text's length, or rows of no column.
+ * @return Nonzero if encoded.
+ */
+bool trl_encode_copy_columns(trl_buffer *buffer, uint32_t rows, const trl_copy_column *columns, size_t count,
+                             trl_codec_error *error);
+
 /**
  * @brief Encodes a CopyEnd [PROTOCOL CopyEnd 'N'].
  * @param buffer The buffer.

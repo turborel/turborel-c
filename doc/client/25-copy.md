@@ -44,6 +44,15 @@ the connection sends only its rows, its end and Ping, anything else
 refused before it is sent. `trl_copy_send` adds a row, its values in
 the columns' order, and sends the rows written in a CopyData once they
 reach `TRL_COPY_CHUNK_BYTES`, with no reply [PROTOCOL CopyData 'J'].
+With `columns` granted *(extension)*, a row whose every value is null or
+a character string is gathered by column instead, each cell its string's
+text, a null a bit set, and the rows so gathered are sent in a
+CopyColumns once they reach `TRL_COPY_CHUNK_BYTES`, or when a row that
+does not go so comes: one holding a value of another type, or another
+count of values, which goes in a CopyData in its turn, so the rows go
+in order [PROTOCOL CopyColumns 'O']. The server takes each cell as it
+takes the string in a CopyData, so the rows inserted and the failures
+are those of a copy by row.
 `trl_copy_finish` sends the rest and CopyEnd, answered by a Complete of
 the rows inserted, every row of the copy, or by its failure, none of
 them [PROTOCOL CopyEnd 'N']; `trl_copy_abandon` sends CopyEnd abandoned,

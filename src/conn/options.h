@@ -35,7 +35,7 @@ struct trl_conn_options {
 };
 
 /** @brief How many capabilities the protocol has [PROTOCOL Capabilities]. */
-#define TRL_CAPABILITIES_KNOWN 21U
+#define TRL_CAPABILITIES_KNOWN 22U
 
 /** @brief Every capability of the protocol's, in its table's order [PROTOCOL Capabilities]. */
 extern const char *const trl_capabilities_known[TRL_CAPABILITIES_KNOWN];

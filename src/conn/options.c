@@ -39,6 +39,7 @@ const char *const trl_capabilities_known[TRL_CAPABILITIES_KNOWN] = {
     TRL_CAPABILITY_DECLARED_TYPES,
     TRL_CAPABILITY_PARAMETER_MODES,
     TRL_CAPABILITY_DEBUGGER,
+    TRL_CAPABILITY_COLUMNS,
 };
 
 /* Every capability but compression, in the protocol's table's order. */
@@ -63,6 +64,7 @@ static const char *const asked_by_default[] = {
     TRL_CAPABILITY_DECLARED_TYPES,
     TRL_CAPABILITY_PARAMETER_MODES,
     TRL_CAPABILITY_DEBUGGER,
+    TRL_CAPABILITY_COLUMNS,
 };
 
 /* A copy of `text`, or null if memory cannot be had. */

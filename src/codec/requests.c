@@ -1,7 +1,8 @@
 /**
  * @file requests.c
  * @brief Requests encoded as turborel-protocol's `request.rs` and
- * `request/added.rs` encode them [PROTOCOL Requests]: the fields of each,
+ * `request/added.rs` encode them [PROTOCOL Requests], and CopyColumns as
+ * `request/columns.rs` does: the fields of each,
  * then its tail in increasing order of tag, written only where it says
  * something.
  */
@@ -18,6 +19,9 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+
+/* The bits of an octet, of CopyColumns' null bits. */
+#define TRL_BITS 8U
 
 /* Ends the frame begun at `start` if `written`; else takes the frame back
    out of the buffer, so it is left as it was. */
@@ -223,6 +227,54 @@ bool trl_encode_copy_rows(trl_buffer *buffer, trl_slice rows, size_t count, trl_
     size_t start = trl_frame_start(buffer, TRL_KIND_COPY_DATA);
     trl_put_count(buffer, count);
     trl_put_raw(buffer, rows.bytes, rows.length);
+    return finish(buffer, start, true, error);
+}
+
+/* Whether `column` holds `rows` rows as CopyColumns carries them: (rows
+   + 7) / 8 octets of null bits, none set past the last row; ends that never
+   fall, a null cell's where the one before it ends, the last the text's
+   length [PROTOCOL CopyColumns 'O']. */
+static bool column_holds(const trl_copy_column *column, uint32_t rows) {
+    size_t octets = ((size_t)rows + TRL_BITS - 1U) / TRL_BITS;
+    if (column->nulls.length != octets || (rows > 0U && column->ends == NULL)) {
+        return false;
+    }
+    if (rows % TRL_BITS != 0U && ((uint32_t)column->nulls.bytes[octets - 1U] >> (rows % TRL_BITS)) != 0U) {
+        return false;
+    }
+    uint32_t before = 0U;
+    for (uint32_t row = 0U; row < rows; ++row) {
+        uint32_t end = column->ends[row];
+        bool null = (((uint32_t)column->nulls.bytes[row / TRL_BITS] >> (row % TRL_BITS)) & 1U) != 0U;
+        if (end < before || (null && end != before)) {
+            return false;
+        }
+        before = end;
+    }
+    return before == column->text.length;
+}
+
+bool trl_encode_copy_columns(trl_buffer *buffer, uint32_t rows, const trl_copy_column *columns, size_t count,
+                             trl_codec_error *error) {
+    bool holds = (rows == 0U || count > 0U) && (count == 0U || columns != NULL);
+    for (size_t i = 0U; holds && i < count; ++i) {
+        holds = column_holds(&columns[i], rows);
+    }
+    if (!holds) {
+        trl_codec_fail(error, TRL_SQLCODE_API, TRL_SQLSTATE_API, "a CopyColumns column does not hold its rows");
+        return false;
+    }
+    size_t start = trl_frame_start(buffer, TRL_KIND_COPY_COLUMNS);
+    trl_put_u32(buffer, rows);
+    trl_put_count(buffer, count);
+    for (size_t i = 0U; i < count; ++i) {
+        trl_put_bytes(buffer, columns[i].nulls);
+        trl_put_u32(buffer, rows);
+        for (uint32_t row = 0U; row < rows; ++row) {
+            trl_put_u32(buffer, columns[i].ends[row]);
+        }
+        trl_put_bytes(buffer, columns[i].text);
+    }
     return finish(buffer, start, true, error);
 }
 

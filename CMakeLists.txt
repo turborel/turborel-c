@@ -69,6 +69,7 @@ add_library(
   src/auth/mechanism.c
   src/auth/scram.c
   src/bulk/assign.c
+  src/bulk/cells.c
   src/bulk/copy.c
   src/bulk/delimited.c
   src/bulk/export.c

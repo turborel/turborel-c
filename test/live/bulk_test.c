@@ -1,7 +1,7 @@
 /**
  * @file bulk_test.c
  * @brief Bulk copy and export against a real server (RULES.md R-TEST-8):
- * rows copied all or nothing, abandoned, refused mid-copy; a query's rows
+ * rows copied all or nothing, abandoned, refused mid-copy, by column; a query's rows
  * exported as CSV and as native rows read back. Opt-in: TRL_TEST_SERVER
  * names the server, else skipped.
  */
@@ -156,6 +156,86 @@ static void copies_abandoned_and_iterated(trl_test *test) {
     trl_conn_free(conn);
 }
 
+/* A row by column: an id's text and a word's, null if `word` is. */
+static void cells_of(trl_params *row, const char *id, const char *word) {
+    trl_params_clear(row);
+    (void)trl_params_add_text(row, id, strlen(id));
+    if (word == NULL) {
+        (void)trl_params_add_null(row);
+    } else {
+        (void)trl_params_add_text(row, word, strlen(word));
+    }
+}
+
+/* Copies the rows of `ids` and `words` into WORDS, by column; the copy's end, and the rows inserted. */
+static trl_status copied(trl_conn *conn, const char *const *ids, const char *const *words, size_t count,
+                         uint64_t *rows) {
+    static const char *const columns[] = {"ID", "WORD"};
+    trl_copy_target target = {"WORDS", columns, 2U};
+    trl_copy *copy = NULL;
+    trl_params *row = NULL;
+    (void)trl_params_new(&row);
+    trl_status status = trl_copy_in(conn, &target, &copy);
+    for (size_t i = 0U; status == TRL_OK && i < count; ++i) {
+        cells_of(row, ids[i], words[i]);
+        status = trl_copy_send(copy, row);
+    }
+    status = status == TRL_OK ? trl_copy_finish(copy, rows) : status;
+    trl_copy_free(copy);
+    trl_params_free(row);
+    return status;
+}
+
+/**
+ * Verifies: [PROTOCOL CopyColumns 'O'] granted `columns`, a copy's rows of
+ * character strings go by column: each cell cast as its string would be
+ * by row, a null kept apart from the empty string; a cell too long for
+ * its column fails the copy at its end, its detail naming the row, every
+ * row undone; rows by column and by row mixed in one copy; a copy by
+ * column abandoned, none inserted [CLIENT Copying and exporting].
+ */
+static void a_copy_goes_by_column(trl_test *test) {
+    trl_conn *conn = live_trusted(NULL);
+    TRL_CHECK(test, trl_conn_granted(conn, TRL_CAPABILITY_COLUMNS));
+    TRL_CHECK(test, run(conn, "CREATE TABLE WORDS (ID INTEGER, WORD VARCHAR(3))") && run(conn, "COMMIT"));
+    static const char *const ids[] = {"1", "2", "3"};
+    static const char *const words[] = {NULL, "", "abc"};
+    uint64_t rows = 0U;
+    TRL_CHECK(test, copied(conn, ids, words, 3U, &rows) == TRL_OK && rows == 3U && run(conn, "COMMIT"));
+    TRL_CHECK(test, count_of(conn, "WORDS WHERE WORD IS NULL AND ID = 1") == 1 &&
+                        count_of(conn, "WORDS WHERE WORD = '' AND ID = 2") == 1 &&
+                        count_of(conn, "WORDS WHERE WORD = 'abc' AND ID = 3") == 1);
+    static const char *const long_words[] = {"de", "defg", "d"};
+    TRL_CHECK(test, copied(conn, ids, long_words, 3U, &rows) == TRL_FAILED && !trl_conn_is_lost(conn));
+    const trl_failure *failure = trl_conn_failure(conn);
+    const char *detail = trl_failure_diagnostic(failure, TRL_DIAGNOSTIC_DETAIL);
+    TRL_CHECK(test, strncmp(trl_failure_sqlstate(failure), "22", 2U) == 0 && detail != NULL &&
+                        strstr(detail, "row 2 of the copy") != NULL);
+    TRL_CHECK(test, run(conn, "ROLLBACK") && count_of(conn, "WORDS") == 3);
+    static const char *const columns[] = {"ID", "WORD"};
+    trl_copy_target target = {"WORDS", columns, 2U};
+    trl_copy *copy = NULL;
+    trl_params *row = NULL;
+    (void)trl_params_new(&row);
+    TRL_CHECK(test, trl_copy_in(conn, &target, &copy) == TRL_OK);
+    cells_of(row, "4", "gh");
+    TRL_CHECK(test, trl_copy_send(copy, row) == TRL_OK);
+    row_of(row, 5U, "ij");
+    TRL_CHECK(test, trl_copy_send(copy, row) == TRL_OK);
+    cells_of(row, "6", NULL);
+    TRL_CHECK(test, trl_copy_send(copy, row) == TRL_OK && trl_copy_finish(copy, &rows) == TRL_OK && rows == 3U);
+    trl_copy_free(copy);
+    TRL_CHECK(test, run(conn, "COMMIT") && count_of(conn, "WORDS WHERE ID BETWEEN 4 AND 6") == 3 &&
+                        count_of(conn, "WORDS WHERE ID = 5 AND WORD = 'ij'") == 1);
+    TRL_CHECK(test, trl_copy_in(conn, &target, &copy) == TRL_OK);
+    cells_of(row, "7", "kl");
+    TRL_CHECK(test, trl_copy_send(copy, row) == TRL_OK && trl_copy_abandon(copy) == TRL_OK);
+    trl_copy_free(copy);
+    TRL_CHECK(test, count_of(conn, "WORDS") == 6 && run(conn, "COMMIT"));
+    trl_params_free(row);
+    trl_conn_free(conn);
+}
+
 /* An export's bytes, gathered. */
 typedef struct gathered {
     uint8_t bytes[OUT_BYTES];
@@ -267,9 +347,8 @@ int main(int argc, char **argv) {
     bool ready = owner != NULL && run(owner, "CREATE SCHEMA AUTHORIZATION ANN") && run(owner, "COMMIT");
     trl_conn_free(owner);
     static const trl_test_case cases[] = {
-        TRL_TEST_CASE(a_copy_is_all_or_nothing),
-        TRL_TEST_CASE(copies_abandoned_and_iterated),
-        TRL_TEST_CASE(a_query_is_exported_as_csv),
+        TRL_TEST_CASE(a_copy_is_all_or_nothing), TRL_TEST_CASE(copies_abandoned_and_iterated),
+        TRL_TEST_CASE(a_copy_goes_by_column),    TRL_TEST_CASE(a_query_is_exported_as_csv),
         TRL_TEST_CASE(native_rows_read_back),
     };
     int result = ready ? trl_test_main(argc, argv, cases, TRL_TEST_COUNT(cases)) : EXIT_FAILURE;

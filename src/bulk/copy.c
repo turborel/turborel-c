@@ -2,12 +2,16 @@
  * @file copy.c
  * @brief Bulk copy in [CLIENT Copying and exporting]: CopyIn names the
  * table and its columns [PROTOCOL CopyIn 'I'], CopyData sends rows a chunk
- * at a time with no reply [PROTOCOL CopyData 'J'], and CopyEnd ends it,
+ * at a time with no reply [PROTOCOL CopyData 'J'], or, with `columns`
+ * granted, CopyColumns sends them by column, each cell its character
+ * string's text, any other row going by CopyData in its turn
+ * [PROTOCOL CopyColumns 'O'], and CopyEnd ends it,
  * its reply the rows inserted, or the copy's failure, every row of it
  * undone [PROTOCOL CopyEnd 'N'].
  */
 #include "bulk/copy.h"
 
+#include "bulk/cells.h"
 #include "codec/buffer.h"
 #include "codec/error.h"
 #include "codec/requests.h"
@@ -24,12 +28,15 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* A copy: its connection, the rows written and not yet sent, and whether
-   it ended. */
+/* A copy: its connection, the rows written and not yet sent, by row or,
+   granted `columns`, by column, only one of them at a time, and whether it
+   ended. */
 struct trl_copy {
     trl_conn *conn;
     trl_buffer rows;
     size_t row_count;
+    bool by_column;
+    trl_cells cells;
     bool ended;
 };
 
@@ -92,12 +99,25 @@ trl_status trl_copy_begin(trl_conn *conn, const trl_copy_target *target, bool en
     conn->copying = true;
     copy->conn = conn;
     trl_buffer_init(&copy->rows);
+    copy->by_column = trl_conn_granted(conn, TRL_CAPABILITY_COLUMNS);
+    trl_cells_init(&copy->cells);
     *out = copy;
     return TRL_OK;
 }
 
-/* Sends the rows written and not yet sent. */
-static bool flush(trl_copy *copy) {
+/* Sends the rows held by column, as a CopyColumns [PROTOCOL CopyColumns 'O']. */
+static bool flush_cells(trl_copy *copy) {
+    if (copy->cells.rows == 0U) {
+        return true;
+    }
+    trl_codec_error error = {0, "", ""};
+    bool encoded = trl_cells_encode(&copy->cells, &copy->conn->out, &error);
+    trl_cells_clear(&copy->cells);
+    return encoded ? trl_conn_send(copy->conn) : trl_conn_codec_failed(copy->conn, &error);
+}
+
+/* Sends the rows written by row, as a CopyData. */
+static bool flush_rows(trl_copy *copy) {
     if (copy->row_count == 0U) {
         return true;
     }
@@ -109,9 +129,36 @@ static bool flush(trl_copy *copy) {
     return encoded ? trl_conn_send(copy->conn) : trl_conn_codec_failed(copy->conn, &error);
 }
 
+/* Sends the rows written and not yet sent, by row or by column. */
+static bool flush(trl_copy *copy) {
+    return flush_cells(copy) && flush_rows(copy);
+}
+
+/* Holds a row by column, sent with those before it once they are
+   TRL_COPY_CHUNK_BYTES; the rows by row before it sent first, so the rows
+   go in order. */
+static trl_status send_by_column(trl_copy *copy, const trl_params *row) {
+    if (!flush_rows(copy)) {
+        return TRL_FAILED;
+    }
+    if (!trl_cells_add(&copy->cells, trl_params_values(row), trl_params_count(row))) {
+        trl_codec_error error = {0, "", ""};
+        trl_codec_no_memory(&error);
+        (void)trl_conn_codec_failed(copy->conn, &error);
+        return TRL_FAILED;
+    }
+    return copy->cells.bytes >= TRL_COPY_CHUNK_BYTES && !flush_cells(copy) ? TRL_FAILED : TRL_OK;
+}
+
 trl_status trl_copy_send(trl_copy *copy, const trl_params *row) {
     if (copy == NULL || row == NULL || copy->ended) {
         return TRL_INVALID_ARGUMENT;
+    }
+    if (copy->by_column && trl_cells_take(&copy->cells, trl_params_values(row), trl_params_count(row))) {
+        return send_by_column(copy, row);
+    }
+    if (!flush_cells(copy)) {
+        return TRL_FAILED;
     }
     size_t before = copy->rows.length;
     trl_codec_error error = {0, "", ""};
@@ -123,7 +170,7 @@ trl_status trl_copy_send(trl_copy *copy, const trl_params *row) {
         return TRL_FAILED;
     }
     ++copy->row_count;
-    if (copy->rows.length >= TRL_COPY_CHUNK_BYTES && !flush(copy)) {
+    if (copy->rows.length >= TRL_COPY_CHUNK_BYTES && !flush_rows(copy)) {
         return TRL_FAILED;
     }
     return TRL_OK;
@@ -180,6 +227,7 @@ trl_status trl_copy_abandon(trl_copy *copy) {
     }
     trl_buffer_free(&copy->rows);
     copy->row_count = 0U;
+    trl_cells_clear(&copy->cells);
     return end(copy, true) ? TRL_OK : TRL_FAILED;
 }
 
@@ -194,6 +242,7 @@ void trl_copy_free(trl_copy *copy) {
     }
     copy->conn->copying = false;
     trl_buffer_free(&copy->rows);
+    trl_cells_free(&copy->cells);
     free(copy);
 }
 

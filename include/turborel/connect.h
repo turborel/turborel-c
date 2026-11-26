@@ -86,6 +86,8 @@ extern "C" {
 #define TRL_CAPABILITY_PARAMETER_MODES "parameter-modes"
 /** @brief The capability of the routine debugger: Debug, Debugged and Event *(extension)*. */
 #define TRL_CAPABILITY_DEBUGGER "debugger"
+/** @brief The capability of CopyColumns, a copy's rows by column as text, with `copy` *(extension)*. */
+#define TRL_CAPABILITY_COLUMNS "columns"
 
 /**
  * @brief TLS settings: the certificate authorities trusted, and the

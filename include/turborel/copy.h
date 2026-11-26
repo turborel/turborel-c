@@ -23,7 +23,7 @@
 extern "C" {
 #endif
 
-/** @brief About the most bytes of rows one CopyData carries. */
+/** @brief About the most bytes of rows one CopyData or CopyColumns carries. */
 #define TRL_COPY_CHUNK_BYTES 262144
 
 /** @brief Where a copy's rows go: a table, as SQL names it, and its columns. */
@@ -57,7 +57,10 @@ TRL_API trl_status trl_copy_in(trl_conn *conn, const trl_copy_target *target, tr
 /**
  * @brief Sends a row: its values, in the target's columns' order, sent
  * with the rows before it once they are TRL_COPY_CHUNK_BYTES, with no
- * reply [PROTOCOL CopyData 'J'].
+ * reply [PROTOCOL CopyData 'J']. With `columns` granted, a row whose
+ * every value is null or a character string goes by column, each cell its
+ * string's text, which the server takes as it takes the string by row
+ * [PROTOCOL CopyColumns 'O']; any other row goes by row, in its turn.
  *
  * @param copy The copy.
  * @param row The row's values, copied.

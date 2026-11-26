@@ -45,6 +45,8 @@
 #define TRL_KIND_COPY_DATA ((uint8_t)'J')
 /** @brief CopyEnd [PROTOCOL CopyEnd 'N']. */
 #define TRL_KIND_COPY_END ((uint8_t)'N')
+/** @brief CopyColumns, with `columns` *(extension)* [PROTOCOL CopyColumns 'O']. */
+#define TRL_KIND_COPY_COLUMNS ((uint8_t)'O')
 /** @brief Debug, with `debugger` *(extension)* [PROTOCOL Debug 'V']. */
 #define TRL_KIND_DEBUG ((uint8_t)'V')
 

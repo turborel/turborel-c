@@ -60,10 +60,11 @@ static bool io_lost(trl_conn *conn, const char *what) {
     return false;
 }
 
-/* Whether a request of `kind` may be sent while a copy is under way
-   [PROTOCOL CopyIn 'I']. */
+/* Whether a request of `kind` may be sent while a copy is under way:
+   CopyData, CopyColumns, CopyEnd or Ping [PROTOCOL CopyIn 'I']. */
 static bool sent_while_copying(uint8_t kind) {
-    return kind == TRL_KIND_COPY_DATA || kind == TRL_KIND_COPY_END || kind == TRL_KIND_PING;
+    return kind == TRL_KIND_COPY_DATA || kind == TRL_KIND_COPY_COLUMNS || kind == TRL_KIND_COPY_END ||
+           kind == TRL_KIND_PING;
 }
 
 bool trl_conn_send(trl_conn *conn) {

@@ -81,7 +81,7 @@ static void a_trusted_login_keeps_what_ready_told(trl_test *test) {
     TRL_CHECK(test, s.requests == 1U && s.kinds[0] == TRL_KIND_HELLO);
     static const uint8_t start[] = {
         1, 0, 0, 0, 3,  0, 0, 0, 'a', 'n', 'n', 5, 0,   0,   0,   't', 'r', 'u', 's', 't',
-        0, 0, 0, 0, 20, 0, 0, 0, 7,   0,   0,   0, 'n', 'o', 't', 'i', 'c', 'e', 's',
+        0, 0, 0, 0, 21, 0, 0, 0, 7,   0,   0,   0, 'n', 'o', 't', 'i', 'c', 'e', 's',
     };
     TRL_CHECK(test,
               s.from_client.length > sizeof start + 5U && memcmp(s.from_client.data + 5U, start, sizeof start) == 0);

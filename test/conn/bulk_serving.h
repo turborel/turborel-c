@@ -34,6 +34,8 @@ typedef enum bulk_export {
 typedef struct bulk_plan {
     /** @brief Whether it grants `copy`. */
     bool copy;
+    /** @brief Whether it grants `columns` too, with `copy`. */
+    bool columns;
     /** @brief The Execute that fails, from 1; 0 for none. */
     unsigned int fail_execute;
     /** @brief Whether that failure is of class 08. */
@@ -68,6 +70,10 @@ typedef struct bulk_plan {
     uint64_t copied;
     /** @brief The copies seen. */
     unsigned int copies;
+    /** @brief The CopyData and CopyColumns seen. */
+    unsigned int by_row;
+    /** @brief The CopyColumns seen. */
+    unsigned int by_column;
 } bulk_plan;
 
 /** @brief Answers each request as `s->data`, a bulk_plan, says. */

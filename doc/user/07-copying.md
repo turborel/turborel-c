@@ -57,6 +57,19 @@ A copy is part of the transaction under way, or, under autocommit, its
 own. `trl_copy_rows` copies every row a function of the program's
 gives, and `trl_copy_abandon` gives a copy up, every row of it undone.
 
+Where the server grants `columns` *(extension)*, which a connection
+asks for as it asks for every capability but compression, a row whose
+values are each null or a character string goes by column: the rows
+are gathered column by column, each cell its string's text, and sent a
+chunk at a time in a CopyColumns, which the server parses straight into
+each column's type [PROTOCOL CopyColumns 'O']. The server takes each
+cell as it takes the string by row, so a string too long for its column
+fails the copy at its end, its detail naming the row, as by row; a null
+stays apart from the empty string. A row holding a value of another
+type, as each row above does with its number, or a different count of values,
+goes by row in its turn, so one copy may mix the two, in order. An
+import of text, whose values are strings, goes by column the same way.
+
 ## Importing delimited text
 
 `trl_import_rows` inserts a *source*'s records into a table through one
