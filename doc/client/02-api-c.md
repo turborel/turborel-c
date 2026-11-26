@@ -59,9 +59,9 @@ The calls a program makes most, by what each does:
 | Free a result | `trl_result_free` |
 | Cancel a statement running | `trl_cancel` ([Connections](21-connections.md)) |
 | Read and write large objects | the large object calls ([Large Objects](24-large-objects.md)) |
-| `PQputCopyData`, `PQgetCopyData` | the copy calls ([Copy, Import and Export](25-copy.md)) |
-| `PQsetNoticeProcessor` | `trl_conn_set_notice_handler` |
-| pipeline mode | the pipeline calls ([Pipelines](27-pipelines.md)) |
+| Copy rows into a table in bulk, or export a query's rows | the copy and export calls ([Copy, Import and Export](25-copy.md)) |
+| Take a statement's notices as they come | `trl_conn_set_notice_handler` |
+| Send several statements without waiting for each reply | the pipeline calls ([Pipelines](27-pipelines.md)) |
 
 `trl_connect_uri` connects as a `turborel://` URI says. The URI is laid
 with the rest of a connection's settings, the environment's and the
